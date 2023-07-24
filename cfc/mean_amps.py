@@ -19,7 +19,7 @@ from numpy import (angle, append, argmax, array, arange, asarray, ceil, concaten
 from numpy.matlib import repmat
 from pandas import DataFrame, concat, read_csv
 from pathlib import Path
-from pickle import dump, load
+from safepickle import dump, load
 from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc, circ_corrcl)
 from scipy.signal import hilbert
 from scipy.stats import zscore

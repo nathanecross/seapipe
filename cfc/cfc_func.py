@@ -18,7 +18,7 @@ from scipy.stats import f as fdist
 from scipy.special import lpn
 import matplotlib.pyplot as plt
 from pingouin import circ_r   
-from pickle import load
+from safepickle import load
 import warnings
 
 

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from numpy import (append, array, argmax, arange, empty, floor, histogram, isnan,
                   mean, nanmean, nanstd, ndarray, pi, reshape, roll, sin, sqrt, std, zeros) 
 from numpy.matlib import repmat
-from pickle import load
+from safepickle import load
 from pingouin import circ_mean
 from scipy.stats import zscore
 
