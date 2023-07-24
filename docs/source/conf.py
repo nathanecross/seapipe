@@ -3,8 +3,8 @@
 # -- Project information
 
 project = 'seapipe'
-copyright = '2023, Cross'
-author = 'Cross'
+copyright = '2023, N. Cross'
+author = 'Nathan Cross'
 
 release = '0.1'
 version = '0.1.0'
