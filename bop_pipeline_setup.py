@@ -9,18 +9,14 @@ This script calls seapipe (Nathan Cross) and wonambi (Jordan O'Byrne) functions
 Attention: The data must be organized in BIDS format 
 
 """
-import sys #where is the core scripts from wozombie 
-sys.path.append(r'/Users/nathancross/Dropbox/BOP/wozombie/') #NC laptop
-#sys.path.append(r'/Users/m.ela/Dropbox/BOP/wozombie/') #AP laptop
-#sys.path.append(r'/NAS/home/a_perrau/script/wozombie/') #AP cluster
 from numpy import asarray
-from stats.sleepstats import sleepstats
-from spindle.whales import whale_it, whale_farm
-from sw.slowwave import slow_it
-from cfc.mean_amps import (pac_it, pac_it_2, generate_adap_bands, 
+from .stats.sleepstats import sleepstats
+from .spindle.whales import whale_it, whale_farm
+from .sw.slowwave import slow_it
+from .cfc.mean_amps import (pac_it, pac_it_2, generate_adap_bands, 
                            cfc_grouplevel, watson_williams)
-from cfc.synchrony import event_sync
-from cfc.plots import (plot_prefphase, plot_mean_amps, plot_prefphase_group, 
+from .cfc.synchrony import event_sync
+from .cfc.plots import (plot_prefphase, plot_mean_amps, plot_prefphase_group, 
                         plot_meanamps_group)
 
 
