@@ -33,7 +33,15 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_logo = 'logo.png'
 html_theme_options = {
+    'style_nav_header_background': '#030D7B',
     'logo_only': True,
+    'logo_only': True,
+    'collapse_navigation': False,
+    'sticky_navigation': True,
+    'navigation_depth': 3,
+    'includehidden': True,
+    'titles_only': False,
+    'style_external_links': True,
     'display_version': True,
 }
 
