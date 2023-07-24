@@ -8,9 +8,9 @@ Installation
 
 To use seapipe, first install it using pip:
 
-.. .. code-block:: console
+.. code-block:: console
 
-..    (.venv) $ pip install seapipe
+   (.venv) $ pip install seapipe
 
 .. Creating recipes
 .. ----------------
