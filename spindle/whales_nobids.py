@@ -9,7 +9,7 @@ from itertools import product
 from numpy import (asarray, concatenate, empty, int, nan, ndarray, sum, zeros)
 from os import listdir, mkdir, path
 from pandas import concat, DataFrame, read_csv
-from pickle import dump
+from safepickle import dump
 import shutil
 import sys
 import traceback

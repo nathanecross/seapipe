@@ -14,7 +14,7 @@ from numpy import (abs, angle, append, arange, digitize, float64, flip, histogra
                    mean, ones, roll, reshape, squeeze, std, unwrap, where, zeros)
 from os import listdir, mkdir, path, walk
 from pandas import DataFrame
-from pickle import dump, load
+from safepickle import dump, load
 from scipy.signal import butter, hilbert, filtfilt, spectrogram
 from scipy.stats import binned_statistic, pearsonr
 from scipy import fftpack

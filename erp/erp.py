@@ -12,7 +12,7 @@ import mne
 from numpy import (argsort, asarray, hstack, log, linspace, mean, pi, reshape, roll, size, 
                    sqrt, std, tile, vstack, zeros)
 from pandas import DataFrame, read_csv
-from pickle import dump, load
+from safepickle import dump, load
 from scipy.stats import zscore
 import shutil
 from tensorpac import Pac
