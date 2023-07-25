@@ -20,8 +20,11 @@ Welcome to the seapipe documentation!
 **seapipe** is a Python *pipeline* for researchers intending to investigate sleep neurophysiology.
 The package reads EEG recordings with the purpose of detecting and analysing sleep events, such as *sleep architecture statistics*, *sleep spindles*, *slow oscillations*, *phase amplitude coupling*, and *power spectral analyses*. 
 
-It pulls functions from both the `Wonambi toolbox <https://wonambi-python.github.io/>`_
-and the `MNE package <https://mne.tools/stable/index.html>`_
+.. role:: raw-html(raw)
+    :format: html 
+
+It pulls functions from a range of other open source packages, including: `Wonambi <https://wonambi-python.github.io/>`_, the `MNE <https://mne.tools/stable/index.html>`_ and `Tensorpac <https://github.com/EtienneCmb/tensorpac>`_ 
+  
 
 It offers a *simple* and *intuitive*, yet *fully customisable* API. The major advantage of **seapipe** is that it can be deployed on full, diverse datasets that might require flexibility in certain parameters (e.g. electrode names, individualised frequency bands etc). The only requirement is that the data should be structured in `BIDS <https://bids-specification.readthedocs.io/en/stable/>`_.
 
