@@ -99,7 +99,7 @@ class pipeline:
         if not out_dir:
             out_dir = self.outpath 
             
-        whales.whale_it(in_dir,xml_dir, out_dir, method, chan, ref_chan, rater, 
+        whales.whale_it(in_dir, xml_dir, out_dir, method, chan, ref_chan, rater, 
                         cat, stage, grp_name, cycle_idx, frequency, adap_bands, 
                         duration, part, visit)
 

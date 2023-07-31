@@ -30,11 +30,27 @@ Then you can initiate the pipeline by specifying the path to your dataset.
 Checking your dataset
 ----------------
 
-To retrieve a list of random ingredients,
-you can use the ``lumache.get_random_ingredients()`` function:
+To retrieve a list of all the files inside the root directory, along with the
+directories 1 and 2 levels preceding the files,
+you can use the ``pipeline.list_dataset()`` function:
 
- lumache.get_random_ingredients
+>>> pipeline.list_dataset()
 
+.. code-block:: console
+   Directory: projects/bids
+   Files = ['dataset_description.json', 'participants.tsv']
+   ----------
+   Directory: ses-m/eeg
+   Files = ['sub-001_ses-01_eeg.edf']
+   ----------
+   Directory: ses-c/eeg
+   Files = ['sub-001_ses-02_eeg.edf']
+   ----------
+   Directory: ses-m/eeg
+   Files = ['sub-002_ses-01_eeg.edf']
+   ----------
+   etc.
+s
 The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
 or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
 will raise an exception.
