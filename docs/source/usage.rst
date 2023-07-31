@@ -35,12 +35,14 @@ For seapipe to run properly, the data needs to be organised in the **Brain Imagi
 The compatibility of the dataset with BIDS can be validated `online <https://bids-standard.github.io/bids-validator/>`_.
 
 However, seapipe also works almost symbiotically with the `Wonambi <https://wonambi-python.github.io/>`_ package.
-Therefore, any annotations (sleep scoring, artefact markings etc.) need to be inside a wonambi annotations file. 
+Therefore, any annotations (sleep scoring, artefact markings etc.) need to be inside a wonambi annotations (.xml) file. 
 For more information, see :doc:`Wonambi`
 
 To receive an overview of your dataset, including whether the each participant's directory is BIDS compatible, as well as 
-how many sessions, recording (e.g. edfs) and annoation files they contain, you can call the property of every dataset:
-``pipeline.audit`` 
+how many sessions, recording (e.g. edfs) and annotation files they contain, you can call the ``pipeline.audit`` property 
+of every dataset:
+ 
+>>> pipeline.audit
 ::
    Participants   BIDS?	   #sessions #recordings   #annotations
    sub-002        TRUE	      2	         2	            2
