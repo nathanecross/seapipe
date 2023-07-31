@@ -3,24 +3,25 @@ Usage
 
 .. _installation:
 
-Installation
+Wonambi
 ------------
 
-To use seapipe, first install it using pip:
+`Wonambi <https://wonambi-python.github.io/>`_ is an open-source package for the analysis of EEG, ECoG 
+and other electrophysiology modalities. It allows for the visualization of data and sleep stage scoring 
+in a GUI, as well as providing automatic detectors for sleep spindles and slow waves. 
 
-.. code-block:: console
+It is a dependency of **seapipe** and therefore it is included when you install seapipe.
 
-   (.venv) $ pip install seapipe
-
-.. _creating_a_pipeline:
-Creating a pipeline
+.. _creating_annotations:
+Annotations file
 ----------------
 To begin, open python and load seapipe
 
 .. code-block:: console
 
    (.venv) $ python
->>> from seapipe import pipeline
+>>> from wonambi import dataset
+>>> from wonambi.attr import Annotations
 
 Then you can initiate the pipeline by specifying the path to your dataset.
 
