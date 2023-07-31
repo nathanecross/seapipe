@@ -51,7 +51,7 @@ how many sessions, recording (e.g. edfs) and annoation files they contain, you c
    sub-009	  TRUE	      2	         2	            2
    sub-011	  TRUE	      0	         0	            0
    sub-013	  TRUE	      2	         2	            2
-   sub-014	  FALSE       0          2                2
+   sub-014	  FALSE       0          2                   2
    sub-015	  TRUE	      2	         2	            2
    sub-016	  TRUE	      2	         2	            0
 
