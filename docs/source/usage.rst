@@ -12,23 +12,28 @@ To use seapipe, first install it using pip:
 
    (.venv) $ pip install seapipe
 
-.. Creating recipes
-.. ----------------
+.. _creating_a_pipeline:
+Creating a pipeline
+----------------
 
-.. To retrieve a list of random ingredients,
-.. you can use the ``lumache.get_random_ingredients()`` function:
+.. _checking_your_dataset:
+Checking your dataset
+----------------
 
-.. .. autofunction:: lumache.get_random_ingredients
+To retrieve a list of random ingredients,
+you can use the ``lumache.get_random_ingredients()`` function:
 
-.. The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
-.. or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
-.. will raise an exception.
+.. autofunction:: lumache.get_random_ingredients
 
-.. .. autoexception:: lumache.InvalidKindError
+The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
+or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
+will raise an exception.
 
-.. For example:
+.. autoexception:: lumache.InvalidKindError
 
-.. >>> import lumache
-.. >>> lumache.get_random_ingredients()
-.. ['shells', 'gorgonzola', 'parsley']
+For example:
+
+>>> import lumache
+>>> lumache.get_random_ingredients()
+['shells', 'gorgonzola', 'parsley']
 
