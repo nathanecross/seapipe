@@ -37,6 +37,7 @@ you can use the ``pipeline.list_dataset()`` function:
 >>> pipeline.list_dataset()
 
 .. code-block:: console
+   
    Directory: project/bids
    Files = ['dataset_description.json', 'participants.tsv']
    ----------
@@ -50,7 +51,6 @@ you can use the ``pipeline.list_dataset()`` function:
    Files = ['sub-002_ses-01_eeg.edf']
    ----------
    etc.
-
 
 
 The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
