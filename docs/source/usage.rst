@@ -40,9 +40,11 @@ For more information, see :doc:`Wonambi`
 
 To receive an overview of your dataset, including whether the each participant's directory is BIDS compatible, as well as 
 how many sessions, recording (e.g. edfs) and annotation files they contain, you can call the ``pipeline.audit`` property 
-of every dataset::
+of every dataset:
  
 >>> pipeline.audit
+ 
+::
 
    Participants   BIDS?	   #sessions #recordings   #annotations
    sub-002        TRUE	      2	         2	            2
