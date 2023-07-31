@@ -15,6 +15,12 @@ To use seapipe, first install it using pip:
 .. _creating_a_pipeline:
 Creating a pipeline
 ----------------
+To begin, open python and load seapipe:
+
+.. code-block:: console
+
+   (.venv) $ python
+   >>> $ from seapipe import pipeline
 
 .. _checking_your_dataset:
 Checking your dataset
