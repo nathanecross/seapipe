@@ -43,19 +43,20 @@ how many sessions, recording (e.g. edfs) and annotation files they contain, you 
 of every dataset:
  
 >>> pipeline.audit
+
 ::
    Participants   BIDS?	   #sessions #recordings   #annotations
    sub-002        TRUE	      2	         2	            2
    sub-004        TRUE	      3	         3	            3
-   sub-006	  TRUE	      2	         2	            1
+   sub-006	  FALSE	      2	         2	            1
    sub-007	  TRUE	      2	         2	            2
-   sub-008	  TRUE	      2	         1	            1
+   sub-008	  FALSE	      2	         1	            1
    sub-009	  TRUE	      2	         2	            2
-   sub-011	  TRUE	      0	         0	            0
+   sub-011	  FALSE	      0	         0	            0
    sub-013	  TRUE	      2	         2	            2
    sub-014	  FALSE       0          2                  2
    sub-015	  TRUE	      2	         2	            2
-   sub-016	  TRUE	      2	         2	            0
+   sub-016	  FALSE	      2	         2	            0
 
 
 This will be automatically saved to a file *dataset_audit.csv*
