@@ -20,7 +20,7 @@ To begin, open python and load seapipe
 .. code-block:: console
 
    (.venv) $ python
-   >>> $ from seapipe import pipeline
+>>> from seapipe import pipeline
 
 Then you can initiate the pipeline by specifying the path to your dataset.
 
