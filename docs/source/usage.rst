@@ -37,7 +37,7 @@ you can use the ``pipeline.list_dataset()`` function:
 >>> pipeline.list_dataset()
 
 .. code-block:: console
-   Directory: projects/bids
+   Directory: project/bids
    Files = ['dataset_description.json', 'participants.tsv']
    ----------
    Directory: ses-m/eeg
@@ -50,7 +50,9 @@ you can use the ``pipeline.list_dataset()`` function:
    Files = ['sub-002_ses-01_eeg.edf']
    ----------
    etc.
-s
+
+
+
 The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
 or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
 will raise an exception.
