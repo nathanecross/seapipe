@@ -51,13 +51,14 @@ class pipeline:
         directories 1 and 2 levels above containing the files. You can specify 
         an optional output filename that will contain the printout.
         """
+        in_dir = self.datapath
         if outfile:
             logging.basicConfig(level=logging.DEBUG,
                                 filemode='w',
                                 format="%(message)s", 
                                 handlers=[logging.StreamHandler(sys.stdout)])
             logger = logging.getLogger()
-            file_log_handler = logging.FileHandler(f'{self.datapath}/{outfile}')
+            file_log_handler = logging.FileHandler(f'{in_dir}/{outfile}')
             logger.addHandler(file_log_handler)
             stderr_log_handler = logging.StreamHandler()
             logger.addHandler(stderr_log_handler)
@@ -71,7 +72,7 @@ class pipeline:
                                 handlers=[logging.StreamHandler(sys.stdout)])
             logger = logging.getLogger()   
             
-        for dirPath, dirNames, fileNames in walk(self.datapath):
+        for dirPath, dirNames, fileNames in walk(in_dir):
             try:
                 fileNames.remove('.DS_Store')
             except(ValueError):

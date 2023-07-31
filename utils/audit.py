@@ -11,7 +11,7 @@ from os import listdir, mkdir, rename
 from numpy import zeros
 from pandas import DataFrame
 
-def check_dataset(indir, filetype='.edf', outfile=False):
+def check_dataset(indir, filetype = '.edf', outfile = True):
     
     """Audits the directory specified by <in_dir> to check if the dataset is
     BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
