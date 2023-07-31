@@ -39,10 +39,10 @@ Therefore, any annotations (sleep scoring, artefact markings etc.) need to be in
 For more information, see :doc:`Wonambi annotations`
 
 To receive an overview of your dataset, including whether the each participant's directory is BIDS compatible, as well as 
-how many sessions, recording (e.g. edfs) and annoation files they contain, you can call the property of every dataset
+how many sessions, recording (e.g. edfs) and annoation files they contain, you can call the property of every dataset:
 ``pipeline.audit`` 
 ::
-   Participants	BIDS?	   #sessions #recordings   #annotations
+   Participants   BIDS?	   #sessions #recordings   #annotations
    sub-002	      TRUE	      2	         2	            2
    sub-004	      TRUE	      3	         3	            3
    sub-006	      TRUE	      2	         2	            1
@@ -55,6 +55,8 @@ how many sessions, recording (e.g. edfs) and annoation files they contain, you c
    sub-015	      TRUE	      2	         2	            2
    sub-016	      TRUE	      2	         2	            0
 
+
+This will be automatically saved to a file *dataset_audit.csv*
 
 To retrieve a list of all the files inside the root directory, along with the
 directories 1 and 2 levels preceding the files,
