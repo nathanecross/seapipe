@@ -39,6 +39,7 @@ but other events can also be annotated (e.g. spindles, slow oscillations, arousa
 Wonambi utilises an Annotations file, which is in the XML format
 
 .. admonition:: BIDS 🧠
+
    When working with BIDS, `it has been proposed <https://www.nature.com/articles/s41597-019-0104-8>`_ that an *events.tsv* file 
    should exist that specifies all events which have been recorded during the session (e.g. which reference presented stimuli 
    with the stimuli directory of the dataset). To learn more about converting between Wonambi's annotations format and BIDS 
