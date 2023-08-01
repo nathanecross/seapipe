@@ -33,7 +33,7 @@ Annotations file
 
 When working with EEG, it is often necessary to tag, or annotate, certain events or periods of
 the recording that will be analysed at a later stage. In the context of **sleep analyses,** the 
-most common example of this would be `sleep stage scoring <https://aasm.org/clinical-resources/scoring-manual/>`_`,
+most common example of this would be `sleep stage scoring <https://aasm.org/clinical-resources/scoring-manual/>`_,
 but other events can also be annotated (e.g. spindles, slow oscillations, arousals etc.)
 
 Wonambi utilises an Annotations file, which is in the XML format
