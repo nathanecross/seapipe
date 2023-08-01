@@ -42,6 +42,7 @@ Contents
 .. toctree::
 
    usage
+   wonambi
    api
 
 
