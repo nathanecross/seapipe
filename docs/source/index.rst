@@ -17,7 +17,7 @@ Welcome to the seapipe documentation!
   :target: https://app.codacy.com/gh/nathanecross/seapipe/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade
   :alt: Codacy Badge
 
-**seapipe** is a Python *pipeline* for *S*leep *E*vents *A*nalysis. The package reads EEG recordings with the purpose of detecting and analysing sleep neurophysiology, such as *sleep architecture statistics*, *sleep spindles*, *slow oscillations*, *phase amplitude coupling*, and *power spectral analyses*. 
+**seapipe** is a Python *pipeline* for Sleep Events Analysis. The package reads EEG recordings with the purpose of detecting and analysing sleep neurophysiology, such as *sleep architecture statistics*, *sleep spindles*, *slow oscillations*, *phase amplitude coupling*, and *power spectral analyses*. 
 
 .. role:: raw-html(raw)
     :format: html 
