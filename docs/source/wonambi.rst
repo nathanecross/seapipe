@@ -1,9 +1,9 @@
-Usage
+Wonambi
 =====
 
-.. _installation:
+.. _Overview:
 
-Wonambi
+Overview
 ------------
 
 `Wonambi <https://wonambi-python.github.io/>`_ is an open-source package for the analysis of EEG, ECoG 
@@ -15,7 +15,7 @@ It is a dependency of **seapipe** and therefore it is included when you install 
 .. _reading_data:
 Reading data
 ----------------
-To begin, open python and load wonambi
+To begin, open python and load wonambi:
 
 .. code-block:: console
 
@@ -27,7 +27,7 @@ Then you can load a recording by specifying the path to your data.
 
 >>> data = Dataset('/home/username/project/participant/session/eeg/sub-001_ses-01_eeg.edf') 
 
-.. _creating_annotations:
+.. _Annotations file:
 Annotations file
 ----------------
 
@@ -50,6 +50,10 @@ First load in the function Annotations
 >>> from wonambi.attr import Annotations
 
 Then,
+
+
+.. _Converting between Formats:
+
 
 .. Before running any analyses, it is important to check your data.
 .. For seapipe to run properly, the data needs to be organised in the **Brain Imaging Data Structure (BIDS)**.
