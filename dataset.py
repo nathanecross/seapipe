@@ -6,14 +6,11 @@ Created on Tue Jul 25 12:07:36 2023
 @author: nathancross
 """
 from .spindle import whales
-from .utils.audit import check_dataset, make_bids
+from .utils.audit import check_dataset, extract_channels, make_bids
 import logging
 import sys
-import copy
-from numpy import empty, zeros
-from operator import itemgetter
-from os import listdir, path, mkdir, walk
-from pandas import DataFrame
+from os import walk
+
 
 
 
@@ -87,6 +84,9 @@ class pipeline:
                 
     def make_bids(self, origin = 'SCN'):
         make_bids(self.datapath, origin=origin)
+        
+    def extract_channels(self, exclude = None):
+        extract_channels(self.datapath, exclude=exclude)
         
     def whale_it(self, xml_dir=False, out_dir=False, part='all', visit='all',
                  method='Lacourse2018', chan=['Cz'], ref_chan=None, rater=None, 

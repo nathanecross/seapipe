@@ -8,8 +8,9 @@ Created on Mon Jul 31 13:36:12 2023
 import logging
 import sys
 from os import listdir, mkdir, rename
-from numpy import zeros
+from numpy import array, delete, zeros
 from pandas import DataFrame
+from wonambi import Dataset
 
 def check_dataset(indir, filetype = '.edf', outfile = True):
     
@@ -105,8 +106,8 @@ def make_bids(in_dir, origin = 'SCN'):
     
     """Converts the directory specified by <in_dir> to be BIDS compatible.
     You can specify the origin format of the data. For now, this only converts
-    from the Sleep Cognition Neuroimaging laboratory, but please contact me if 
-    you would like more formats.
+    from the Sleep Cognition Neuroimaging laboratory format, but please contact 
+    me (nathan.cross.90@gmail.com)if you would like more formats.
     """
     
     if origin=='SCN':
@@ -120,7 +121,7 @@ def make_bids(in_dir, origin = 'SCN'):
             
             sess = [x for x in listdir(dst) if '.' not in x]
             
-            for s,ses in enumerate(sess):
+            for s, ses in enumerate(sess):
                 src = f'{in_dir}/sub-{part}/{ses}'
                 dst = f'{in_dir}/sub-{part}/ses-{ses}/'
                 rename(src, dst)
@@ -129,9 +130,65 @@ def make_bids(in_dir, origin = 'SCN'):
                 
                 files = [x for x in listdir(dst) if '.edf' in x] 
                 
-                for f,file in enumerate(files):
+                for f, file in enumerate(files):
                     src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
                     
                     newfile = file.split('_')[0]
                     dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg.edf'
                     rename(src, dst)
+                    
+def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
+    
+    """Reads channel information from the files in the directory specified by 
+    <in_dir> and writes them to the BIDS compatible channels.tsv file per participant
+    and session.
+    You can specify whether to exclude any channels, if preferrable.
+    """
+    
+    parts = [x for x in listdir(in_dir) if '.' not in x]
+    
+    for p, part in enumerate(parts):
+        ppath = f'{in_dir}/{part}'
+        sess = [x for x in listdir(ppath) if '.' not in x]
+        
+        for s, ses in enumerate(sess):
+            spath = f'{ppath}/{ses}/eeg/'
+            files = [x for x in listdir(spath) if '.edf' in x] 
+            
+            for f, file in enumerate(files):
+                src = f'{spath}/{file}'
+                
+                data = Dataset(src)
+                chans = data.header['orig']['label'] #data.header['chan_name']
+                types = array([x.split('-')[0] for x in data.header['orig']['transducer']])
+                units = array(data.header['orig']['physical_dim'])
+                
+                if exclude:
+                    ex = [chans.index(x) for x in exclude if x in chans]
+                    chans = delete(array(chans), ex)
+                    types = delete(types, ex)
+                    units = delete(units, ex)
+                else:
+                    chans = array(chans)
+                
+                # Save dataframe
+                df = DataFrame(chans)
+                df.columns = ['name']
+                df['type'] = types
+                df['units'] = units
+                df['status'] = 'N/A'
+                df['status_description'] = 'N/A'
+                df.to_csv(f"{spath}{part}_{ses}_channels.tsv", sep = "\t", 
+                          header=True, index=False)
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
