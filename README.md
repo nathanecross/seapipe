@@ -1,7 +1,7 @@
 # seapipe
 A package pipeline for Sleep Events Analysis of EEG data.
 
-seapipe is a Python pipeline for S*leep *E*vents *A*nalysis. The package reads EEG recordings with the purpose of detecting and analysing sleep neurophysiology, such as *sleep architecture statistics, sleep spindles, slow oscillations, phase amplitude coupling, and power spectral analyses.
+seapipe is a Python pipeline for *S*leep *E*vents *A*nalysis. The package reads EEG recordings with the purpose of detecting and analysing sleep neurophysiology, such as *sleep architecture statistics, sleep spindles, slow oscillations, phase amplitude coupling, and power spectral analyses.
 
 It pulls functions from a range of other open source packages, including: Wonambi, the MNE and Tensorpac
 
