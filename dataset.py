@@ -5,13 +5,14 @@ Created on Tue Jul 25 12:07:36 2023
 
 @author: nathancross
 """
-from .spindle import whales
-from .utils.audit import check_dataset, extract_channels, make_bids
+
+from stats import sleepstats
+from spindle import whales
+from utils.audit import check_dataset, extract_channels, make_bids
+from utils.logs import create_logger, create_logger_outfile
+from os import mkdir, path, remove, walk
 import logging
 import sys
-from os import walk
-
-
 
 
 class pipeline:
@@ -40,7 +41,36 @@ class pipeline:
         self.rootpath = indir
         self.datapath = indir + '/DATA/'
         self.outpath = indir + '/OUT/'
-        self.audit = check_dataset(indir, outfile)
+        if not path.exists(self.outpath):
+            mkdir(self.outpath)
+        self.outfile = outfile
+        self.audit_init = check_dataset(self.datapath, self.outfile)
+        
+       
+    def audit(self, outfile=False):
+        
+        ''' Audits the dataset for BIDS compatibility.
+            Includes option to save the audit to an output file.
+        '''
+
+        if not outfile and not self.outfile:
+            logger = create_logger()
+            self.audit_update = check_dataset(self.datapath, False, logger)
+        else:
+            if not outfile:
+                outfile = self.outfile
+            out_dir = f'{self.outpath}/audit'
+            if not path.exists(out_dir):
+                mkdir(out_dir)
+            out = f'{out_dir}/{outfile}'
+            if path.exists(out):
+                remove(out)
+            logger = create_logger()
+            self.audit_update = check_dataset(self.datapath, out, logger)
+            
+        logger.info('')
+        logger.info(self.audit_update)
+        
         
     def list_dataset(self, outfile=False): 
         
@@ -48,38 +78,34 @@ class pipeline:
         directories 1 and 2 levels above containing the files. You can specify 
         an optional output filename that will contain the printout.
         """
-        in_dir = self.datapath
-        if outfile:
-            logging.basicConfig(level=logging.DEBUG,
-                                filemode='w',
-                                format="%(message)s", 
-                                handlers=[logging.StreamHandler(sys.stdout)])
-            logger = logging.getLogger()
-            file_log_handler = logging.FileHandler(f'{in_dir}/{outfile}')
-            logger.addHandler(file_log_handler)
-            stderr_log_handler = logging.StreamHandler()
-            logger.addHandler(stderr_log_handler)
-            formatter = logging.Formatter('%(message)s')
-            file_log_handler.setFormatter(formatter)
-            stderr_log_handler.setFormatter(formatter)
-        
+
+        if not outfile and not self.outfile:
+            logger = create_logger()  
         else:
-            logging.basicConfig(level=logging.DEBUG,
-                                format="%(message)s",
-                                handlers=[logging.StreamHandler(sys.stdout)])
-            logger = logging.getLogger()   
-            
-        for dirPath, dirNames, fileNames in walk(in_dir):
+            if not outfile:
+                outfile = self.outfile
+            out_dir = f'{self.outpath}/audit'
+            if not path.exists(out_dir):
+                mkdir(out_dir)
+            out = f'{out_dir}/{outfile}'
+            if path.exists(out):
+                remove(out)
+            logger = create_logger_outfile(out)
+
+        logger.propagate = False
+        
+        for dirPath, dirNames, fileNames in walk(self.datapath):
             try:
                 fileNames.remove('.DS_Store')
             except(ValueError):
                 pass
             
             if fileNames:
-                dir1 = dirPath.split('/')[-2]
-                dir2 = dirPath.split('/')[-1]
-                logger.info(f"Directory: {dir1}/{dir2}")
-                logger.info(f"Files = {fileNames}")
+                dir1 = dirPath.split('/')[-3]
+                dir2 = dirPath.split('/')[-2]
+                dir3 = dirPath.split('/')[-1]
+                logger.info(f"Directory: {dir1}/{dir2}/{dir3}")
+                logger.info(f"Files •, {fileNames}")
                 logger.info('-' * 10)
                 
     def make_bids(self, origin = 'SCN'):
@@ -87,6 +113,9 @@ class pipeline:
         
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude=exclude)
+        
+    def sleepstats():
+        return
         
     def whale_it(self, xml_dir=False, out_dir=False, part='all', visit='all',
                  method='Lacourse2018', chan=['Cz'], ref_chan=None, rater=None, 

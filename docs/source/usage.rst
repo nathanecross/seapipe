@@ -24,7 +24,7 @@ To begin, open python and load seapipe
 
 Then you can initiate the pipeline by specifying the path to your dataset.
 
->>> pipeline = pipeline('/home/username/project/') 
+>>> project_name = pipeline('/home/username/project/') 
 
 .. _checking_your_dataset:
 Checking your dataset
@@ -36,13 +36,13 @@ The compatibility of the dataset with BIDS can be validated `online <https://bid
 
 However, seapipe also works almost symbiotically with the `Wonambi <https://wonambi-python.github.io/>`_ package.
 Therefore, any annotations (sleep scoring, artefact markings etc.) need to be inside a wonambi annotations (.xml) file. 
-For more information, see :ref:`Annotations file`
+For more information, see :ref:`Annotations file`.
 
 To receive an overview of your dataset, including whether the each participant's directory is BIDS compatible, as well as 
 how many sessions, recording (e.g. edfs) and annotation files they contain, you can call the ``pipeline.audit`` property 
 of every dataset:
  
->>> pipeline.audit
+>>> pipeline.audit()
  
 ::
 

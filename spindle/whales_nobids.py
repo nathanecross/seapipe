@@ -6,7 +6,7 @@ Created on Thu Jul 29 10:34:53 2021
 """
 from datetime import datetime
 from itertools import product
-from numpy import (asarray, concatenate, empty, int, nan, ndarray, sum, zeros)
+from numpy import (asarray, concatenate, empty, nan, ndarray, sum, zeros)
 from os import listdir, mkdir, path
 from pandas import concat, DataFrame, read_csv
 from safepickle import dump

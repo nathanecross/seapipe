@@ -14,7 +14,8 @@ from pandas import DataFrame, ExcelFile, read_csv
 from wonambi.attr import Annotations
 
 
-def sleepstats(in_dir,xml_dir,out_dir,rater,evt_type,stage,times,part='all',visit='all'):
+def sleepstats(in_dir, xml_dir, out_dir, rater, evt_type, stage, times, 
+               part='all', visit='all'):
 
     
     # 1. Sets lights off and on times for all recordings

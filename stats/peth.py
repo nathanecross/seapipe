@@ -8,7 +8,7 @@ Created on Thu Feb 10 11:33:57 2022
 
 from math import floor
 from numpy import (amax, arange, array, asarray, asmatrix, concatenate, diff, empty, float32, 
-                   float64, full, hstack, int, linspace, matlib, mean, nan, nanmean, nanstd, ndarray, 
+                   float64, full, hstack, linspace, matlib, mean, nan, nanmean, nanstd, ndarray, 
                    newaxis, ones, pi, squeeze,reshape, savetxt, size, sqrt, stack, std, sum, 
                    transpose, vstack, where, zeros)
 from os import listdir, mkdir, path

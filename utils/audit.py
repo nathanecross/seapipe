@@ -11,20 +11,15 @@ from os import listdir, mkdir, rename
 from numpy import array, delete, zeros
 from pandas import DataFrame
 from wonambi import Dataset
+from utils.logs import create_logger
 
-def check_dataset(indir, filetype = '.edf', outfile = True):
+def check_dataset(indir, outfile = False, logger=create_logger(), filetype='.edf'):
     
     """Audits the directory specified by <in_dir> to check if the dataset is
     BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
     files there are per participant.
     You can specify  an optional output filename that will contain the printout.
     """
-    
-    # Set logging 
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(message)s",
-                        handlers=[logging.StreamHandler(sys.stdout)])
-    logger = logging.getLogger() 
     
     # Begin directory check
     logger.info('')
@@ -43,6 +38,7 @@ def check_dataset(indir, filetype = '.edf', outfile = True):
     
     # Check number of subdirectories per participant
     for p, pt in enumerate(part):
+        
         dirs = [x for x in listdir(f'{indir}/{pt}') if not '.' in x]
         files = [x for x in listdir(f'{indir}/{pt}') if '.' in x if not '.DS_Store' in x]
         nsd[p] = len(dirs)
@@ -63,19 +59,25 @@ def check_dataset(indir, filetype = '.edf', outfile = True):
                 
         else:    
             for d, dr in enumerate(dirs):
-                dirs2 = [x for x in listdir(f'{indir}/{pt}/{dr}/eeg/') if not '.' in x]
-                files2 = [x for x in listdir(f'{indir}/{pt}/{dr}/eeg/') if '.' in x]
                 dirscheck = []
-                if len(dirs2) < 1:
-                    if len(files2) > 0: 
-                        annots += len([x for x in files2 if '.xml' in x])
-                        edfs += len([x for x in files2 if filetype in x])
-                        dirscheck.append(0)
-                    else:
-                        logger.info('')
-                        logger.info(f'WARNING: {pt} has no files')
-                        logger.info('')
-                        dirscheck.append(1)
+                try:
+                    dirs2 = [x for x in listdir(f'{indir}/{pt}/{dr}/eeg/') if not '.' in x]
+                    files2 = [x for x in listdir(f'{indir}/{pt}/{dr}/eeg/') if '.' in x]
+                    if len(dirs2) < 1:
+                        if len(files2) > 0: 
+                            annots += len([x for x in files2 if '.xml' in x])
+                            edfs += len([x for x in files2 if filetype in x])
+                            dirscheck.append(0)
+                        else:
+                            logger.info('')
+                            logger.info(f'WARNING: {pt} has no files')
+                            logger.info('')
+                            dirscheck.append(1)
+                except: 
+                    logger.info('')
+                    logger.info(f"WARNING: BIDS incompatibility error. No 'eeg' directory found for {pt}, {dr}")
+                    logger.info('')
+                    dirscheck.append(1)
             if set(dirscheck) == {0}:
                 bids[p] = 1
                 nedf[p] = edfs
@@ -98,8 +100,8 @@ def check_dataset(indir, filetype = '.edf', outfile = True):
     subdirs[subdirs.columns[3]] = nxml
     
     if outfile:
-        subdirs.to_csv(f'{indir}/{outfile}')
-
+        subdirs.to_csv(f'{outfile}')
+    
     return subdirs
 
 def make_bids(in_dir, origin = 'SCN'):
@@ -128,13 +130,31 @@ def make_bids(in_dir, origin = 'SCN'):
                 
                 mkdir(f'{in_dir}/sub-{part}/ses-{ses}/eeg/')
                 
+                # EDFs
                 files = [x for x in listdir(dst) if '.edf' in x] 
-                
                 for f, file in enumerate(files):
                     src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
                     
-                    newfile = file.split('_')[0]
+                    if len(file.split('_')) > 1:
+                        newfile = file.split('_')[0]
+                    else:
+                        newfile = file.split('.')[0]
+                    
                     dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg.edf'
+                    rename(src, dst)
+                
+                # XMLs
+                dst = f'{in_dir}/sub-{part}/ses-{ses}/'
+                files = [x for x in listdir(dst) if '.xml' in x] 
+                for f, file in enumerate(files):
+                    src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
+                    
+                    if len(file.split('_')) > 1:
+                        newfile = file.split('_')[0]
+                    else:
+                        newfile = file.split('.')[0]
+                    
+                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg.xml'
                     rename(src, dst)
                     
 def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
