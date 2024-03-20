@@ -3,52 +3,44 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "spam-eggs"
-version = "2020.0.0"
+name = "seapipe"
+version = "0.1"
 dependencies = [
-  "httpx",
-  "gidgethub[httpx]>4.0.0",
-  "django>2.1; os_name != 'nt'",
-  "django>2.0; os_name == 'nt'",
+  "pandas",
+  "wonambi>7.0",
+  "fooof",
+  "scipy>=0.19",
+  "mne>1.6.0",
+  "tensorpac",
 ]
 requires-python = ">=3.8"
 authors = [
-  {name = "Pradyun Gedam", email = "pradyun@example.com"},
-  {name = "Tzu-Ping Chung", email = "tzu-ping@example.com"},
-  {name = "Another person"},
-  {email = "different.person@example.com"},
+  {name = "Nathan Cross", email = "nathan.cross@sydney.edu.au"},
 ]
 maintainers = [
-  {name = "Brett Cannon", email = "brett@example.com"}
+  {name = "Nathan Cross", email = "nathan.cross@sydney.edu.au"}
 ]
-description = "Lovely Spam! Wonderful Spam!"
-readme = "README.rst"
-license = {file = "LICENSE.txt"}
-keywords = ["egg", "bacon", "sausage", "tomatoes", "Lobster Thermidor"]
+description = "A package pipeline for Sleep Events Analysis of EEG data."
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["sleep", "eeg", "detection", "signal processing"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 0.1 - Beta",
   "Programming Language :: Python"
 ]
 
 [project.optional-dependencies]
-gui = ["PyQt5"]
-cli = [
-  "rich",
-  "click",
-]
+plot = ["PyQt5",
+       "matplotlib"]
+
 
 [project.urls]
-Homepage = "https://example.com"
-Documentation = "https://readthedocs.org"
-Repository = "https://github.com/me/spam.git"
-"Bug Tracker" = "https://github.com/me/spam/issues"
-Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+Homepage = "https://seapipe.readthedocs.io/"
+Documentation = "https://seapipe.readthedocs.io/"
+Repository = "https://github.com/nathanecross/seapipe"
+"Bug Tracker" = "https://github.com/nathanecross/seapipe/issues"
+Changelog = "https://github.com/nathanecross/seapipe/blob/master/CHANGELOG.md"
 
 [project.scripts]
-spam-cli = "spam:main_cli"
+seapipe = "dataset:pipeline"
 
-[project.gui-scripts]
-spam-gui = "spam:main_gui"
-
-[project.entry-points."spam.magical"]
-tomatoes = "spam:main_tomatoes"
