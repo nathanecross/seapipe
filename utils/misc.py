@@ -77,7 +77,7 @@ def remove_evts(xml_dir, out_dir, rater, evt_name=['spindle'], part='all', visit
                     annot.remove_event_type(name=ev)
                 
                 
-def remove_duplicate_evts(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0, 0, 0), stage=None, 
+def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0, 0, 0), stage=None, 
                 evt_name=['spindle'], part='all', visit='all', param_keys=None):
 
     if path.exists(in_dir):
@@ -134,34 +134,42 @@ def remove_duplicate_evts(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0, 0, 
                 
                 # Run through channels
                 for ch, channel in enumerate(chan):
-                    chan_ful = [channel + ' (' + grp_name + ')']
+                    chan_ful = channel + ' (' + grp_name + ')'
                                     
                     ### WHOLE NIGHT ###
                     # Select and read data
-                    print('Reading data for ' + p + ', visit ' + vis + ' '+ channel)
+                    print('Reading data for ' + p + ', visit ' + vis + ' ' + channel)
                     
                     # Retrieve events
-                    evts = annot.get_events(name=evt_name[0], chan = chan_ful, stage = stage)
-                    evts2 = evts[:]
-                    for e,event in enumerate(evts[:-1]):
-                        starttime = event['start']
-                        i = 0
-                        for ee,eevent in enumerate(evts2):
-                                if eevent['start'] == starttime:
-                                    if i == 0:
-                                        None
-                                    elif i >0:
-                                        del(evts2[ee])
-                                    i=+1
-                    
-                    annot.remove_event_type(name=evt_name[0])
-                    grapho = graphoelement.Graphoelement()
-                    grapho.events = evts2          
-                    grapho.to_annot(annot, evt_name[0])
-
+                    remove_duplicate_evts(annot, evt_name, chan_ful, stage)
 
     return
 
+
+def remove_duplicate_evts(annot, evt_name, chan, stage=None):
+    
+    '''Workaround function because wonambi.attr.annotations.remove_event()
+        is not working properly (and I couldn't figure out why).
+    '''
+    evts = annot.get_events(name=evt_name, chan = chan, stage = stage)
+    evts_trim = copy.deepcopy(evts)
+    for e, event in enumerate(evts[:-1]):
+        starttime = event['start']
+        i = 0
+        for ee, eevent in enumerate(evts_trim):
+                if eevent['start'] == starttime:
+                    if i == 0:
+                        None
+                    elif i >0:
+                        del(evts_trim[ee])
+                    i=+1
+    
+    evts = [x for x in annot.get_events(name=evt_name) if chan not in x['chan']]
+    
+    annot.remove_event_type(name=evt_name)
+    grapho = graphoelement.Graphoelement()
+    grapho.events = evts + evts_trim          
+    grapho.to_annot(annot, evt_name)
 
 def merge_xmls(in_dirs, out_dir, chan, grp_name, stage=None, evt_name=None, 
                part='all', visit='all'):
@@ -555,3 +563,9 @@ def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     create_empty_annotations(xml_file, dataset)
     annot = Annotations(xml_file)
     annot.import_staging(hypno_file, 'alice', rater_name=rater, rec_start=dataset.header['start_time'])
+    
+    
+    
+    
+    
+    

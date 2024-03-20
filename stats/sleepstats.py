@@ -7,258 +7,263 @@ Created on Wed Jul 28 16:10:26 2021
 """
 
 
-
+from datetime import datetime, date
 from numpy import (asarray, float64, full, int64, nan)
-from os import listdir, mkdir, path
+from os import listdir, mkdir, path, walk
 from pandas import DataFrame, ExcelFile, read_csv
 from wonambi.attr import Annotations
-
-
-def sleepstats(in_dir, xml_dir, out_dir, rater, evt_type, stage, times, 
-               part='all', visit='all'):
-
+from utils.logs import create_logger, create_logger_outfile, create_logger_empty
+from utils.load import check_chans
+                        
+def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all', 
+               rater = None,  times = None, log_dir = None, 
+               outfile = 'export_macro_stats_log.txt'):
     
-    # 1. Sets lights off and on times for all recordings
-    timesfile = ExcelFile(times).parse('Sheet1') #path in export_sleepstat
-    
-    if path.exists(out_dir):
-                print(out_dir + " already exists")
+    ### 0.a Set up logging
+    flag = 0
+    if not log_dir:
+        log_dir = out_dir
+    if outfile == True:
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{log_dir}/export_sleep_macro_stats_{today}_log.txt'
+        logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
+        logger.info('')
+        logger.info(f"-------------- New call of 'Export macro stats' evoked at {now} --------------")
+    elif outfile:
+        logfile = f'{log_dir}/{outfile}'
+        logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
     else:
-        mkdir(out_dir)
+        logger = create_logger('Export macro stats')
+    logger.info('')
     
-    # 2. Set participants
-    if isinstance(part, list):
+    ## 1. Get lights on & lights off file
+    if isinstance(times, str):
+        times = read_csv(times, sep='\t')
+    elif isinstance(times, DataFrame):
         None
-    elif part == 'all':
-            part = listdir(in_dir)
-            part = [ p for p in part if not '.' in p]
     else:
-        print("ERROR: 'part' must either be an array of subject ids or = 'all' ")
-       
-    # 3. Run sleep statistic parameter extraction
-    header = ['Visit', 'TIB_min', 'TotalWake_min', 'SL_min', 'WASOintra_min', 
-              'Wmor_min', 'TSP_min', 'TST_min', 'SE', 'N1_min', 'N2_min', 
-              'N3_min', 'REM_min', 'W_tsp', 'N1_tsp', 'N2_tsp', 'N3_tsp', 
-              'REM_tsp', 'SSI', 'SFI', 'SL_toN2', 'SL_toN3', 'SL_toREM', 
-              'SL_toNREM_5m', 'SL_toNREM_10m', 'SL_toN3_5m', 'SL_toN3_10m', 
-              'Cycle_nbr', 'Arou_tot_h', 'Arou_N1_min', 'Arou_N2_min', 
-              'Arou_N3_min', 'Arou_REM_min', 'Arou_NREM_min']
-    nbrcol = len(header)-1
+        logger.critical('To export macro stats, lights off and lights on times are requried.')
+        logger.info('Check documentation for how to export macro statistics:')
+        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+        logger.info('-' * 10)
     
-    if visit== 'all': #if multiple visits
-            visit = listdir(in_dir + '/' + part[0])
-            visit = [ x for x in visit if not '.' in x]
+    # 2.a Get subjects
+    if isinstance(subs, list):
+        None
+    elif subs == 'all':
+        try:
+            subs = next(walk(xml_dir))[1]
+        except:
+            logger.critical(f"{xml_dir} doesn't exist!") 
+            return
+        if len(subs) == 0:
+            logger.critical(f'{xml_dir} is empty!') 
+            return
+    else:
+        logger.info('')
+        logger.critical("'subs' must either be an array of Participant IDs or = 'all' ")
+        return
+    subs.sort()
     
-    sleepstatz = full((len(part), len(header)*len(visit)),nan, dtype=object) 
+    # 2.b. Get sessions
+    sub_ses = {}
+    if isinstance(sessions, list):
+        for sub in subs:
+            sub_ses[sub] = sessions
+    elif sessions == 'all':
+        for sub in subs:
+            session = next(walk(f'{xml_dir}/{sub}'))[1]
+            session.sort()
+            sub_ses[sub] = session
+    else:
+        logger.info('')
+        logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
+        return
+    
+    for s, sub in enumerate(sub_ses): #for each participant...
+        if not sub_ses[sub]:
+            logger.warning(f'No visits found in {xml_dir}/{sub}. Skipping..')
+            flag +=1
+            break
+        for v, ses in enumerate(sub_ses[sub]): #for each visit...
+            logger.debug(f'Export macro statistics for {sub}, {ses}')
 
-    sublist = [None] *len(part)
-    part.sort()
-    for i, p in enumerate(part): #for each participant...
-        print(f'Running participant {p}')
-        sublist[i] = p
-        
-        for v, vis in enumerate(visit): #for each visit...
-            print(f'Running visit {vis}')   
-            
-            x_dir = xml_dir + p + '/' + vis + '/'
-            
-            if path.isdir(x_dir):
-            
-                xml_file = [x for x in listdir(x_dir) if x.endswith('.xml')]
-            
-                lights_off = timesfile[timesfile['ID'].str.contains(p)]
-                lights_off = asarray(lights_off[lights_off['visit'].str.contains(vis)]['loff'])  
-                if isinstance(lights_off[0],int64):
-                    lights_off = float(lights_off[0])
-                else:
-                    lights_off = lights_off[0].astype(float64)
-                lights_on = timesfile[timesfile['ID'].str.contains(p)]
-                lights_on = asarray(lights_on[lights_on['visit'].str.contains(vis)]['lon'])
-                if isinstance(lights_on[0],int64) or isinstance(lights_on[0],int):
-                    lights_on = float(lights_on[0])
-                else:
-                    lights_on = lights_on[0].astype(float64)
-                
-                annot = Annotations(x_dir+xml_file[0], rater_name=rater)
-                annot.export_sleep_stats(f'{out_dir}/{p}_{vis}_sleepstats.csv', lights_off, 
-                                     lights_on)
-                file = (out_dir + '/' + p + '_' + vis + '_sleepstats.csv')
-                data = read_csv(file, sep=',', delimiter=None, header=1) #basic sleep stat of wonambi file
-                ## create dataset sleep stat whole-night (26=nbr of column)
-                sleepstatz[i,(nbrcol*v)+v+0] = vis
-                sleepstatz[i,(nbrcol*v)+v+1] = data['Value 2'][4] # TIB (min)
-                sleepstatz[i,(nbrcol*v)+v+2] = data['Value 2'][5] # Total Wake duration (min - between loff to lon)
-                sleepstatz[i,(nbrcol*v)+v+3] = data['Value 2'][6] # Sleep latency (min - between loff to SO)
-                sleepstatz[i,(nbrcol*v)+v+4] = data['Value 2'][7] # WASOintra (min - between SO to last epoch of sleep)
-                sleepstatz[i,(nbrcol*v)+v+5] = data['Value 2'][8] # W morning (after last sleep epoch to Lon) (min)
-                sleepstatz[i,(nbrcol*v)+v+6] = data['Value 2'][16] # TSP (min - between SO to last epoch of sleep)
-                sleepstatz[i,(nbrcol*v)+v+7] = data['Value 2'][17] # TST (min - N1+N2+N3+REM)
-                sleepstatz[i,(nbrcol*v)+v+8] = data['Value 1'][18] # Sleep efficiency (% - TST/TiB*100)
-                sleepstatz[i,(nbrcol*v)+v+9] = data['Value 2'][10] # N1 (min)
-                sleepstatz[i,(nbrcol*v)+v+10] = data['Value 2'][11] # N2 (min)
-                sleepstatz[i,(nbrcol*v)+v+11] = data['Value 2'][12] # N3 (min)
-                sleepstatz[i,(nbrcol*v)+v+12] = data['Value 2'][13] # REM (min)
-                sleepstatz[i,(nbrcol*v)+v+13] = data['Value 1'][24] # Wake (% of TSP)  
-                sleepstatz[i,(nbrcol*v)+v+14] = data['Value 1'][25] # N1 (% of TSP) # you can change  or add for %TST if necessary [29]
-                sleepstatz[i,(nbrcol*v)+v+15] = data['Value 1'][26] # N2 (% of TSP) # you can change  or add for %TST if necessary [30]
-                sleepstatz[i,(nbrcol*v)+v+16] = data['Value 1'][27] # N3 (% of TSP) # you can change  or add for %TST if necessary [31]
-                sleepstatz[i,(nbrcol*v)+v+17] = data['Value 1'][28] # REM (% of TSP) # you can change  or add for %TST if necessary[32]
-                sleepstatz[i,(nbrcol*v)+v+18] = data['Value 1'][35] # Stage shifts index (n/TSPhr)
-                sleepstatz[i,(nbrcol*v)+v+19] = data['Value 1'][38] # Sleep fragmentation index (n/TSThr)
-                sleepstatz[i,(nbrcol*v)+v+20] = data['Value 2'][40] # SL to N2 (min)
-                sleepstatz[i,(nbrcol*v)+v+21] = data['Value 2'][41] # SL to N3 (min)
-                sleepstatz[i,(nbrcol*v)+v+22] = data['Value 2'][42] # SL to REM (min)
-                sleepstatz[i,(nbrcol*v)+v+23] = data['Value 2'][43] # SL to 5min of consecutive NREM (min)
-                sleepstatz[i,(nbrcol*v)+v+24] = data['Value 2'][44] # SL to 10min of consecutive NREM (min)
-                sleepstatz[i,(nbrcol*v)+v+25] = data['Value 2'][45] # SL to 5min of consecutive N3 (min)
-                sleepstatz[i,(nbrcol*v)+v+26] = data['Value 2'][46] # SL to 10min of consecutive N3 (min)
-                sleepstatz[i,(nbrcol*v)+v+27] = (len(annot.get_cycles())) # nbr of cycle  
-                #sleepstatz[i,(nbrcol*v)+v+27] = 0 # nbr of cycle  #if no cycle
-    
-                ## add Arousal density
-                file = (out_dir + '/' + p + '_' + vis +'_arou.csv')
-                try:
-                    annot.export_events(file, evt_type=evt_type,stage=stage) 
-                except Exception as e:
-                    annot.export_events(file, evt_type=evt_type) 
-                data = read_csv(file, sep=',',skiprows=[0], delimiter=None)
-                sleepstatz[i,(nbrcol*v)+v+28] = (len(data)/sleepstatz[i,7])*60 # Arousal index (n/hr)
-                sleepstatz[i,(nbrcol*v)+v+29] = (len(data[data.Stage =='NREM1'])/sleepstatz[i,9]) #Arousal density N1 (n/min)
-                sleepstatz[i,(nbrcol*v)+v+30] = (len(data[data.Stage =='NREM2'])/sleepstatz[i,10]) #Arousal density N2 (n/min)
-                sleepstatz[i,(nbrcol*v)+v+31] = (len(data[data.Stage =='NREM3'])/sleepstatz[i,11]) #Arousal density N3 (n/min)
-                sleepstatz[i,(nbrcol*v)+v+32] = (len(data[data.Stage =='REM'])/sleepstatz[i,12]) #Arousal density REM (n/min)  
-                sleepstatz[i,(nbrcol*v)+v+33] = ((len(data[data.Stage =='NREM1'])+len(data[data.Stage =='NREM2'])+len(data[data.Stage =='NREM3']))
-                                                 /(sleepstatz[i,9]+sleepstatz[i,10]+sleepstatz[i,11])) #Arousal density NREM (n/min) 
-                
-                
-                if i==0 and v==0:
-                    headerupdate = [h + '_' + vis for h in header]
-                    #print(f'{headerupdate}')
-                elif i==0:
-                    headernew = [h + '_' + vis for h in header]
-                    
-                    headerupdate = headerupdate + headernew
-                
-            
+            # 3.d. Get proper annotations file
+            xml_file = [x for x in listdir(xml_dir +  '/' + sub + '/' + ses ) 
+                        if x.endswith('.xml') if not x.startswith('.')]    
+            if len(xml_file) == 0:                
+                logger.warning(f'No sleep staging file found for {sub}, {ses}. Skipping..')
+                flag+=1
+                break
+            elif len(xml_file) > 1:
+                logger.warning(f"> 1 sleep staging file was found for {sub}, visit {ses} - to select the correct file you must define the variable 'keyword'. Skipping..")
+                flag+=1
+                break
             else:
-                print(f'Participant {p} has no visit {vis}')
-                if i==0 and v==0:
-                    headerupdate = [h + '_' + vis for h in header]
-                elif i==0:
-                    headernew = [h + '_' + vis for h in header]
-                    headerupdate = headerupdate + headernew
-            
-    
-    # 3. Save sleep statistic parameters to file    
-
-    keydf = DataFrame(sleepstatz, columns = headerupdate, index=sublist)
-    DataFrame.to_csv(keydf, f'{out_dir}/sleepstats_all.csv', sep=',')
-
-
-                  
-    
-    return    
-
-
-
-def sleepstats_from_csvs(in_dir,out_dir,rater,stage,part='all',visit='all'):
-
-    
-    # 1. Sets lights off and on times for all recordings
-    if path.exists(out_dir + '/sleepstats/'):
-                print(out_dir + '/sleepstats/' + " already exists")
+                xml_file_path = f'{xml_dir}/{sub}/{ses}/{xml_file[0]}'
+           
+                # Search for sub and ses in tracking sheet
+                l_times = times[times['sub']==sub]
+                if l_times.size == 0:
+                    logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    flag +=1
+                    break
+                l_times = l_times[l_times['ses']==ses]
+                if l_times.size == 0:
+                    logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    flag +=1
+                    break
+                
+                ## Lights OFF
+                lights_off = l_times['loff']
+                lights_off = asarray(lights_off.dropna())
+                if lights_off.size == 0:
+                    logger.warning(f"Lights Off time not found in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    flag +=1
+                    break
+                else:
+                    if isinstance(lights_off[0],int64):
+                        lights_off = float(lights_off[0])
+                    else:
+                        lights_off = lights_off.astype(float64)[0]
+                
+                ## Lights ON
+                lights_on = l_times['lon']
+                lights_on = asarray(lights_on.dropna())
+                if lights_on.size == 0:
+                    logger.warning(f"Lights On time not found in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    flag +=1
+                    break
+                else:
+                    if isinstance(lights_on[0],int64):
+                        lights_on = float(lights_on[0])
+                    else:
+                        lights_on = lights_on.astype(float64)[0]
+                
+                annot = Annotations(xml_file_path, rater_name=rater)
+                annot.export_sleep_stats(f'{out_dir}/{sub}/{ses}/{sub}_{ses}_sleepstats.csv', 
+                                         lights_off, lights_on)
+                
+                
+    ### 3. Check completion status and print
+    if flag == 0:
+        logger.debug('Macro statistics export finished without ERROR.')  
     else:
-        mkdir(out_dir + '/sleepstats/')
-    
-    
-    
-    # 2. Set participants
-    if isinstance(part, list):
-        None
-    elif part == 'all':
-            files = [x for x in listdir(in_dir) if 'sleepstats.csv' in x]
-            part = list({p.split('_')[0] for p in files})
-    else:
-        print("ERROR: 'part' must either be an array of subject ids or = 'all' ")
-    
-    part.sort()
-        
-    # 3. Run sleep statistic parameter extraction
-    header = ['Visit', 'TIB_min', 'TotalWake_min', 'SL_min', 'WASOintra_min', 
-              'Wmor_min', 'TSP_min', 'TST_min', 'SE', 'N1_min', 'N2_min', 
-              'N3_min', 'REM_min', 'W_tsp', 'N1_tsp', 'N2_tsp', 'N3_tsp', 
-              'REM_tsp', 'SSI', 'SFI', 'SL_toN2', 'SL_toN3', 'SL_toREM', 
-              'SL_toNREM_5m', 'SL_toNREM_10m', 'SL_toN3_5m', 'SL_toN3_10m']
-    nbrcol = len(header)-1
-    
-    if visit== 'all': #if multiple visits
-            visit = list({p.split('_')[1] for p in files})
-            
-    visit.sort()
-    
-    sleepstatz = full((len(part), len(header)*len(visit)),nan, dtype=object) 
-
-    sublist = [None]*len(part)
-    end = 0
-    for i, p in enumerate(part): #for each participant...
-        print(f'Running participant {p}')
-        print(f'i={i}')
-        sublist[i] = p
-        
-        ivisit = [v.split('_')[1] for v in files if p in v]
-        
-        for v, vis in enumerate(ivisit): #for each visit...
-            
-            print(f'Running visit {vis}')   
-
-            file = [f for f in files if p in f if vis in f]
-            
-            data = read_csv(in_dir + file[0], sep=',', delimiter=None, header=1) #basic sleep stat of wonambi file
-            ## create dataset sleep stat whole-night (26=nbr of column)
-            sleepstatz[i,(nbrcol*v)+v+0] = vis
-            sleepstatz[i,(nbrcol*v)+v+1] = data['Value 2'][4] # TIB (min)
-            sleepstatz[i,(nbrcol*v)+v+2] = data['Value 2'][5] # Total Wake duration (min - between loff to lon)
-            sleepstatz[i,(nbrcol*v)+v+3] = data['Value 2'][6] # Sleep latency (min - between loff to SO)
-            sleepstatz[i,(nbrcol*v)+v+4] = data['Value 2'][7] # WASOintra (min - between SO to last epoch of sleep)
-            sleepstatz[i,(nbrcol*v)+v+5] = data['Value 2'][8] # W morning (after last sleep epoch to Lon) (min)
-            sleepstatz[i,(nbrcol*v)+v+6] = data['Value 2'][16] # TSP (min - between SO to last epoch of sleep)
-            sleepstatz[i,(nbrcol*v)+v+7] = data['Value 2'][17] # TST (min - N1+N2+N3+REM)
-            sleepstatz[i,(nbrcol*v)+v+8] = data['Value 1'][18] # Sleep efficiency (% - TST/TiB*100)
-            sleepstatz[i,(nbrcol*v)+v+9] = data['Value 2'][10] # N1 (min)
-            sleepstatz[i,(nbrcol*v)+v+10] = data['Value 2'][11] # N2 (min)
-            sleepstatz[i,(nbrcol*v)+v+11] = data['Value 2'][12] # N3 (min)
-            sleepstatz[i,(nbrcol*v)+v+12] = data['Value 2'][13] # REM (min)
-            sleepstatz[i,(nbrcol*v)+v+13] = data['Value 1'][24] # Wake (% of TSP)  
-            sleepstatz[i,(nbrcol*v)+v+14] = data['Value 1'][25] # N1 (% of TSP) # you can change  or add for %TST if necessary [29]
-            sleepstatz[i,(nbrcol*v)+v+15] = data['Value 1'][26] # N2 (% of TSP) # you can change  or add for %TST if necessary [30]
-            sleepstatz[i,(nbrcol*v)+v+16] = data['Value 1'][27] # N3 (% of TSP) # you can change  or add for %TST if necessary [31]
-            sleepstatz[i,(nbrcol*v)+v+17] = data['Value 1'][28] # REM (% of TSP) # you can change  or add for %TST if necessary[32]
-            sleepstatz[i,(nbrcol*v)+v+18] = data['Value 1'][35] # Stage shifts index (n/TSPhr)
-            sleepstatz[i,(nbrcol*v)+v+19] = data['Value 1'][38] # Sleep fragmentation index (n/TSThr)
-            sleepstatz[i,(nbrcol*v)+v+20] = data['Value 2'][40] # SL to N2 (min)
-            sleepstatz[i,(nbrcol*v)+v+21] = data['Value 2'][41] # SL to N3 (min)
-            sleepstatz[i,(nbrcol*v)+v+22] = data['Value 2'][42] # SL to REM (min)
-            sleepstatz[i,(nbrcol*v)+v+23] = data['Value 2'][43] # SL to 5min of consecutive NREM (min)
-            sleepstatz[i,(nbrcol*v)+v+24] = data['Value 2'][44] # SL to 10min of consecutive NREM (min)
-            sleepstatz[i,(nbrcol*v)+v+25] = data['Value 2'][45] # SL to 5min of consecutive N3 (min)
-            sleepstatz[i,(nbrcol*v)+v+26] = data['Value 2'][46] # SL to 10min of consecutive N3 (min)
- 
-            #sleepstatz[i,(nbrcol*v)+v+27] = 0 # nbr of cycle  #if no cycle
-            
-            
-            if i==0 and v==0:
-                headerupdate = [h + '_' + vis for h in header]
-                print(f'{headerupdate}')
-            elif v>0 and end==0:
-                end +=1
-                headernew = [h + '_' + vis for h in header]
-                headerupdate = headerupdate + headernew
-
-    # 3. Save sleep statistic parameters to file    
-
-    keydf = DataFrame(sleepstatz, columns = headerupdate, index=sublist)
-    DataFrame.to_csv(keydf, f'{out_dir}/sleepstats_all.csv', sep=',')
-             
+        logger.warning('Macro statistics export finished with WARNINGS. See log for details.')
     
     return   
+
+
+def sleepstats_from_csvs(xml_dir, out_dir, rater, subs = 'all', sessions = 'all',
+                         log_dir = None, outfile = 'macro_dataset_log.txt'):
+    
+    ### 0.a Set up logging
+    flag = 0
+    if not log_dir:
+        log_dir = out_dir
+    if outfile == True:
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{log_dir}/export_sleep_macro_stats_{today}_log.txt'
+        logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
+        logger.info('')
+        logger.info(f"-------------- New call of 'Macro dataset' evoked at {now} --------------")
+    elif outfile:
+        logfile = f'{log_dir}/{outfile}'
+        logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
+    else:
+        logger = create_logger('Export macro stats')
+    logger.info('')
+    
+    
+    # 1. Get subjects
+    if isinstance(subs, list):
+        None
+    elif subs == 'all':
+            subs = next(walk(xml_dir))[1]
+    else:
+        logger.info('')
+        logger.critical("'subs' must either be an array of Participant IDs or = 'all' ")
+        return
+    subs.sort()
+    
+    # 2. Get sessions
+    if isinstance(sessions, list):
+        None
+    elif sessions == 'all':
+        sessions = []
+        for i, sub in enumerate(subs):
+            sessions.append(next(walk(f'{xml_dir}/{sub}'))[1])
+        sessions = sorted(set([x for y in sessions for x in y]))
+    else:
+        logger.info('')
+        logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
+        return
+        
+   
+    
+    # 3. Run sleep statistic parameter extraction
+    header = ['ses', 'TIB_min', 'TotalWake_min', 'SL_min', 'WASOintra_min', 
+              'Wmor_min', 'TSP_min', 'TST_min', 'SE_%', 'N1_min', 'N2_min', 
+              'N3_min', 'REM_min', 'W_%tsp', 'N1_%tsp', 'N2_%tsp', 'N3_%tsp', 
+              'REM_%tsp', 'SSI', 'SFI', 'SL_toN2_min', 'SL_toN3_min', 'SL_toREM_min', 
+              'SL_toNREM_5m_min', 'SL_toNREM_10m_min', 'SL_toN3_5m_min', 'SL_toN3_10m_min']
+
+    for v, ses in enumerate(sessions): #for each visit...
+        df = DataFrame(data=None, index=subs, columns=header)
+        
+        for sub in subs: #for each participant...
+
+            logger.debug(f'Extracting macro stats from {sub}, {ses}')  
+            
+            data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_sleepstats.csv'
+            
+            if not path.exists(data_file):
+                logger.warning(f"No (exported) staging data found for {sub}, {ses}. ")
+                flag += 1
+                continue
+            else:
+            
+                data = read_csv(data_file, sep=',', delimiter=None, 
+                            header=1, index_col=0) 
+
+            df['ses'].loc[sub] = ses
+            df['TIB_min'].loc[sub] = data['Value 2']['Total dark time (Time in bed)']
+            df['TotalWake_min'].loc[sub] = data['Value 2']['Wake duration']
+            df['SL_min'].loc[sub] = data['Value 2']['Sleep latency']
+            df['WASOintra_min'].loc[sub] = data['Value 2']['Wake after sleep onset']
+            df['Wmor_min'].loc[sub] = data['Value 2']['Wake, morning']
+            df['TSP_min'].loc[sub] = data['Value 2']['Total sleep period']
+            df['TST_min'].loc[sub] = data['Value 2']['Total sleep time']
+            df['SE_%'].loc[sub] = data['Value 1']['Sleep efficiency']
+            df['N1_min'].loc[sub] = data['Value 2']['N1 duration']
+            df['N2_min'].loc[sub] = data['Value 2']['N2 duration']
+            df['N3_min'].loc[sub] = data['Value 2']['N3 duration']
+            df['REM_min'].loc[sub] = data['Value 2']['REM duration']
+            df['W_%tsp'].loc[sub] = data['Value 1']['W % TSP']
+            df['N1_%tsp'].loc[sub] = data['Value 1']['N1 % TSP']
+            df['N2_%tsp'].loc[sub] = data['Value 1']['N2 % TSP']
+            df['N3_%tsp'].loc[sub] = data['Value 1']['N3 % TSP']
+            df['REM_%tsp'].loc[sub] = data['Value 1']['REM % TSP']
+            df['SSI'].loc[sub] = data['Value 1']['Switch index H']
+            df['SFI'].loc[sub] = data['Value 1']['Sleep fragmentation index H']
+            df['SL_toN2_min'].loc[sub] = data['Value 2']['Sleep latency to N2']
+            df['SL_toN3_min'].loc[sub] = data['Value 2']['Sleep latency to N3']
+            df['SL_toREM_min'].loc[sub] = data['Value 2']['Sleep latency to REM']
+            df['SL_toNREM_5m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated NREM, 5 min']
+            df['SL_toNREM_10m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated NREM, 10 min']
+            df['SL_toN3_5m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated N3, 5 min']
+            df['SL_toN3_10m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated N3, 10 min']
+  
+        df.to_csv(f'{out_dir}/{ses}_macro.csv', sep=',')
+        
+    ### 3. Check completion status and print
+    logger.info('')
+    if flag == 0:
+        logger.debug('Macro statistics export finished without ERROR.')  
+    else:
+        logger.warning('Macro statistics export finished with WARNINGS. See log for details.')
+    
+    return  
 

@@ -3,7 +3,7 @@ SEA main module
 """
 
 __author__ = 'Nathan Cross'
-__credits__ = 'Sleep and Cognition Laboratory'
+__credits__ = 'Concordia University (Canada), University of Sydney (Australia)'
 
 
 from os import path
