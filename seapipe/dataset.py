@@ -7,17 +7,17 @@ Created on Tue Jul 25 12:07:36 2023
 """
 from os import listdir, mkdir, path, remove, walk
 from pandas import DataFrame
-from events.fish import FISH
-from events.whales import whales
-from events.seasnakes import seasnakes
-from spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts, 
+from .events.fish import FISH
+from .events.whales import whales
+from .events.seasnakes import seasnakes
+from .spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts, 
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts)
-from stats import sleepstats
-from utils.audit import (check_dataset, check_fooof, extract_channels, make_bids, 
+from .stats import sleepstats
+from .utils.audit import (check_dataset, check_fooof, extract_channels, make_bids, 
                         track_processing)
-from utils.logs import create_logger, create_logger_outfile
-from utils.load import (check_chans, check_adap_bands, select_input_dirs, 
+from .utils.logs import create_logger, create_logger_outfile
+from .utils.load import (check_chans, check_adap_bands, select_input_dirs, 
                         select_ouput_dirs)
 
 
@@ -109,7 +109,7 @@ class pipeline:
         """
 
         if not outfile and not self.outfile:
-            logger = create_logger()  
+            logger = create_logger('Audit')  
         else:
             if not outfile:
                 outfile = self.outfile

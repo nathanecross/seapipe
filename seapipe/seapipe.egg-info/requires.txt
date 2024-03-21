@@ -1,0 +1,10 @@
+pandas
+wonambi>7.0
+fooof
+scipy>=0.19
+mne>1.6.0
+tensorpac>0.5.6
+
+[plot]
+PyQt5
+matplotlib

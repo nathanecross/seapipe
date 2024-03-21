@@ -1,10 +1,11 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "seapipe"
-version = "0.1"
+dynamic = ["version"]
+
 dependencies = [
   "pandas",
   "wonambi>7.0",
@@ -23,9 +24,9 @@ maintainers = [
 description = "A package pipeline for Sleep Events Analysis of EEG data."
 readme = "README.md"
 license = {file = "LICENSE"}
-keywords = ["sleep", "eeg", "detection", "signal processing"]
+keywords = ["sleep", "eeg", "detection", "signal processing", "neuroscience", "analysis"]
 classifiers = [
-  "Development Status :: 0.1 - Beta",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python"
 ]
 

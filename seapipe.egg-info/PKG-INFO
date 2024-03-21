@@ -1,0 +1,61 @@
+Metadata-Version: 2.1
+Name: seapipe
+Version: 0.1
+Summary: A package pipeline for Sleep Events Analysis of EEG data.
+Home-page: https://github.com/nathanecross/seapipe
+Author: Nathan E. Cross
+Author-email: Nathan Cross <nathan.cross@sydney.edu.au>
+Maintainer-email: Nathan Cross <nathan.cross@sydney.edu.au>
+License: MIT License
+        
+        Copyright (c) 2023 nathanecross
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://seapipe.readthedocs.io/
+Project-URL: Documentation, https://seapipe.readthedocs.io/
+Project-URL: Repository, https://github.com/nathanecross/seapipe
+Project-URL: Bug Tracker, https://github.com/nathanecross/seapipe/issues
+Project-URL: Changelog, https://github.com/nathanecross/seapipe/blob/master/CHANGELOG.md
+Keywords: sleep,eeg,detection,signal processing,neuroscience,analysis
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pandas
+Requires-Dist: wonambi>7.0
+Requires-Dist: fooof
+Requires-Dist: scipy>=0.19
+Requires-Dist: mne>1.6.0
+Requires-Dist: tensorpac>0.5.6
+Provides-Extra: plot
+Requires-Dist: PyQt5; extra == "plot"
+Requires-Dist: matplotlib; extra == "plot"
+
+# seapipe
+A package pipeline for Sleep Events Analysis of EEG data.
+
+seapipe is a Python pipeline for **S**leep **E**vents **A**nalysis. The package reads EEG recordings with the purpose of detecting and analysing sleep neurophysiology, such as sleep architecture statistics, sleep spindles, slow oscillations, phase amplitude coupling, and power spectral analyses.
+
+It pulls functions from a range of other open source packages, including: Wonambi, the MNE and Tensorpac
+
+It offers a simple and intuitive, yet fully customisable API. The major advantage of seapipe is that it can be deployed on full, diverse datasets that might require flexibility in certain parameters (e.g. electrode names, polarity of recordings, individualised frequency bands etc). The only requirement is that the data should be structured in BIDS.
+
+
