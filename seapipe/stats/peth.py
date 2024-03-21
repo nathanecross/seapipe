@@ -7,13 +7,9 @@ Created on Thu Feb 10 11:33:57 2022
 """
 
 from math import floor
-from numpy import (amax, arange, array, asarray, asmatrix, concatenate, diff, empty, float32, 
-                   float64, full, hstack, linspace, matlib, mean, nan, nanmean, nanstd, ndarray, 
-                   newaxis, ones, pi, squeeze,reshape, savetxt, size, sqrt, stack, std, sum, 
-                   transpose, vstack, where, zeros)
+from numpy import where, zeros
 from os import listdir, mkdir, path
 from pandas import DataFrame
-import shutil
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, math)

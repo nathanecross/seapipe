@@ -10,7 +10,6 @@ with open(path.join('seapipe', 'version.py')) as version_file:
     exec(version_file.read())
 
 setup(
-
     name = "seapipe",  
     version = __version__,  
     description = "Sleep Events Analysis pipeline of EEG data",  

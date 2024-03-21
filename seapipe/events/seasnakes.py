@@ -5,7 +5,7 @@ Created on Thu Jul 29 11:00:11 2021
 @author: labottdv
 """
 
-from os import listdir, mkdir, path, stat
+from os import listdir, mkdir, path
 import shutil
 from wonambi import Dataset 
 from wonambi.attr import Annotations
@@ -14,23 +14,9 @@ from wonambi.trans import fetch
 
 from copy import deepcopy
 from datetime import datetime, date
-from itertools import product
-from numpy import (asarray, concatenate, column_stack, char, empty, nan, 
-                   ndarray, sum, zeros)
-from os import listdir, mkdir, path, walk
-from pandas import concat, DataFrame, read_csv
-from pickle import dump
-import shutil
-import sys
-import traceback
-from wonambi import Dataset
-from wonambi.attr import Annotations
-from wonambi.detect import consensus, DetectSpindle
-from wonambi.trans import (fetch, get_times)
-from wonambi.trans.analyze import event_params, export_event_params
-from ..utils.logs import create_logger, create_logger_outfile, create_logger_empty
-from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
-                        read_inversion, read_manual_peaks)
+from pandas import DataFrame
+from ..utils.logs import create_logger, create_logger_outfile
+from ..utils.load import (load_channels, read_inversion)
 from ..utils.misc import remove_duplicate_evts
 
 

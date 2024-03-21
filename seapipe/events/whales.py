@@ -6,17 +6,13 @@ Created on Thu Jul 29 10:34:53 2021
 """
 from copy import deepcopy
 from datetime import datetime, date
-from itertools import product
-from numpy import (asarray, ndarray, sum)
-from os import listdir, mkdir, path, walk
-from pandas import DataFrame, read_csv
+from os import listdir, mkdir, path
 import shutil
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.detect import consensus, DetectSpindle
-from wonambi.trans import (fetch, get_times)
-from wonambi.trans.analyze import event_params, export_event_params
-from ..utils.logs import create_logger, create_logger_outfile, create_logger_empty
+from wonambi.trans import fetch
+from ..utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
 from ..utils.misc import remove_duplicate_evts
 

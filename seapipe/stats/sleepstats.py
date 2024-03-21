@@ -6,14 +6,12 @@ Created on Wed Jul 28 16:10:26 2021
 @author: Nathan Cross
 """
 
-
 from datetime import datetime, date
-from numpy import (asarray, float64, full, int64, nan)
-from os import listdir, mkdir, path, walk
-from pandas import DataFrame, ExcelFile, read_csv
+from numpy import (asarray, float64, int64)
+from os import listdir, path, walk
+from pandas import DataFrame, read_csv
 from wonambi.attr import Annotations
-from ..utils.logs import create_logger, create_logger_outfile, create_logger_empty
-from ..utils.load import check_chans
+from ..utils.logs import create_logger, create_logger_outfile
                         
 def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all', 
                rater = None,  times = None, log_dir = None, 

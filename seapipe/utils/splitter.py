@@ -7,20 +7,8 @@ Created on Wed Mar  9 17:38:31 2022
 """
 
 from os import listdir, mkdir, path
-import math
-import mne
-from numpy import (argsort, asarray, hstack, log, linspace, mean, pi, reshape, roll, size, 
-                   sqrt, std, tile, vstack, zeros)
-from pandas import DataFrame, read_csv
-from safepickle import dump, load
-from scipy.stats import zscore
 import shutil
-from tensorpac import Pac
-from wonambi import Dataset
-from wonambi.trans import fetch
 from wonambi.attr import Annotations
-
-
 
 
 def extract_grouped_markers(xml_dir, out_dir, part, visit, rater, chan, 

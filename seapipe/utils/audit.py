@@ -7,10 +7,9 @@ Created on Mon Jul 31 13:36:12 2023
 """
 from copy import deepcopy
 from datetime import datetime
-from itertools import product
 from os import listdir, mkdir, path, rename, walk
 from numpy import array, delete, zeros
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from .logs import create_logger
