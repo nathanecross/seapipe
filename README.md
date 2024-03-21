@@ -1,3 +1,4 @@
+# About
 A package pipeline for Sleep Events Analysis of EEG data.
 
 seapipe is a Python pipeline for **S**leep **E**vents **A**nalysis. 
