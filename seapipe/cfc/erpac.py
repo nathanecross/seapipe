@@ -6,8 +6,8 @@ Created on Tue Oct  5 15:51:24 2021
 """
 from termcolor import colored
 from os import listdir, mkdir, path, walk
-from . cfc_func import _allnight_ampbin, circ_wwtest, mean_amp, klentropy
-from utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
+from .cfc_func import _allnight_ampbin, circ_wwtest, mean_amp, klentropy
+from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
 import copy
 import math
 import mne
@@ -30,7 +30,7 @@ from wonambi.attr import Annotations
 from wonambi.detect.spindle import transform_signal
 
 
-def pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
+def erp_pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
                polar, grp_name, cat, evt_type, buffer, ref_chan, oREF, nbins, idpac, 
                fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs, shift,
                laplacian=False, lapchan=None, adap_bands=(False,False),
@@ -463,7 +463,7 @@ def pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage
 
 
                             
-def cfc_grouplevel(in_dir, out_dir, band_pairs, part, visit, chan, stage, cat,
+def erp_cfc_grouplevel(in_dir, out_dir, band_pairs, part, visit, chan, stage, cat,
                    cycle_idx, shift):                        
              
     '''
@@ -638,7 +638,7 @@ def cfc_grouplevel(in_dir, out_dir, band_pairs, part, visit, chan, stage, cat,
     print('The function cfc_grouplevel completed without error.')                                          
                         
 
-def generate_adap_bands(peaks,width,chan):
+def erp_generate_adap_bands(peaks,width,chan):
     
     '''
     Generates adapted bands of 2 x width from a file containing spectral peaks,
@@ -656,7 +656,7 @@ def generate_adap_bands(peaks,width,chan):
 
 
 
-def watson_williams(in_dir, out_dir, band_pairs, chan, cycle_idx, stage, nbins,
+def erp_watson_williams(in_dir, out_dir, band_pairs, chan, cycle_idx, stage, nbins,
                     shift, test = 'within', comps = [('all','V1'), ('all','V2')]):
     
     '''

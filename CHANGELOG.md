@@ -1,5 +1,3 @@
-# seapipe
-
 Change Log
 
 Beta Version

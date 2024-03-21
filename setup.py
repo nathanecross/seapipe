@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 import pathlib
-from codecs import open
+
 from os import path
 
 here = pathlib.Path(__file__).parent.resolve()
