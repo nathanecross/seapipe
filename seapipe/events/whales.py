@@ -35,8 +35,8 @@ class whales:
     """   
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency=(11,16), rater = None, subs='all', 
-                 sessions='all', tracking = {}):
+                 grp_name, stage, frequency, rater = None, subs = 'all', 
+                 sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -53,11 +53,13 @@ class whales:
         self.subs = subs
         self.sessions = sessions
         
+        if tracking == None:
+            tracking = {}
         self.tracking = tracking
 
-    def whale_it(self, method, cat, cycle_idx=None, adap_bands=False, peaks=None, 
-                 adap_bw=4, duration=(0.5, 3),filetype='.edf', 
-                 outfile='detect_spindles_log.txt'):
+    def whale_it(self, method, cat, cycle_idx = None, adap_bands = False, 
+                 peaks = None, adap_bw = 4, duration = (0.5, 3), filetype = '.edf', 
+                 outfile = 'detect_spindles_log.txt'):
         
         '''
         Runs one (or multiple) automatic spindle detection algorithms and saves the 

@@ -29,8 +29,8 @@ class FISH:
     
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency=(11,16), rater = None, subs='all', 
-                 sessions='all', tracking = {}):
+                 grp_name, stage, frequency = (11,16), rater = None, 
+                 subs = 'all', sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -46,14 +46,15 @@ class FISH:
         
         self.subs = subs
         self.sessions = sessions
-        
+        if tracking == None:
+            tracking = {}
         self.tracking = tracking
 
-    def line(self, keyword = None, evt_name = ['spindle'], cat = (0,0,0,0), 
-             segs = None,  cycle_idx = None, adap_bands = False, param_keys = None, 
-             exclude_poor = False, reject_artf = ['Artefact', 'Arou', 'Arousal'], 
-             epoch_dur = 30, n_fft_sec = 4, Ngo = {'run':False}, 
-             outfile='export_params_log.txt'):
+    def line(self, keyword = None, evt_name = None, cat = (0,0,0,0), 
+             segs = None,  cycle_idx = None, adap_bands = False, 
+             param_keys = None, exclude_poor = False, reject_artf = None, 
+             epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
+             outfile = 'export_params_log.txt'):
                            
             '''
                 Listing Individual Night Events (LINE)
@@ -68,8 +69,12 @@ class FISH:
                 concat = (cycles, stages, discontinuous, evttypes) 
             '''
             ### 1.b. Format event names
+            if evt_name == None:
+                evt_name = ['spindle']
             if type(evt_name) is not list:
                 evt_name = [evt_name]
+            if reject_artf == None:
+                reject_artf = ['Artefact', 'Arou', 'Arousal']
             
             ### 0.a Set up logging
             flag = 0
@@ -141,6 +146,8 @@ class FISH:
             ### 1.c. Set default paramaters to export (if not pre-set)
             if param_keys is None:
                 param_keys = ['count', 'density', 'dur', 'ptp', 'energy', 'peakef']
+            if Ngo == False:
+                Ngo = {'run' : False}
             
             # 2.a Get subjects
             subs = self.subs
@@ -574,8 +581,8 @@ class FISH:
             #         tbinfo = traceback.format_tb(tb)[0]
             #         logger.info(tbinfo)
                         
-    def net(self, chan, evt_name, params = 'all',
-            cat=(1,1,1,1), cycle_idx=None, outfile=True):
+    def net(self, chan, evt_name, params = 'all', cat = (1,1,1,1), 
+            cycle_idx = None, outfile = True):
         
         '''
             aNnotated Event Tabulation (NET)

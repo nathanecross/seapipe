@@ -34,7 +34,7 @@ class seasnakes:
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs='all', 
-                 sessions='all', tracking = {}):
+                 sessions='all', tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -50,11 +50,13 @@ class seasnakes:
         self.subs = subs
         self.sessions = sessions
         
+        if tracking == None:
+            tracking = {}
         self.tracking = tracking
 
-    def detect_slowosc(self, method, cat, cycle_idx=None, duration=(0.5, 3), 
-                       average_channels = False, invert = False, filetype='.edf', 
-                       outfile='detect_slowosc_log.txt'):
+    def detect_slowosc(self, method, cat, cycle_idx = None, duration = (0.5, 3), 
+                       average_channels = False, invert = False, filetype = '.edf', 
+                       outfile = 'detect_slowosc_log.txt'):
         
         ''' Detect slow oscillations
         

@@ -241,7 +241,7 @@ class pipeline:
     def detect_spectral_peaks(self, xml_dir = None, out_dir = None, 
                               subs = 'all', sessions = 'all', chan = None, 
                               ref_chan = None, grp_name = 'eeg', rater = None, 
-                              frequency = (9,16), stage = ['NREM2','NREM3'], 
+                              frequency = (9,16), stage = None, 
                               concat_cycle = True, concat_stage = False,
                               general_opts = None, frequency_opts = None,
                               filter_opts = None, epoch_opts = None, 
@@ -272,6 +272,10 @@ class pipeline:
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
+        
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
         
         # Check annotations directory exists, run detection
         if not path.exists(xml_dir):
@@ -308,9 +312,9 @@ class pipeline:
     
     
     def detect_slow_oscillations(self, xml_dir=None, out_dir=None, subs='all', 
-                        sessions='all', filetype='.edf', method=['Staresina2015'], 
+                        sessions='all', filetype='.edf', method = None, 
                         chan=None, ref_chan=None, rater=None, grp_name='eeg',
-                        stage=['NREM2', 'NREM3'], cycle_idx=None, 
+                        stage = None, cycle_idx=None, 
                         duration=(0.2, 2), average_channels = False, 
                         invert = None, outfile=True):
         
@@ -348,6 +352,14 @@ class pipeline:
         # Format concatenation
         cat = (1,0,1,1)
         
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+            
+        # Default method
+        if method == None:
+            method = ['Staresina2015']
+        
         # Check annotations directory exists, run detection
         if not path.exists(xml_dir):
             logger.info('')
@@ -368,12 +380,12 @@ class pipeline:
         return
     
     
-    def detect_spindles(self, xml_dir=None, out_dir=None, subs='all', 
-                        sessions='all', filetype='.edf', method=['Lacourse2018'], 
-                        chan=None, ref_chan=None, rater=None, stage=['NREM2'], 
-                        grp_name='eeg', cycle_idx=None, frequency=(11,16), 
-                        adap_bands='Fixed', adap_bw=4, peaks=None, 
-                        duration=(0.5, 3), outfile=True):
+    def detect_spindles(self, xml_dir = None, out_dir = None, subs = 'all', 
+                        sessions = 'all', filetype = '.edf', method = None, 
+                        chan = None, ref_chan = None, rater = None, stage = None, 
+                        grp_name = 'eeg', cycle_idx = None, frequency = (11,16), 
+                        adap_bands = 'Fixed', adap_bw = 4, peaks = None, 
+                        duration =( 0.5, 3), outfile = True):
         
         # Set up logging
         logger = create_logger('Detect spindles')
@@ -399,6 +411,14 @@ class pipeline:
         # Format concatenation
         cat = (1,0,1,1)
         
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+        
+        # Default method
+        if method == None:
+            method = ['Moelle2011']
+            
         # Check for adapted bands
         if adap_bands == 'Fixed':
             logger.debug('Detection using FIXED frequency bands has been selected (adap_bands = Fixed)')
@@ -459,16 +479,16 @@ class pipeline:
         return
     
     
-    def export_eventparams(self, xml_dir = None, out_dir = None, subs='all', 
-                           sessions='all', chan=None, ref_chan=None, rater=None,
-                           stage=['NREM2'], grp_name='eeg', 
-                           concat_cycle=True, concat_stage=False, 
-                           cycle_idx=None, keyword = None, evt_name = 'spindle', 
-                           frequency=(11,16), segs = None, adap_bands = False, 
+    def export_eventparams(self, xml_dir = None, out_dir = None, subs = 'all', 
+                           sessions = 'all', chan = None, ref_chan = None, 
+                           rater=None, stage = None, grp_name = 'eeg', 
+                           concat_cycle = True, concat_stage = False, 
+                           cycle_idx = None, keyword = None, evt_name = 'spindle', 
+                           frequency = (11,16), segs = None, adap_bands = False, 
                            param_keys = None, exclude_poor = False, 
                            reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                            epoch_dur = 30, n_fft_sec = 4, Ngo = {'run':False},
-                           outfile=True):
+                           outfile = True):
         
         # Set up logging
         logger = create_logger('Export params')
@@ -480,6 +500,7 @@ class pipeline:
             mkdir(log_dir)
         xml_dir = select_input_dirs(self, xml_dir, evt_name)
         
+        # Check annotations directory exists
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
@@ -500,8 +521,11 @@ class pipeline:
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
-        # Check annotations directory exists, run detection
-       
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+            
+        # Run line
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, frequency, rater, subs, sessions) 
         fish.line(keyword, evt_name, cat, segs, cycle_idx, adap_bands, 
@@ -510,12 +534,12 @@ class pipeline:
         return
     
     
-    def event_dataset(self, xml_dir = None, out_dir = None, subs='all', 
-                            sessions='all', chan = None, ref_chan=None, rater=None,
-                            stage=['NREM2'], concat_stage=False, concat_cycle=True, 
-                            cycle_idx=None, grp_name='eeg', frequency=(11,16), 
-                            adap_bands = False, evt_name = 'spindle', params = 'all', 
-                            outfile=True):
+    def event_dataset(self, xml_dir = None, out_dir = None, subs = 'all', 
+                            sessions = 'all', chan = None, ref_chan = None, 
+                            rater = None, stage = None, concat_stage = False, 
+                            concat_cycle = True, cycle_idx = None, grp_name = 'eeg', 
+                            frequency = (11,16), adap_bands = False, 
+                            evt_name = 'spindle', params = 'all', outfile=True):
         
         # Set up logging
         logger = create_logger('Create dataset')
@@ -554,6 +578,10 @@ class pipeline:
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+            
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, frequency, rater, subs, sessions) 
         fish.net(chan, evt_name, params, cat, cycle_idx, outfile)

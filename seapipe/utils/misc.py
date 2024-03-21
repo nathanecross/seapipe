@@ -15,7 +15,8 @@ from wonambi.attr.annotations import Annotations, create_empty_annotations
 import shutil
 
 
-def remove_evts(xml_dir, out_dir, rater, evt_name=['spindle'], part='all', visit='all'):
+def remove_evts(xml_dir, out_dir, rater, evt_name = None, 
+                part = 'all', visit = 'all'):
     
     print('')
     print(f'Time start: {datetime.now()}')
@@ -33,6 +34,8 @@ def remove_evts(xml_dir, out_dir, rater, evt_name=['spindle'], part='all', visit
     else:
         print("ERROR: 'part' must either be an array of subject ids or = 'all' **CHECK**")
     
+    if evt_name == None:
+        evt_name = ['spindle']
     
     part.sort()                
     for i, p in enumerate(part):
@@ -77,8 +80,10 @@ def remove_evts(xml_dir, out_dir, rater, evt_name=['spindle'], part='all', visit
                     annot.remove_event_type(name=ev)
                 
                 
-def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0, 0, 0), stage=None, 
-                evt_name=['spindle'], part='all', visit='all', param_keys=None):
+def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, 
+                               cat=(0, 0, 0, 0), stage = None, 
+                               evt_name = None, part = 'all', visit = 'all', 
+                               param_keys = None):
 
     if path.exists(in_dir):
             print(in_dir + " already exists")
@@ -90,6 +95,9 @@ def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0
     print(f'Removing duplicates from files in directory {in_dir}')  
     print(f'Event = {evt_name[0]}')
     print('')
+    
+    if evt_name == None:
+        evt_name = ['spindle']
     
     # Loop through subjects
     if isinstance(part, list):
@@ -146,7 +154,7 @@ def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, cat=(0, 0
     return
 
 
-def remove_duplicate_evts(annot, evt_name, chan, stage=None):
+def remove_duplicate_evts(annot, evt_name, chan, stage = None):
     
     '''Workaround function because wonambi.attr.annotations.remove_event()
         is not working properly (and I couldn't figure out why).
@@ -171,8 +179,8 @@ def remove_duplicate_evts(annot, evt_name, chan, stage=None):
     grapho.events = evts + evts_trim          
     grapho.to_annot(annot, evt_name)
 
-def merge_xmls(in_dirs, out_dir, chan, grp_name, stage=None, evt_name=None, 
-               part='all', visit='all'):
+def merge_xmls(in_dirs, out_dir, chan, grp_name, stage = None, evt_name = None, 
+               part = 'all', visit = 'all'):
 
     for pth in in_dirs:
         if not path.exists(pth):
@@ -276,13 +284,16 @@ def merge_xmls(in_dirs, out_dir, chan, grp_name, stage=None, evt_name=None,
 
     return
 
-def rainbow_merge_evts(xml_dir, out_dir, chan, grp_name, rater, segments=None, events = None,
-                  evt_name=['spindle'], part='all', visit='all'):
+def rainbow_merge_evts(xml_dir, out_dir, chan, grp_name, rater, segments = None, 
+                       events = None, evt_name = None, part = 'all', 
+                       visit = 'all'):
     
     # Make output directory
     if not path.exists(out_dir):
         mkdir(out_dir)
     
+    if evt_name == None:
+        evt_name = ['spindle']
     
     # Loop through subjects
     if isinstance(part, list):

@@ -22,7 +22,7 @@ from wonambi.attr import Annotations
 from wonambi.trans import (fetch, frequency, get_descriptives, export_freq, 
                            export_freq_band)
 from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
-from ..utils.logs import create_logger, create_logger_outfile, create_logger_empty
+from ..utils.logs import create_logger
 from ..utils.load import load_channels, rename_channels
 
 
@@ -150,8 +150,8 @@ class Spectrum:
     """ 
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency=(11,16), rater = None, subs='all', 
-                 sessions='all'):
+                 grp_name, stage, frequency = (11,16), rater = None, 
+                 subs = 'all', sessions = 'all'):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -172,9 +172,9 @@ class Spectrum:
 
     
     def fooof_it(self, general_opts, frequency_opts, filter_opts, 
-                 epoch_opts, event_opts, fooof_opts, chan=None, rater=None, 
-                 grp_name = 'eeg', cat = (1,1,1,1), cycle_idx=None,
-                 filetype='.edf', suffix = 'fooof'):
+                 epoch_opts, event_opts, fooof_opts, chan = None, rater = None, 
+                 grp_name = 'eeg', cat = (1,1,1,1), cycle_idx = None,
+                 filetype = '.edf', suffix = 'fooof'):
         
 
         '''
@@ -485,10 +485,11 @@ class Spectrum:
         return
 
     def powerspec_it(self, cat, stage, chan, ref_chan, 
-                     general_opts, frequency_opts, rater=None, cycle_idx=None, 
-                     part='all',visit='all', filter_opts=None, epoch_opts=None, 
-                     event_opts=None, norm=None, norm_opts=None, fooof_it = False,
-                     fooof_opts=None):
+                     general_opts, frequency_opts, rater = None, cycle_idx = None, 
+                     part = 'all',visit = 'all', filter_opts = None, 
+                     epoch_opts = None, event_opts = None, norm = None, 
+                     norm_opts = None, fooof_it = False,
+                     fooof_opts = None):
         
         print(r"""    Calculating power spectrum...
               

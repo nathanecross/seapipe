@@ -5,14 +5,11 @@ Created on Wed Jan 19 14:43:23 2022
 
 @author: nathancross
 """
-
+from safepickle import dump
 from os import listdir, mkdir, path
 import math
 import mne
-from numpy import (argsort, asarray, hstack, log, linspace, mean, pi, reshape, roll, size, 
-                   sqrt, std, tile, vstack, zeros)
-from pandas import DataFrame, read_csv
-from scipy.stats import zscore
+from numpy import (argsort, asarray, linspace, tile, vstack, zeros)
 import shutil
 from wonambi import Dataset
 from wonambi.trans import fetch
@@ -23,7 +20,8 @@ from wonambi.attr import Annotations
     
 '''
 
-def marker_to_annot(rec_dir, xml_dir, out_dir, part, visit, rater, chan, marker_name=None, file_type ='edf'):
+def marker_to_annot(rec_dir, xml_dir, out_dir, part, visit, rater, chan, 
+                    marker_name = None, file_type = 'edf'):
     
     '''
      Reads marker data from EDF directly and exports it into Annotations file 
@@ -222,7 +220,7 @@ def erp_analysis(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, ref_ch
                         
                         
                         ## Format data for analysis
-                        print(f'Preparing p, vis for ERP analysis')
+                        print('Preparing p, vis for ERP analysis')
                         print(r"""
                               
                                   |
@@ -315,7 +313,7 @@ def insert_virtual_markers(rec_dir, xml_dir, out_dir, part, visit, rater, chan, 
             else:
                 if not path.exists(out_dir + '/' + p + '/' + vis):
                     mkdir(out_dir + '/' + p + '/' + vis)
-                rec_file = [s for s in listdir(rec_dir + '/' + p + '/' + vis) if ("."+file_type) in s if not s.startswith(".")]
+                #rec_file = [s for s in listdir(rec_dir + '/' + p + '/' + vis) if ("."+file_type) in s if not s.startswith(".")]
                 xml_file = [x for x in listdir(xml_dir + '/' + p + '/' + vis) if x.endswith('.xml') if not x.startswith(".")] 
                 
                 if len(xml_file) == 0:
@@ -333,7 +331,7 @@ def insert_virtual_markers(rec_dir, xml_dir, out_dir, part, visit, rater, chan, 
                     shutil.copy(xdir + xml_file[0], backup_file)
                     
                     # Open recording and annotations files
-                    dset = Dataset(rec_dir + '/' + p + '/' + vis + '/' + rec_file[0]) 
+                    #dset = Dataset(rec_dir + '/' + p + '/' + vis + '/' + rec_file[0]) 
                     annot = Annotations(backup_file, rater_name=rater)  
                          
                     # Get start time of first sleep stage
