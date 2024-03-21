@@ -132,182 +132,182 @@ def event_spectrogram(rec_dir, xml_dir, out_dir, part, visit, stage, cycle_idx, 
                         f.write('opening participant edf and xml')
                     ###########################            DEBUGGING              ###########################
     
-            # Load data
-            dset = Dataset(rec_dir + '/' + p + '/' + vis + '/' + rec_file[0]) 
-            s_freq = dset.header['s_freq']
-            annot = Annotations(xml_dir + '/' + p + '/' + vis + '/' + xml_file[0], 
-                                rater_name=None)
-            
-            # Get sleep cycles
-            if cycle_idx is not None and cat[0] == 1:
-                all_cycles = annot.get_cycles()
-                scycle = [all_cycles[i - 1] for i in cycle_idx if i <= len(all_cycles)]
-            else:
-                scycle = [None]
-            
-            # Loop through channels
-            for k, ch in enumerate(chan):
+                # Load data
+                dset = Dataset(rec_dir + '/' + p + '/' + vis + '/' + rec_file[0]) 
+                s_freq = dset.header['s_freq']
+                annot = Annotations(xml_dir + '/' + p + '/' + vis + '/' + xml_file[0], 
+                                    rater_name=None)
                 
-                print(f'Reading data for {p}, visit {vis}, channel {ch}')
-                chan_full = ch + ' (' + grp_name + ')'
+                # Get sleep cycles
+                if cycle_idx is not None and cat[0] == 1:
+                    all_cycles = annot.get_cycles()
+                    scycle = [all_cycles[i - 1] for i in cycle_idx if i <= len(all_cycles)]
+                else:
+                    scycle = [None]
                 
-                
-                # Loop through sleep cycles 
-                for l, cyc in enumerate(scycle):
-                    print('')
-                    # Select and read data
-                    if cycle_idx is not None:
-                        print(f'Analysing, cycle {l+1}')
-                    else:
-                        print('Analysing, all cycles')
-                    print('')
-                    print('Using filter settings:')
-                    print('')
-                    print(colored('Notch filter:','white', attrs=['bold']),
-                          colored(f"{filter_opts['notch']}", 'yellow', attrs=['bold']))
-                    print(colored('Notch harmonics filter:','white', attrs=['bold']),
-                          colored(f"{filter_opts['notch_harmonics']}", 'yellow', attrs=['bold']))
-                    print(colored('Laplacian filter:','white', attrs=['bold']),
-                          colored(f"{filter_opts['laplacian']}", 'yellow', attrs=['bold']))
+                # Loop through channels
+                for k, ch in enumerate(chan):
                     
-                    # Fetch segments from recording
-                    segments = fetch(dset, annot, cat=cat, chan_full=[chan_full], 
-                                     cycle=cyc, evt_type=evt_type, stage=stage,
-                                     buffer=buffer)
-                    if filter_opts['laplacian'] or filter_opts['notch'] or filter_opts['notch_harmonics']:
-                        chans = filter_opts['lapchan']
-                    else:
-                        chans = [ch]
-                    segments.read_data(chan=chans, ref_chan=ref_chan)
+                    print(f'Reading data for {p}, visit {vis}, channel {ch}')
+                    chan_full = ch + ' (' + grp_name + ')'
                     
-                    if len(segments) <1:
-                        print(colored('WARNING |', 'yellow', attrs=['bold']),
-                              colored('No segments found.',
-                                      'white', attrs=['bold']))
-                        
-                    nsegs=[]
-                    # Check concatenation of stages
-                    if cat[1] == 0:
-                        print('Splitting stages')
-                        for s, st in enumerate(stage):
-                            segs = [s for s in segments if st in s['stage']]
-                            nsegs.append(segs)
-                    else:
-                        nsegs = [segments]
                     
-                    for s in range(len(nsegs)):
-                        segments = nsegs[s]
-                        
-                        if cat[1] == 1:
-                            stagename = ''.join(stage) 
-                        else: 
-                            stagename = stage[s]
-                            
+                    # Loop through sleep cycles 
+                    for l, cyc in enumerate(scycle):
                         print('')
-                        print(f'Stage {stagename}')
-                        print('Creating spectrogram')
-                        print(f'No. Segments = {len(segments)}')
-                       
-                        z=0
-                        for m, seg in enumerate(segments):
-                            
-                            # Print out progress
-                            if progress:
-                                z +=1
-                                j = z/len(segments)
-                                sys.stdout.write('\r')
-                                sys.stdout.write(f"Progress: [{'=' * int(50 * j):{50}s}] {int(100 * j)}%")
-                                sys.stdout.flush()
-                            
-                            # Select data from segment
-                            data = seg['data']
-                            
-                            # Find sampling frequency
-                            s_freq = data.s_freq
-
-                            # Apply filtering (if necessary)
-                            if filter_opts['notch']:
-                                selectchans = list(data.chan[0])
-                                data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                            channel=selectchans, 
-                                                            freq=filter_opts['notch_freq'],
-                                                            rename=filter_opts['chan_rename'],
-                                                            renames=filter_opts['renames'])
-                            
-                            if filter_opts['notch_harmonics']: 
-                                selectchans = list(data.chan[0])
-                                data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                          channel=selectchans,
-                                                          rename=filter_opts['chan_rename'],
-                                                          renames=filter_opts['renames'])
-                            
-                            if filter_opts['laplacian']:
-                                data = laplacian_mne(data, oREF=filter_opts['oREF'], channel=ch, 
-                                                     ref_chan=ref_chan, 
-                                                     laplacian_rename=filter_opts['laplacian_rename'], 
-                                                     renames=filter_opts['renames'])
-                                dat = data[0]
-                            else:
-                                dat = data()[0][0]
-                            
-                            
-                            # Check polarity of recording
-                            if isinstance(polar, list):
-                                polarity = polar[i]
-                            else:
-                                polarity = polar
-                            if polarity == 'opposite':
-                                dat = dat*-1 
-                    
-                            if m == 0:
-                                dat = dat[int((len(dat)/2)-(s_freq*buffer)):int((len(dat)/2)+(s_freq*buffer))]
-                                out = dat.reshape((1,len(dat)))
-                            else:
-                                dat = dat[int((len(dat)/2)-(s_freq*buffer)):int((len(dat)/2)+(s_freq*buffer))]
-                                dat = dat.reshape((1,len(dat)))
-                                out = append(out,dat,axis=0)
-                                 
-                    
-                    # Calaculate spectrogram
-                    f,t,spect = spectrogram(out, fs=s_freq, nfft=filter_opts['nfft'], 
-                                            noverlap=filter_opts['noverlap'],)
-                    
-                    # Apply mask to extract only frequencies you want
-                    freqs = filter_opts['bandpass']
-                    highpass = where(f==freqs[0])[0][0]
-                    lowpass = where(f==freqs[1])[0][0]
-                    spect = flip(spect[:,highpass:lowpass,:], axis=1)
-                    f = f[highpass:lowpass]
-                    
-                    # Prepare filename
-                    if cat[0] == 1:
-                        cyclename = 'wholenight'
-                    else: 
-                        cyclename = f'cycle{l+1}' 
+                        # Select and read data
+                        if cycle_idx is not None:
+                            print(f'Analysing, cycle {l+1}')
+                        else:
+                            print('Analysing, all cycles')
+                        print('')
+                        print('Using filter settings:')
+                        print('')
+                        print(colored('Notch filter:','white', attrs=['bold']),
+                              colored(f"{filter_opts['notch']}", 'yellow', attrs=['bold']))
+                        print(colored('Notch harmonics filter:','white', attrs=['bold']),
+                              colored(f"{filter_opts['notch_harmonics']}", 'yellow', attrs=['bold']))
+                        print(colored('Laplacian filter:','white', attrs=['bold']),
+                              colored(f"{filter_opts['laplacian']}", 'yellow', attrs=['bold']))
                         
-                    # Save average spectrogram to dataframe
-                    spectav = mean(spect,axis=0)
-                    d = DataFrame(spectav)
-                    d.columns = t
-                    d.index = flip(f)
-                    d.to_csv(path_or_buf=out_dir + '/' + p + '/' + vis + '/' + 
-                             p + '_' + vis + '_' + ch + '_' + stagename +  '_' + cyclename + 
-                             '_spectrogram.csv', sep=',')
-                    
-                    # Save spectrogram for every event to pickle file
-                    spectro = {'spect':spect, 'f':f, 't':t}
-                    with open(out_dir + '/' + p + '/' + vis + '/' + 
-                             p + '_' + vis + '_' + ch + '_' + stagename + '_' + cyclename + 
-                              '_spectrogram.p', 'wb') as ff:
-                         dump(spectro, ff)
-                         
-                    # Save raw and averaged event signal to pickle file
-                    datav = mean(out, axis=0)
-                    signal = {'raw':out, 'average':datav}
-                    with open(out_dir + '/' + p + '/' + vis + '/' + 
-                             p + '_' + vis + '_' + ch + '_' + stagename + '_' + cyclename + 
-                              '_signal.p', 'wb') as ff:
-                         dump(signal, ff)
+                        # Fetch segments from recording
+                        segments = fetch(dset, annot, cat=cat, chan_full=[chan_full], 
+                                         cycle=cyc, evt_type=evt_type, stage=stage,
+                                         buffer=buffer)
+                        if filter_opts['laplacian'] or filter_opts['notch'] or filter_opts['notch_harmonics']:
+                            chans = filter_opts['lapchan']
+                        else:
+                            chans = [ch]
+                        segments.read_data(chan=chans, ref_chan=ref_chan)
+                        
+                        if len(segments) <1:
+                            print(colored('WARNING |', 'yellow', attrs=['bold']),
+                                  colored('No segments found.',
+                                          'white', attrs=['bold']))
+                            
+                        nsegs=[]
+                        # Check concatenation of stages
+                        if cat[1] == 0:
+                            print('Splitting stages')
+                            for s, st in enumerate(stage):
+                                segs = [s for s in segments if st in s['stage']]
+                                nsegs.append(segs)
+                        else:
+                            nsegs = [segments]
+                        
+                        for s in range(len(nsegs)):
+                            segments = nsegs[s]
+                            
+                            if cat[1] == 1:
+                                stagename = ''.join(stage) 
+                            else: 
+                                stagename = stage[s]
+                                
+                            print('')
+                            print(f'Stage {stagename}')
+                            print('Creating spectrogram')
+                            print(f'No. Segments = {len(segments)}')
+                           
+                            z=0
+                            for m, seg in enumerate(segments):
+                                
+                                # Print out progress
+                                if progress:
+                                    z +=1
+                                    j = z/len(segments)
+                                    sys.stdout.write('\r')
+                                    sys.stdout.write(f"Progress: [{'=' * int(50 * j):{50}s}] {int(100 * j)}%")
+                                    sys.stdout.flush()
+                                
+                                # Select data from segment
+                                data = seg['data']
+                                
+                                # Find sampling frequency
+                                s_freq = data.s_freq
+    
+                                # Apply filtering (if necessary)
+                                if filter_opts['notch']:
+                                    selectchans = list(data.chan[0])
+                                    data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
+                                                                channel=selectchans, 
+                                                                freq=filter_opts['notch_freq'],
+                                                                rename=filter_opts['chan_rename'],
+                                                                renames=filter_opts['renames'])
+                                
+                                if filter_opts['notch_harmonics']: 
+                                    selectchans = list(data.chan[0])
+                                    data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
+                                                              channel=selectchans,
+                                                              rename=filter_opts['chan_rename'],
+                                                              renames=filter_opts['renames'])
+                                
+                                if filter_opts['laplacian']:
+                                    data = laplacian_mne(data, oREF=filter_opts['oREF'], channel=ch, 
+                                                         ref_chan=ref_chan, 
+                                                         laplacian_rename=filter_opts['laplacian_rename'], 
+                                                         renames=filter_opts['renames'])
+                                    dat = data[0]
+                                else:
+                                    dat = data()[0][0]
+                                
+                                
+                                # Check polarity of recording
+                                if isinstance(polar, list):
+                                    polarity = polar[i]
+                                else:
+                                    polarity = polar
+                                if polarity == 'opposite':
+                                    dat = dat*-1 
+                        
+                                if m == 0:
+                                    dat = dat[int((len(dat)/2)-(s_freq*buffer)):int((len(dat)/2)+(s_freq*buffer))]
+                                    out = dat.reshape((1,len(dat)))
+                                else:
+                                    dat = dat[int((len(dat)/2)-(s_freq*buffer)):int((len(dat)/2)+(s_freq*buffer))]
+                                    dat = dat.reshape((1,len(dat)))
+                                    out = append(out,dat,axis=0)
+                                     
+                        
+                        # Calaculate spectrogram
+                        f,t,spect = spectrogram(out, fs=s_freq, nfft=filter_opts['nfft'], 
+                                                noverlap=filter_opts['noverlap'],)
+                        
+                        # Apply mask to extract only frequencies you want
+                        freqs = filter_opts['bandpass']
+                        highpass = where(f==freqs[0])[0][0]
+                        lowpass = where(f==freqs[1])[0][0]
+                        spect = flip(spect[:,highpass:lowpass,:], axis=1)
+                        f = f[highpass:lowpass]
+                        
+                        # Prepare filename
+                        if cat[0] == 1:
+                            cyclename = 'wholenight'
+                        else: 
+                            cyclename = f'cycle{l+1}' 
+                            
+                        # Save average spectrogram to dataframe
+                        spectav = mean(spect,axis=0)
+                        d = DataFrame(spectav)
+                        d.columns = t
+                        d.index = flip(f)
+                        d.to_csv(path_or_buf=out_dir + '/' + p + '/' + vis + '/' + 
+                                 p + '_' + vis + '_' + ch + '_' + stagename +  '_' + cyclename + 
+                                 '_spectrogram.csv', sep=',')
+                        
+                        # Save spectrogram for every event to pickle file
+                        spectro = {'spect':spect, 'f':f, 't':t}
+                        with open(out_dir + '/' + p + '/' + vis + '/' + 
+                                 p + '_' + vis + '_' + ch + '_' + stagename + '_' + cyclename + 
+                                  '_spectrogram.p', 'wb') as ff:
+                             dump(spectro, ff)
+                             
+                        # Save raw and averaged event signal to pickle file
+                        datav = mean(out, axis=0)
+                        signal = {'raw':out, 'average':datav}
+                        with open(out_dir + '/' + p + '/' + vis + '/' + 
+                                 p + '_' + vis + '_' + ch + '_' + stagename + '_' + cyclename + 
+                                  '_signal.p', 'wb') as ff:
+                             dump(signal, ff)
     
     print('The function event_spectrogram completed without error.')
     return
