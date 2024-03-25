@@ -9,13 +9,13 @@ from copy import deepcopy
 from datetime import datetime
 from os import listdir, mkdir, path, rename, walk
 from numpy import array, delete, zeros
-from pandas import DataFrame
+from pandas import DataFrame, read_csv
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from .logs import create_logger
 from .load import load_channels, rename_channels
 
-def check_dataset(datapath, outfile = False, filetype='.edf',
+def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False,
                   logger=create_logger("Audit")):
     
     """Audits the directory specified by <in_dir> to check if the dataset is
@@ -25,6 +25,7 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
     """
     
     # Begin directory check
+    datapath = rootpath + '/DATA/'
     if not path.exists(datapath):
         logger.info('')
         logger.error(f'PATH: {datapath} does not exist. Check documentation for how to arrange data:')
@@ -36,8 +37,13 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
         logger.debug(f'Checking dataset in directory: {datapath}')
         
         # Extract participants inside <indir>
-        part = [x for x in listdir(datapath) if not '.' in x]
-        part.sort()
+        if not tracking:
+            part = [x for x in listdir(datapath) if not '.' in x]
+            part.sort()
+        else:
+            logger.debug(f'Reading participant names from {tracking}')
+            part = read_csv(f'{rootpath}/{tracking}' , sep='\t')
+            part = part['sub'].drop_duplicates()
         
         # Initiate arrays
         nsd = zeros(len(part), dtype=int)
@@ -49,8 +55,16 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
         # Check number of subdirectories per participant
         for p, pt in enumerate(part):
             
-            dirs = [x for x in listdir(f'{datapath}/{pt}') if not '.' in x]
-            files = [x for x in listdir(f'{datapath}/{pt}') if '.' in x if not '.DS_Store' in x]
+            try:
+                dirs = [x for x in listdir(f'{datapath}/{pt}') if not '.' in x]
+                files = [x for x in listdir(f'{datapath}/{pt}') if '.' in x if not '.DS_Store' in x]
+            except:
+                finalbids += 1
+                logger.info('')
+                logger.critical(f"{pt} directory doesn't exist in {datapath}.")
+                dirs = []
+                files = {}
+            
             nsd[p] = len(dirs)
             annots = 0
             edfs = 0
@@ -61,7 +75,7 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
                     nedf[p] = len([x for x in files if filetype in x])
                     logger.info('')
                     logger.critical(f'{pt} has 0 sessions directories.')
-                else:
+                elif type(files) == list:
                     logger.info('')
                     logger.critical(f'{pt} has no files')
                     
@@ -110,7 +124,8 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
         subdirs[subdirs.columns[0]] = bids
         subdirs[subdirs.columns[1]] = nsd
         subdirs[subdirs.columns[2]] = nedf
-        subdirs[subdirs.columns[3]] = ['!!' if c1!=c2 else '' for c1,c2 in 
+        subdirs[subdirs.columns[3]] = ['!!' if c1!=c2 else '!!' if c1==0 else '!!' 
+                                       if c2==0 else '' for c1,c2 in 
                                        zip(subdirs['#sessions'], subdirs['#recordings']) ]
         
         # Save output to file (if requested)
@@ -128,12 +143,13 @@ def check_dataset(datapath, outfile = False, filetype='.edf',
             logger.debug('The dataset appears compatible for SEAPIPE analysis.')
             logger.info('')
         else: 
+            logger.info('')
             logger.critical('The dataset DOES NOT appear compatible for SEAPIPE analysis.')
             logger.info('')
             
     return subdirs
 
-def make_bids(in_dir, origin = 'SCN'):
+def make_bids(in_dir, origin = 'SCN', filetype = '.edf'):
     
     """Converts the directory specified by <in_dir> to be BIDS compatible.
     You can specify the origin format of the data. For now, this only converts
@@ -160,7 +176,7 @@ def make_bids(in_dir, origin = 'SCN'):
                 mkdir(f'{in_dir}/sub-{part}/ses-{ses}/eeg/')
                 
                 # EDFs
-                files = [x for x in listdir(dst) if '.edf' in x] 
+                files = [x for x in listdir(dst) if filetype in x] 
                 for f, file in enumerate(files):
                     src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
                     
@@ -169,7 +185,7 @@ def make_bids(in_dir, origin = 'SCN'):
                     else:
                         newfile = file.split('.')[0]
                     
-                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg.edf'
+                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg{filetype}'
                     rename(src, dst)
                 
                 # XMLs
@@ -331,7 +347,10 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
         else:
             methods = ['Lacourse2018','Moelle2011','Ferrarelli2007','Nir2011',
                        'Wamsley2012','Martin2013','Ray2015','FASST','FASST2',
-                       'UCSD','Concordia']
+                       'UCSD','Concordia','Lacourse2018_adap','Moelle2011_adap',
+                       'Ferrarelli2007_adap','Nir2011_adap','Wamsley2012_adap',
+                       'Martin2013_adap','Ray2015_adap','FASST_adap','FASST2_adap',
+                       'UCSD_adap','Concordia_adap']
             for sub in spin_dict.keys():
                 for ses in spin_dict[sub]:
                     if not spin_dict[sub][ses] == '-': 

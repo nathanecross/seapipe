@@ -42,7 +42,8 @@ setup(
                       "pandas",
                       "scipy",
                       "tensorpac",
-                      "wonambi"],  
+                      "wonambi",
+                      "openpyxl"],  
     package_data={ 
         "seapipe": ["VERSION"],
     },

@@ -6,7 +6,7 @@ Created on Tue Jul 25 12:07:36 2023
 @author: nathancross
 """
 from os import listdir, mkdir, path, remove, walk
-from pandas import DataFrame
+from pandas import DataFrame, read_csv
 from .events.fish import FISH
 from .events.whales import whales
 from .events.seasnakes import seasnakes
@@ -65,14 +65,14 @@ class pipeline:
         self.outfile = outfile
         if not path.exists(f'{self.outpath}/audit'):
             mkdir(f'{self.outpath}/audit')
-        self.audit_init = check_dataset(self.datapath, self.outfile, filetype)
+        self.audit_init = check_dataset(self.rootpath, self.outfile, filetype)
         
         self.tracking = {}
         self.track(subs='all', ses='all', 
                    step=['staging','spindle','slowwave','pac','sync','psa'],
                    show=False, log=False)
        
-    def audit(self, outfile=False, filetype='.edf'):
+    def audit(self, outfile = False, tracking = False, filetype = '.edf'):
         
         ''' Audits the dataset for BIDS compatibility.
             Includes option to save the audit to an output file.
@@ -86,7 +86,8 @@ class pipeline:
         if not outfile and not self.outfile:
             logger = create_logger("Audit")
             logger.propagate = False
-            self.audit_update = check_dataset(self.datapath, False, filetype, logger)
+            self.audit_update = check_dataset(self.rootpath, False, filetype, 
+                                              tracking, logger)
         else:
             if not outfile:
                 outfile = self.outfile
@@ -95,7 +96,8 @@ class pipeline:
                 remove(out)
             logger = create_logger_outfile(outfile, name = 'Audit')
             logger.propagate = False
-            self.audit_update = check_dataset(self.datapath, out, filetype, logger)
+            self.audit_update = check_dataset(self.rootpath, out, filetype, 
+                                              tracking, logger)
             
         logger.info('')
         logger.info(self.audit_update)
@@ -140,12 +142,12 @@ class pipeline:
                 logger.info('-' * 10)
 
     
-    def track(self, subs='all', ses='all', step=None, chan=None, stage=None,
-                 outfile=False, show=True, log=True):
+    def track(self, subs = 'all', ses = 'all', step = None, chan = None, 
+              stage = None, outfile = False, show = True, log = True):
         
         ## Set up logging
-        lg = create_logger('Tracking')
-        lg.info('')
+        logger = create_logger('Tracking')
+        logger.info('')
         
         ## Set tracking variable
         if self.tracking:
@@ -156,12 +158,20 @@ class pipeline:
         ## Track sessions  
         if not isinstance(subs, list) and subs == 'all':
             subs = [x for x in listdir(self.datapath) if '.' not in x]
+        else:
+            subs = read_csv(f'{self.rootpath}/{subs}', sep='\t')
+            subs = subs['sub'].drop_duplicates().tolist()
         subs.sort()
         
         # Tracking
         tracking['ses'] = {}
         for sub in subs:
-            tracking['ses'][sub] = [x for x in listdir(f'{self.datapath}/{sub}') if '.' not in x]
+            try:
+                tracking['ses'][sub] = [x for x in listdir(f'{self.datapath}/{sub}') 
+                                    if '.' not in x]
+            except:
+                logger.warning(f'No sessions found for {sub}')
+                tracking['ses'][sub] = ['-']
             
         # Dataframe
         df = DataFrame(data=None, dtype=object)
@@ -182,8 +192,8 @@ class pipeline:
             self.tracking = {**self.tracking, **tracking}
         
         if show:
-            lg.info('')
-            lg.info(df)
+            logger.info('')
+            logger.info(df)
         if outfile:
             df.to_csv(f'{self.outpath}/audit/{outfile}')
 
@@ -196,8 +206,8 @@ class pipeline:
         extract_channels(self.datapath, exclude=exclude)
         
     def export_macro_stats(self, xml_dir = None, out_dir = None, 
-                                 subs='all', sessions='all', times = None,
-                                 rater = None, outfile = True):
+                                 subs = 'all', sessions = 'all', 
+                                 times = None, rater = None, outfile = True):
         
         # Set up logging
         logger = create_logger('Export macro stats')
