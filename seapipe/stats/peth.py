@@ -3,7 +3,7 @@
 """
 Created on Thu Feb 10 11:33:57 2022
 
-@author: nathancross
+@author: nathancross hello
 """
 
 from math import floor
