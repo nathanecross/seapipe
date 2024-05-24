@@ -52,7 +52,7 @@ class FISH:
 
     def line(self, keyword = None, evt_name = None, cat = (0,0,0,0), 
              segs = None,  cycle_idx = None, adap_bands = False, 
-             param_keys = None, exclude_poor = False, reject_artf = None, 
+             param_keys = 'all', exclude_poor = False, reject_artf = None, 
              epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
              outfile = 'export_params_log.txt'):
                            
@@ -145,7 +145,11 @@ class FISH:
     
             ### 1.c. Set default paramaters to export (if not pre-set)
             if param_keys is None:
-                param_keys = ['count', 'density', 'dur', 'ptp', 'energy', 'peakef']
+                params = {k: 0 for k in ['dur', 'minamp', 'maxamp', 'ptp', 'rms',
+                                          'power', 'peakpf', 'energy', 'peakef']}
+            elif param_keys == 'all':
+                params = {k: 1 for k in ['dur', 'minamp', 'maxamp', 'ptp', 'rms',
+                                          'power', 'peakpf', 'energy', 'peakef']}
             if Ngo == False:
                 Ngo = {'run' : False}
             
@@ -304,7 +308,7 @@ class FISH:
                                     # Export event parameters 
                                     lg = create_logger_empty()
                                     try:
-                                        data = event_params(segments, params='all', 
+                                        data = event_params(segments, params=param_keys, 
                                                             band=freq, n_fft=n_fft)
                                         if not path.exists(self.out_dir + '/' + sub):
                                             mkdir(self.out_dir + '/' + sub)
@@ -375,7 +379,7 @@ class FISH:
                                                 
                                                 # Export event parameters 
                                                 lg = create_logger_empty()
-                                                data = event_params(segments, params='all', 
+                                                data = event_params(segments, params=params, 
                                                                     band=freq, n_fft=n_fft)
                                                 if not path.exists(self.out_dir + '/' + sub):
                                                     mkdir(self.out_dir + '/' + sub)
@@ -427,14 +431,19 @@ class FISH:
                                             
                                             # Export event parameters 
                                             lg = create_logger_empty()
-                                            data = event_params(segments, params='all', 
+                                            data = event_params(segments, params=params, 
                                                                 band=freq, n_fft=n_fft)
+                                            if not data:
+                                                data = [x for x in segments]
+                                            else:
+                                                data = sorted(data, key=lambda x: x['start'])
+                                            
                                             if not path.exists(self.out_dir + '/' + sub):
                                                 mkdir(self.out_dir + '/' + sub)
                                             if not path.exists(self.out_dir + '/' + sub + '/' + ses):
                                                 mkdir(self.out_dir + '/' + sub + '/' + ses)
                                             out_dir = self.out_dir + '/' + sub + '/' + ses
-                                            data = sorted(data, key=lambda x: x['start'])
+                                            
                                             outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_{event}.csv'
                                             logger.debug('Writing to ' + outputfile)  
                                             export_event_params(outputfile, data, 
@@ -496,7 +505,7 @@ class FISH:
                                             
                                             # Export event parameters 
                                             lg = create_logger_empty()
-                                            data = event_params(segments, params='all', 
+                                            data = event_params(segments, params=params, 
                                                                 band=freq, n_fft=n_fft)
                                             if not path.exists(self.out_dir + '/' + sub):
                                                 mkdir(self.out_dir + '/' + sub)
@@ -548,7 +557,7 @@ class FISH:
                                             n_fft = int(n_fft_sec * s_freq)
                                         
                                         # Export event parameters
-                                        data = event_params(segments, params='all', 
+                                        data = event_params(segments, params=params, 
                                                             band=freq, n_fft=n_fft)
                                         if data:
                                                 data = sorted(data, key=lambda x: x['start'])

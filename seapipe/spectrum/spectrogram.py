@@ -9,39 +9,63 @@ Created on Mon Mar 27 14:18:54 2023
 
 " Spectrogram on events."
 
-
-from numpy import (abs, angle, append, arange, digitize, float64, flip, histogram, 
-                   mean, ones, roll, reshape, squeeze, std, unwrap, where, zeros)
+from copy import deepcopy
+from datetime import datetime, date
+from numpy import (append, flip, mean, where, zeros)
 from os import listdir, mkdir, path, walk
 from pandas import DataFrame
 from safepickle import dump, load
-from scipy.signal import butter, hilbert, filtfilt, spectrogram
-from scipy.stats import binned_statistic, pearsonr
-from scipy import fftpack
+from scipy.signal import spectrogram
+from scipy.stats import binned_statistic
 import sys
-from tensorpac import Pac
 from termcolor import colored
-from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
+from ..utils.misc import laplacian_mne, notch_mne, notch_mne2
+from ..utils.logs import create_logger, create_logger_outfile
+from ..utils.load import load_channels, rename_channels
+
 from wonambi.attr import Annotations 
 from wonambi.trans import fetch
 from wonambi import Dataset
+import shutil
 
-def event_spectrogram(rec_dir, xml_dir, out_dir, part, visit, stage, cycle_idx, chan, 
-                      ref_chan, grp_name, evt_type, buffer, polar, cat, filter_opts, 
-                      progress=True):
+def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage, 
+                      cycle_idx, chan, ref_chan, grp_name, evt_type, buffer, 
+                      polar, cat, filter_opts, tracking, progress=True, 
+                      outfile=False, filetype = '.edf'):
+
+        
+    ### 0.a Set up logging
+    flag = 0
+    tracking = self.tracking
+    if outfile == True:
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{self.log_dir}/detect_spindles_Spectrogram_{today}_log.txt'
+        logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
+        logger.info('')
+        logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
+    elif outfile:
+        logfile = f'{self.log_dir}/{outfile}'
+        logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
+    else:
+        logger = create_logger('Detect spindles')
     
-    
-    
-    print(r"""    Computing spectrogram...
+    logger.debug(r"""    Computing spectrogram...
           
-             |.....................
-             |........''''.........
-             |......''''''''.......
-             |.....'''''''''.......
-             |........'''..........
-             |........'''..........
-             |........'''..........
-             |____________________
+                 
+             |................................................
+             |........................ ..  ...................
+             |...............'.......    .....................
+             |....  ......... .......  .......'...............
+             |....   ..'..... .......  '......'......'........
+             |...  .    ..... .......   ......'......'........
+             |...  .... ..... ................'......'........
+             |.... .... ..... ............... '......'........
+             |....,...; .... ',.....'........  ...... ........
+             |........   •.,    •... '.......  '..... ........
+             |.......;   '.;  . .... '......    ..... ........
+             |......'     '.  . '...   ...       ..,  '.......
+             |________________________________________________
                      (Hz)
           
           """)
@@ -50,20 +74,96 @@ def event_spectrogram(rec_dir, xml_dir, out_dir, part, visit, stage, cycle_idx, 
     if not path.exists(out_dir):
         mkdir(out_dir)
     
-    
-    ## BIDS CHECKING
-    # Check input participants
-    if isinstance(part, list):
+    # b. Check input list
+    subs = self.subs
+    if isinstance(subs, list):
         None
-    elif part == 'all':
-            part = listdir(rec_dir)
-            part = [ p for p in part if not '.' in p]
+    elif subs == 'all':
+            subs = listdir(self.rec_dir)
+            subs = [p for p in subs if not '.' in p]
     else:
-        print('')
-        print(colored('ERROR |', 'red', attrs=['bold']),
-              colored("'part' must either be an array of subject ids or = 'all'" ,'cyan', attrs=['bold']))
-        print('')
+        logger.error("'subs' must either be an array of subject ids or = 'all' ") 
     
+    
+    # a. Begin loop through participants
+    subs.sort()
+    for i, sub in enumerate(subs):
+        tracking[f'{sub}'] = {}
+        # b. Begin loop through sessions
+        sessions = self.sessions
+        if sessions == 'all':
+            sessions = listdir(self.rec_dir + '/' + sub)
+            sessions = [x for x in sessions if not '.' in x]   
+        
+        for v, ses in enumerate(sessions):
+            logger.info('')
+            logger.debug(f'Commencing {sub}, {ses}')
+            tracking[f'{sub}'][f'{ses}'] = {'spindle':{}} 
+
+            ## c. Load recording
+            rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
+            try:
+                edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
+                dset = Dataset(rdir + edf_file[0])
+            except:
+                logger.warning(f' No input {filetype} file in {rdir}')
+                break
+    
+            ## d. Load annotations
+            xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
+            try:
+                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                # Copy annotations file before beginning
+                if not path.exists(self.out_dir):
+                    mkdir(self.out_dir)
+                if not path.exists(self.out_dir + '/' + sub):
+                    mkdir(self.out_dir + '/' + sub)
+                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                if not path.exists(backup_file):
+                    shutil.copy(xdir + xml_file[0], backup_file)
+                else:
+                    logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                annot = Annotations(backup_file, rater_name=self.rater)
+            except:
+                logger.warning(f' No input annotations file in {xdir}')
+                break
+            
+            ## e. Get sleep cycles (if any)
+            if cycle_idx is not None:
+                all_cycles = annot.get_cycles()
+                cycle = [all_cycles[y - 1] for y in cycle_idx if y <= len(all_cycles)]
+            else:
+                cycle = None
+            
+            ## f. Channel setup 
+            pflag = deepcopy(flag)
+            flag, chanset = load_channels(sub, ses, self.chan, self.ref_chan,
+                                          flag, logger)
+            if flag - pflag > 0:
+                logger.warning(f'Skipping {sub}, {ses}...')
+                break
+            
+            newchans = rename_channels(sub, ses, self.chan, logger)
+            
+            for c, ch in enumerate(chanset):
+                
+                # 5.b Rename channel for output file (if required)
+                if newchans:
+                    fnamechan = newchans[ch]
+                else:
+                    fnamechan = ch
+
+                # h. Read data
+                logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
+                logger.debug(f"Using filter settings:\nNotch filter: {filter_opts['notch']}")
+                logger.debug(f"Notch harmonics filter: {filter_opts['notch_harmonics']}")
+                logger.debug(f"Laplacian filter: {filter_opts['laplacian']}")
+
+                
+                
     # Check input visits
     if isinstance(visit, list):
         None

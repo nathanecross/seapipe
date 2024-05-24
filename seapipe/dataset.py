@@ -443,12 +443,17 @@ class pipeline:
                 logger.warning(f"Some spectral peak entries in 'tracking.tsv' are inconsistent or missing. In these cases, detection will revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
                 logger.info('')
             peaks = check_chans(self.rootpath, None, False, logger)
-        elif adap_bands == 'Auto':    
+        elif adap_bands == 'Auto':                
             logger.debug('Detection using ADAPTED (automatic) frequency bands has been selected (adap_bands = Auto)')
             self.track(step='fooof', show = False, log = False)
-            flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
-                                          chan, ref_chan, stage, cat, 
-                                          cycle_idx, logger)
+            if not type(chan) == type(DataFrame()):
+                logger.critical("For adap_bands = Auto, the argument 'chan' must be 'None' and specfied in 'tracking.csv'")
+                return
+            else:
+                flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
+                                                            chan, ref_chan, 
+                                                            stage, cat, 
+                                                            cycle_idx, logger)
             if flag == 'error':
                 logger.critical('Error in reading channel names, check tracking sheet.')
                 logger.info("Check documentation for how to set up channel names in tracking.tsv':")
@@ -495,7 +500,7 @@ class pipeline:
                            concat_cycle = True, concat_stage = False, 
                            cycle_idx = None, keyword = None, evt_name = 'spindle', 
                            frequency = (11,16), segs = None, adap_bands = False, 
-                           param_keys = None, exclude_poor = False, 
+                           param_keys = 'all', exclude_poor = False, 
                            reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                            epoch_dur = 30, n_fft_sec = 4, Ngo = {'run':False},
                            outfile = True):

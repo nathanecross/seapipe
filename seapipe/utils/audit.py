@@ -15,145 +15,9 @@ from wonambi.attr import Annotations
 from .logs import create_logger
 from .load import load_channels, rename_channels
 
-# def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False,
-#                   logger=None):
-    
-#     """Audits the directory specified by <in_dir> to check if the dataset is
-#     BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
-#     files there are per participant.
-#     You can specify  an optional output filename that will contain the printout.
-#     """
-    
-#     if not logger:
-#         logger = create_logger("Audit")
-    
-#     # Begin directory check
-#     datapath = rootpath + '/DATA/'
-#     if not path.exists(datapath):
-#         logger.info('')
-#         logger.error(f'PATH: {datapath} does not exist. Check documentation for how to arrange data:')
-#         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-#         logger.info('')
-#         subdirs = []
-#     else:    
-#         logger.info('')
-#         logger.debug(f'Checking dataset in directory: {datapath}')
-        
-#         # Extract participants inside <indir>
-#         if not tracking:
-#             part = [x for x in listdir(datapath) if not '.' in x]
-#             part.sort()
-#         else:
-#             logger.debug(f'Reading participant names from {tracking}')
-#             part = read_csv(f'{rootpath}/{tracking}' , sep='\t')
-#             part = part['sub'].drop_duplicates()
-        
-#         # Initiate arrays
-#         nsd = zeros(len(part), dtype=int)
-#         nedf = zeros(len(part), dtype=int)
-#         bids = zeros((len(part),1), dtype=bool)
-#         finalbids = 0
-#         filesize = 0
-        
-#         # Check number of subdirectories per participant
-#         for p, pt in enumerate(part):
-            
-#             try:
-#                 dirs = [x for x in listdir(f'{datapath}/{pt}') if not '.' in x]
-#                 files = [x for x in listdir(f'{datapath}/{pt}') if '.' in x if not '.DS_Store' in x]
-#             except:
-#                 finalbids += 1
-#                 logger.info('')
-#                 logger.critical(f"{pt} directory doesn't exist in {datapath}.")
-#                 dirs = []
-#                 files = {}
-            
-#             nsd[p] = len(dirs)
-#             annots = 0
-#             edfs = 0
-            
-#             if len(dirs) < 1:
-#                 finalbids += 1
-#                 if len(files) > 0: 
-#                     nedf[p] = len([x for x in files if filetype in x])
-#                     logger.info('')
-#                     logger.critical(f'{pt} has 0 sessions directories.')
-#                 elif type(files) == list:
-#                     logger.info('')
-#                     logger.critical(f'{pt} has no files')
-                    
-#             else:    
-#                 for d, dr in enumerate(dirs):
-#                     dirscheck = []
-#                     # Check that data is stored under 'eeg' folder as per BIDS requirements
-#                     try:
-#                         dirs2 = [x for x in listdir(f'{datapath}/{pt}/{dr}/eeg/') if not '.' in x]
-#                         files2 = [x for x in listdir(f'{datapath}/{pt}/{dr}/eeg/') if filetype in x]
-#                         if len(dirs2) < 1:
-#                             # Check for number of recordings in eeg folder
-#                             if len(files2) == 1: 
-#                                 annots += len([x for x in files2 if '.xml' in x])
-#                                 edfs += len([x for x in files2 if filetype in x])
-#                                 filesize += sum([path.getsize(f'{datapath}/{pt}/{dr}/eeg/{x}') for x in files2 if filetype in x])
-#                                 dirscheck.append(0)
-#                             elif len(files2) > 1:
-#                                 finalbids += 1
-#                                 logger.info('')
-#                                 logger.critical(f'BIDS incompatibility. >1 file found for {pt}, {dr}. There should only be 1 recording per session directory')
-#                                 dirscheck.append(1)
-#                             else:
-#                                 logger.info('')
-#                                 logger.warning(f'{pt}, {dr} has no files')
-#                                 dirscheck.append(1)
-#                     except: 
-#                         finalbids += 1
-#                         logger.info('')
-#                         logger.critical(f"BIDS incompatibility. No 'eeg' directory found for {pt}, {dr}")
-#                         dirscheck.append(1)
-#                 if set(dirscheck) == {0}:
-#                     bids[p] = 1
-#                 nedf[p] = edfs
-                    
-#         if len(set(nsd)) > 1:  
-#             logger.info('')
-#             logger.warning('Not all participants have the same number of sessions')
-        
-#         # Create audit dataframe
-#         subdirs = DataFrame(zeros((len(part),4)), 
-#                             index=part,
-#                             columns=['BIDS?','#sessions','#recordings',''])
-#         subdirs.index.name = 'Participants'
-        
-#         subdirs[subdirs.columns[0]] = bids
-#         subdirs[subdirs.columns[1]] = nsd
-#         subdirs[subdirs.columns[2]] = nedf
-#         subdirs[subdirs.columns[3]] = ['!!' if c1!=c2 else '!!' if c1==0 else '!!' 
-#                                        if c2==0 else '' for c1,c2 in 
-#                                        zip(subdirs['#sessions'], subdirs['#recordings']) ]
-        
-#         # Save output to file (if requested)
-#         if outfile:
-#             subdirs.to_csv(f'{outfile}')
-        
-#         # Notify user of outcome
-#         if finalbids == 0: 
-#             logger.info('')
-#             logger.info('                      {:s}'.format('\u0332'.join('Summary:')))
-#             logger.info(f"                      {sum(subdirs['#recordings'])} files, {filesize/(10**9):,.2f} GB")
-#             logger.info(f"                      Subjects: {subdirs.shape[0]}")
-#             logger.info(f"                      Sessions: {max(subdirs['#sessions'])}")
-#             logger.info('')
-#             logger.debug('The dataset appears compatible for SEAPIPE analysis.')
-#             logger.info('')
-#         else: 
-#             logger.info('')
-#             logger.critical('The dataset DOES NOT appear compatible for SEAPIPE analysis.')
-#             logger.info('')
-            
-#     return subdirs
 
-
-def check_dataset(rootpath, outfile=False, filetype='.edf', tracking=False, logger=None):
+def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False, 
+                  logger = None):
     
     """Audits the directory specified by <in_dir> to check if the dataset is
     BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
@@ -171,7 +35,15 @@ def check_dataset(rootpath, outfile=False, filetype='.edf', tracking=False, logg
         return DataFrame()
     
     logger.debug(f'Checking dataset in directory: {datapath}')
-    part = [x for x in listdir(datapath) if path.isdir(path.join(datapath, x))]
+    
+    # Extract participants inside <indir>
+    if not tracking:
+        part = [x for x in listdir(datapath) if path.isdir(path.join(datapath, x))]
+        part.sort()
+    else:
+        logger.debug(f'Reading participant names from {tracking}')
+        part = read_csv(f'{rootpath}/{tracking}' , sep='\t')
+        part = part['sub'].drop_duplicates()
     part.sort()
     
     nsd = []
@@ -221,8 +93,13 @@ def check_dataset(rootpath, outfile=False, filetype='.edf', tracking=False, logg
     if len(set(nsd)) > 1:
         logger.warning('Not all participants have the same number of sessions\n')
     
-    subdirs = DataFrame({'BIDS?': bids, '#sessions': nsd, '#recordings': nedf})
-    subdirs[''] = ['!!' if c1 != c2 else '!!' if c1 == 0 else '!!' if c2 == 0 else '' for c1, c2 in zip(subdirs['#sessions'], subdirs['#recordings'])]
+    subdirs = DataFrame({'BIDS?': bids, '#sessions': nsd, '#recordings': nedf},
+                        index=part)
+    subdirs[''] = ['!!' if c1 != c2 
+                   else '!!' if c1 == 0 
+                   else '!!' if c2 == 0 
+                   else '' 
+                   for c1, c2 in zip(subdirs['#sessions'], subdirs['#recordings'])]
     
     if outfile:
         subdirs.to_csv(outfile)
