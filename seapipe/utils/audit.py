@@ -147,13 +147,7 @@ def make_bids(in_dir, origin = 'SCN', filetype = '.edf'):
                 files = [x for x in listdir(dst) if filetype in x] 
                 for f, file in enumerate(files):
                     src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
-                    
-                    if len(file.split('_')) > 1:
-                        newfile = file.split('_')[0]
-                    else:
-                        newfile = file.split('.')[0]
-                    
-                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{newfile}_ses-{ses}_eeg{filetype}'
+                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{part}_ses-{ses}_eeg{filetype}'
                     rename(src, dst)
                 
                 # XMLs

@@ -7,7 +7,7 @@ __credits__ = 'Concordia University (Canada), University of Sydney (Australia)'
 
 from .version import __version__
 
-from .dataset import pipeline
+from seapipe.core.dataset import pipeline
 
 
 

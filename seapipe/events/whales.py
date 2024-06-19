@@ -36,7 +36,8 @@ class whales:
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, frequency, rater = None, subs = 'all', 
-                 sessions = 'all', tracking = None):
+                 sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                 tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -49,6 +50,7 @@ class whales:
         self.stage = stage
         self.frequency = frequency
         self.rater = rater
+        self.reject = reject_artf
         
         self.subs = subs
         self.sessions = sessions
@@ -207,7 +209,7 @@ class whales:
                         fnamechan = newchans[ch]
                     else:
                         fnamechan = ch
-                    
+                        
                     # g. Check for adapted bands
                     if adap_bands == 'Fixed':
                         freq = self.frequency
@@ -223,14 +225,19 @@ class whales:
                     if not freq:
                         logger.warning('Will use fixed frequency bands instead.')
                         freq = self.frequency
-                    logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")    
+                    if not chanset[ch]:
+                        logchan = ['(no re-refrencing)']
+                    else:
+                        logchan = chanset[ch]
+                        
+                    logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # h. Read data
-                    logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
+                    logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     try:
                         segments = fetch(dset, annot, cat=cat, stage=self.stage, 
                                          cycle=cycle, reject_epoch=True, 
-                                         reject_artf=['Artefact', 'Arou', 'Arousal'])
+                                         reject_artf=self.reject)
                         segments.read_data([ch], ref_chan=chanset[ch], grp_name=self.grp_name)
                     except Exception as error:
                         logger.error(type(error).__name__, "–", error)

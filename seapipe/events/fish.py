@@ -52,12 +52,12 @@ class FISH:
 
     def line(self, keyword = None, evt_name = None, cat = (0,0,0,0), 
              segs = None,  cycle_idx = None, adap_bands = False, 
-             param_keys = 'all', exclude_poor = False, reject_artf = None, 
+             param_keys = 'all',  
              epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
              outfile = 'export_params_log.txt'):
                            
             '''
-                Listing Individual Night Events (LINE)
+                Listing Individual aNnotated Events (LINE)
             
                 Extracts event parameters per participant and session.
                 
@@ -73,8 +73,6 @@ class FISH:
                 evt_name = ['spindle']
             if type(evt_name) is not list:
                 evt_name = [evt_name]
-            if reject_artf == None:
-                reject_artf = ['Artefact', 'Arou', 'Arousal']
             
             ### 0.a Set up logging
             flag = 0
@@ -284,13 +282,13 @@ class FISH:
                                                      evt_type=[event], 
                                                      cycle=cycle, chan_full=chan_ful, 
                                                      reject_epoch=True, 
-                                                     reject_artf = reject_artf)
+                                                     reject_artf = ['Artefact', 'Arou', 'Arousal'],)
                                     segments.read_data([channel], chanset[channel], 
                                                        grp_name=self.grp_name)
                                     poi = get_times(annot, stage=self.stage, 
                                                     cycle=cycle, 
                                                     chan=[channel], 
-                                                    exclude=exclude_poor)
+                                                    exclude=True)
                                     total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
                                     count = len(evts)
                                     density = count / (total_dur / epoch_dur)
@@ -342,7 +340,7 @@ class FISH:
                                                                  cycle=[cyc], 
                                                                  chan_full=chan_ful, 
                                                                  reject_epoch=True, 
-                                                                 reject_artf=reject_artf, 
+                                                                 reject_artf=['Artefact', 'Arou', 'Arousal'], 
                                                                  min_dur=0.5)
                                                 segments.read_data([channel], chanset[channel], 
                                                                    grp_name=self.grp_name)
@@ -357,7 +355,7 @@ class FISH:
                                                 # Calculate event density (per cycle)
                                                 poi = get_times(annot, stage=[st], 
                                                                 cycle=[cyc], chan=[channel], 
-                                                                exclude=exclude_poor)
+                                                                exclude=True)
                                                 total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
                                                 evts = annot.get_events(name=event, 
                                                                         time=cycle[cy][0:2], 
@@ -405,12 +403,12 @@ class FISH:
                                                          stage = [st], cycle=cycle, 
                                                          chan_full=chan_ful, 
                                                          reject_epoch=True, 
-                                                         reject_artf = reject_artf, 
+                                                         reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                                                          min_dur=0.5)
                                             segments.read_data([channel], chanset[channel], 
                                                                grp_name=self.grp_name)
                                             poi = get_times(annot, stage=[st], cycle=cycle, 
-                                                            chan=[channel], exclude=exclude_poor)
+                                                            chan=[channel], exclude=True)
                                             total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
                                             evts = annot.get_events(name=event, time=None, 
                                                                     chan = f'{channel} ({self.grp_name})', 
@@ -468,7 +466,7 @@ class FISH:
                                                              stage = self.stage, 
                                                              cycle=[cyc], chan_full=chan_ful, 
                                                              reject_epoch=True, 
-                                                             reject_artf = reject_artf, 
+                                                             reject_artf = ['Artefact', 'Arou', 'Arousal'],
                                                              min_dur=0.5)
                                             segments.read_data([channel], chanset[channel], 
                                                                grp_name=self.grp_name)
@@ -483,7 +481,7 @@ class FISH:
                                             # Calculate event density (per cycle)
                                             poi = get_times(annot, stage=self.stage, 
                                                             cycle=[cyc], chan=[channel], 
-                                                            exclude=exclude_poor)
+                                                            exclude=True)
                                             total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
                                             evts = annot.get_events(name=event, 
                                                                     time=cycle[cy][0:2], 

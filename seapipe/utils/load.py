@@ -5,10 +5,32 @@ Created on Mon Jan 29 18:02:41 2024
 
 @author: ncro8394
 """
-from os import mkdir, path
+from os import listdir, mkdir, path
 from numpy import char, reshape
-from pandas import DataFrame, read_csv
+from pandas import DataFrame, read_csv, read_excel
 
+
+def read_tracking_sheet(filepath, logger):
+        
+        track_file = [x for x in listdir(filepath) if 'tracking' in x]
+        
+        if len(track_file) > 1:
+            logger.critical('>1 tracking file found.')
+            logger.info('Check documentation for how to set up channel data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return 'error'
+        elif len(track_file) == 0:
+            logger.warning('No tracking file found.')
+            return 'error'
+        else:
+            track_file = track_file[0]
+            if '.tsv' in track_file:
+                track = read_csv(f'{filepath}/{track_file}' , sep='\t')
+            elif '.xls' in track_file:
+                track = read_excel(f'{filepath}/{track_file}')
+    
+        return track
 
 def select_input_dirs(self, xml_dir, evt_name=None):
     if not xml_dir:
@@ -47,7 +69,7 @@ def select_ouput_dirs(self, out_dir, evt_name=None):
 def check_chans(rootpath, chan, ref_chan, logger):
     if chan is None:
         try:
-            chan = read_csv(f'{rootpath}/tracking.tsv' , sep='\t')
+            chan = read_tracking_sheet(f'{rootpath}', logger)
         except:
             logger.critical("Channels haven't been defined, and no 'tracking.tsv' file exists.")
             logger.info('Check documentation for how to set up channel data:')
@@ -56,12 +78,10 @@ def check_chans(rootpath, chan, ref_chan, logger):
         
     if ref_chan is None:
         try:
-            ref_chan = read_csv(f'{rootpath}/tracking.tsv' , sep='\t')
+            ref_chan = read_tracking_sheet(f'{rootpath}', logger)
         except:
-            logger.critical("Reference channels haven't been defined, and no 'tracking.tsv' file exists.")
-            logger.info('Check documentation for how to set up channel data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
+            logger.warning("Reference channels haven't been defined, and no 'tracking.tsv' file exists.")
+            logger.warning('No re-referencing will be performed prior to analysis.')
     
     if ref_chan is False:
         return chan
@@ -127,8 +147,10 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             if verbose>0:
                 logger.warning(f"No reference channel set found in 'tracking.tsv' for {sub}, {ses}. Progressing without re-referencing...")
             ref_chans = []
-    else:
+    elif ref_chan:
         ref_chans = ref_chan
+    else:
+        ref_chans = []
     
     if type(chans) == list:
         if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
@@ -229,9 +251,8 @@ def rename_channels(sub, ses, chan, logger):
 def check_adap_bands(self, subs, sessions, chan, logger):
     
     try:
-        track = read_csv(f'{self.rootpath}/tracking.tsv' , sep='\t')
+        track = read_tracking_sheet(f'{self.rootpath}')
     except:
-        logger.critical("No 'tracking.tsv' file exists.")
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error', None

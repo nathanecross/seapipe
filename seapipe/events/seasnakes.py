@@ -34,7 +34,8 @@ class seasnakes:
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs='all', 
-                 sessions='all', tracking = None):
+                 sessions='all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                 tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -46,6 +47,7 @@ class seasnakes:
         self.grp_name = grp_name
         self.stage = stage
         self.rater = rater
+        self.reject = reject_artf
         
         self.subs = subs
         self.sessions = sessions
@@ -203,7 +205,7 @@ class seasnakes:
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
-                            logger.warning(f'NO inversion will be applied to channel {ch} prior to detection for {sub}, {ses}')
+                            logger.warning(f"NO inversion will be applied to channel {ch} prior to detection for {sub}, {ses}. To turn off this warning, select invert = 'False'")
                         else: 
                             logger.debug(f'Inverting channel {ch} prior to detection for {sub}, {ses}')
                     elif type(invert) == bool:
@@ -220,7 +222,7 @@ class seasnakes:
                     try:
                         segments = fetch(dset, annot, cat=cat, stage=self.stage, 
                                          cycle=cycle, reject_epoch=True, 
-                                         reject_artf=['Artefact', 'Arou', 'Arousal'])
+                                         reject_artf=self.reject)
                         segments.read_data([ch], ref_chan=chanset[ch], grp_name=self.grp_name,
                                            average_channels=average_channels)
                     except Exception as error:

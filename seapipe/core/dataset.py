@@ -7,17 +7,18 @@ Created on Tue Jul 25 12:07:36 2023
 """
 from os import listdir, mkdir, path, remove, walk
 from pandas import DataFrame, read_csv
-from .events.fish import FISH
-from .events.whales import whales
-from .events.seasnakes import seasnakes
-from .spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
+from seapipe.events.fish import FISH
+from seapipe.events.whales import whales
+from seapipe.events.seasnakes import seasnakes
+from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts)
-from .stats import sleepstats
-from .utils.audit import (check_dataset, check_fooof, extract_channels, make_bids,
+from seapipe.spectrum.spectrogram import event_spectrogram, event_spectrogram_grouplevel
+from seapipe.stats import sleepstats
+from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, make_bids,
                         track_processing)
-from .utils.logs import create_logger, create_logger_outfile
-from .utils.load import (check_chans, check_adap_bands, select_input_dirs,
+from seapipe.utils.logs import create_logger, create_logger_outfile
+from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs,
                         select_ouput_dirs)
 
 
@@ -30,6 +31,7 @@ from .utils.load import (check_chans, check_adap_bands, select_input_dirs,
 #   - update initial tracking to include spindles, slow_oscillation, cfc, power_spectrum
 #   - update export sleepstats to export by stage/cycle separately
 #   - possibility of cycle_idx = 'all'
+#   - enable macro_dataset per sleep cycle
 
 ## FOR DOCUMENTATION:
 #   - Clearly describe how chanset & refset works, ie. chanset = per chan, refset = ALL chans
@@ -71,7 +73,28 @@ class pipeline:
         self.track(subs='all', ses='all', 
                    step=['staging','spindle','slowwave','pac','sync','psa'],
                    show=False, log=False)
-       
+    
+    #--------------------------------------------------------------------------
+    '''
+    MISCELLANEOUS FUNCTIONS
+    
+    audit -> Audits dataset structure for compatibility with seapipe analysis.
+    
+    list_dataset ->  Intended to walk from root directory through participant 
+                        folders and list all participants and their files.
+    
+    track -> Tracks what seapipe processing or functions have already been applied
+                to a dataset, with information on which channels and parameters 
+                have been used.
+                
+    make_bids (beta) -> Transforms data from (some) data structures into the 
+                            correct BIDS format compatible with use for seapipe.
+                            
+    extract_channels -> Extracts and lists which channels exist in the dataset.                   
+    
+    '''    
+        
+        
     def audit(self, outfile = False, tracking = False, filetype = '.edf'):
         
         ''' Audits the dataset for BIDS compatibility.
@@ -205,48 +228,18 @@ class pipeline:
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude=exclude)
         
-    def export_macro_stats(self, xml_dir = None, out_dir = None, 
-                                 subs = 'all', sessions = 'all', 
-                                 times = None, rater = None, outfile = True):
-        
-        # Set up logging
-        logger = create_logger('Export macro stats')
-        
-        # Set input/output directories
-        log_dir = self.outpath + '/audit/logs/'
-        if not path.exists(log_dir):
-            mkdir(log_dir)
-        xml_dir = select_input_dirs(self, xml_dir, 'macro')
-        out_dir = select_ouput_dirs(self, out_dir, 'macro')
-        
-        # Set channels
-        times, ref_chan = check_chans(self.rootpath, None, True, logger)
-        
-        self.track(subs='all', ses='all', 
-                   step=['staging'],
-                   show=False, log=True)
-        
-        sleepstats.export_sleepstats(xml_dir, out_dir, subs, sessions, 
-                                     rater, times, log_dir, outfile)
-        return
     
-    def macro_dataset(self, xml_dir = None, out_dir = None, rater = None, 
-                      subs = 'all', sessions = 'all', outfile = True):
-         
-         # Set input/output directories
-         log_dir = self.outpath + '/audit/logs/'
-         if not path.exists(log_dir):
-             mkdir(log_dir)
-         if not path.exists(self.outpath + '/datasets/'):
-             mkdir(self.outpath + '/datasets/')
-         out_dir = self.outpath + '/datasets/macro/'
-         
-         xml_dir = select_input_dirs(self, xml_dir, 'macro')
-         out_dir = select_ouput_dirs(self, out_dir, 'macro')
-         
-         sleepstats.sleepstats_from_csvs(xml_dir, out_dir, rater,   
-                                 subs, sessions, log_dir, outfile)
-         return
+    
+    #--------------------------------------------------------------------------
+    '''
+    SLEEP EVENTS DETECTIONS
+    
+    detect_spectral_peaks,
+    detect_slow_oscillations,
+    detect_spindles,
+    
+    
+    '''
     
     def detect_spectral_peaks(self, xml_dir = None, out_dir = None, 
                               subs = 'all', sessions = 'all', chan = None, 
@@ -329,9 +322,9 @@ class pipeline:
                         invert = None, outfile=True):
         
         # Set up logging
-        logger = create_logger('Detect spindles')
+        logger = create_logger('Detect slow oscillations')
         logger.info('')
-        logger.debug("Commencing spindle detection pipeline.")
+        logger.debug("Commencing SO detection pipeline.")
         logger.info('')
         
         # Set input/output directories
@@ -351,7 +344,7 @@ class pipeline:
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.rootpath, chan, False, logger)
+            invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
             logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
             logger.info('Check documentation for how to set up staging data:')
@@ -395,6 +388,7 @@ class pipeline:
                         chan = None, ref_chan = None, rater = None, stage = None, 
                         grp_name = 'eeg', cycle_idx = None, frequency = (11,16), 
                         adap_bands = 'Fixed', adap_bw = 4, peaks = None, 
+                        reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                         duration =( 0.5, 3), outfile = True):
         
         # Set up logging
@@ -417,6 +411,8 @@ class pipeline:
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if chan == None or isinstance(ref_chan, str):
+            return
         
         # Format concatenation
         cat = (1,0,1,1)
@@ -483,8 +479,8 @@ class pipeline:
             logger.info('-' * 10)
         else:   
            spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                            grp_name, stage, frequency, rater, subs, sessions,
-                            self.tracking) 
+                            grp_name, stage, frequency, rater, subs, sessions, 
+                            reject_artf, self.tracking) 
            spindle.whale_it(method, cat, cycle_idx, adap_bands, peaks, adap_bw, 
                             duration, filetype, outfile)
            try:
@@ -494,14 +490,141 @@ class pipeline:
         return
     
     
+    #--------------------------------------------------------------------------
+    '''
+    PLOTTING.
+    
+    event_spectrogram ->
+    
+    
+    '''
+    
+    
+    def spectrogram(self, xml_dir = None, out_dir = None, subs = 'all', 
+                          sessions = 'all', filetype = '.edf', chan = None, 
+                          ref_chan = None, rater = None, stage = None, 
+                          grp_name = 'eeg', cycle_idx = None, 
+                          concat_stage = False, concat_cycle = True, 
+                          evt_type = None, buffer = 0, invert = None, 
+                          filter_opts = None, progress=True, outfile=False):
+        
+        # Set up logging
+        logger = create_logger('Event spectrogram')
+        logger.info('')
+        logger.debug("Creating spectrogram of events.")
+        logger.info('')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not xml_dir:
+            xml_dir = f'{self.outpath}/staging'   
+        if not out_dir:
+            out_dir = f'{self.outpath}/spindle'    
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        # Format concatenation
+        cat = (int(concat_cycle),int(concat_stage),1,1)
+        
+        # Check inversion
+        if invert == None:
+            invert = check_chans(self.rootpath, chan, False, logger)
+        elif type(invert) != bool:
+            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        
+        if not filter_opts:
+            filter_opts = default_filter_opts()
+        
+        
+        if not evt_type:
+            logger.warning('No event type (evt_type) has been specified. Spectrogram will be run on epochs instead. This may take some time...')
+        
+        event_spectrogram(self, in_dir, xml_dir, out_dir, subs, sessions, stage, 
+                              cycle_idx, chan, ref_chan, rater, grp_name, 
+                              evt_type, buffer, invert, cat, filter_opts,  
+                              outfile, filetype, progress, self.tracking)
+        
+        
+        
+        return
+    
+    
+    
+    #--------------------------------------------------------------------------
+    '''
+    DATASET CREATION.
+    
+    export_macro_stats -> Exports sleep macroarchitecture per participant into 
+                            the corresponding folder in output directory 'staging' 
+    
+    macro_dataset -> Creates a cohort dataset of sleep macroarchitecture and saves
+                        it to a single .csv file in output directory 'dataset'
+    
+    export_eventparams -> Exports descriptives for sleep events per participant into 
+                            the corresponding folder in output directory 'staging'
+    
+    event_dataset -> Creates a cohort dataset of sleep events descriptives and saves
+                        it to a single .csv file in output directory 'dataset'
+    
+    '''    
+    
+    def export_macro_stats(self, xml_dir = None, out_dir = None, 
+                                 subs = 'all', sessions = 'all', 
+                                 times = None, rater = None, outfile = True):
+        
+        # Set up logging
+        logger = create_logger('Export macro stats')
+        
+        # Set input/output directories
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        xml_dir = select_input_dirs(self, xml_dir, 'macro')
+        out_dir = select_ouput_dirs(self, out_dir, 'macro')
+        
+        # Set channels
+        times, ref_chan = check_chans(self.rootpath, None, True, logger)
+        
+        self.track(subs='all', ses='all', 
+                   step=['staging'],
+                   show=False, log=True)
+        
+        sleepstats.export_sleepstats(xml_dir, out_dir, subs, sessions, 
+                                     rater, times, log_dir, outfile)
+        return
+    
+    def macro_dataset(self, xml_dir = None, out_dir = None, rater = None, 
+                      subs = 'all', sessions = 'all', outfile = True):
+         
+         # Set input/output directories
+         log_dir = self.outpath + '/audit/logs/'
+         if not path.exists(log_dir):
+             mkdir(log_dir)
+         if not path.exists(self.outpath + '/datasets/'):
+             mkdir(self.outpath + '/datasets/')
+         out_dir = self.outpath + '/datasets/macro/'
+         
+         xml_dir = select_input_dirs(self, xml_dir, 'macro')
+         out_dir = select_ouput_dirs(self, out_dir, 'macro')
+         
+         sleepstats.sleepstats_from_csvs(xml_dir, out_dir, rater,   
+                                 subs, sessions, log_dir, outfile)
+         return
+    
     def export_eventparams(self, xml_dir = None, out_dir = None, subs = 'all', 
                            sessions = 'all', chan = None, ref_chan = None, 
                            rater=None, stage = None, grp_name = 'eeg', 
                            concat_cycle = True, concat_stage = False, 
                            cycle_idx = None, keyword = None, evt_name = 'spindle', 
                            frequency = (11,16), segs = None, adap_bands = False, 
-                           param_keys = 'all', exclude_poor = False, 
-                           reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                           param_keys = 'all',  
                            epoch_dur = 30, n_fft_sec = 4, Ngo = {'run':False},
                            outfile = True):
         
@@ -544,7 +667,7 @@ class pipeline:
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, frequency, rater, subs, sessions) 
         fish.line(keyword, evt_name, cat, segs, cycle_idx, adap_bands, 
-                            param_keys, exclude_poor, reject_artf, epoch_dur, 
+                            param_keys, epoch_dur, 
                             n_fft_sec, Ngo, outfile)
         return
     

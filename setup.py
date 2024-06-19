@@ -43,7 +43,8 @@ setup(
                       "scipy",
                       "tensorpac",
                       "wonambi",
-                      "openpyxl"],  
+                      "openpyxl",
+                      "safepickle"],  
     package_data={ 
         "seapipe": ["VERSION"],
     },

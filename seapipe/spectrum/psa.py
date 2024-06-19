@@ -486,7 +486,7 @@ class Spectrum:
 
     def powerspec_it(self, cat, stage, chan, ref_chan, 
                      general_opts, frequency_opts, rater = None, cycle_idx = None, 
-                     part = 'all',visit = 'all', filter_opts = None, 
+                     subs = 'all', sessions = 'all', filter_opts = None, 
                      epoch_opts = None, event_opts = None, norm = None, 
                      norm_opts = None, fooof_it = False,
                      fooof_opts = None):
@@ -536,11 +536,11 @@ class Spectrum:
         
         
         ### loop through records
-        if isinstance(part, list):
+        if isinstance(subs, list):
             None
-        elif part == 'all':
-                part = listdir(self.rec_dir)
-                part = [ p for p in part if not '.' in p]
+        elif subs == 'all':
+                subs = listdir(self.rec_dir)
+                subs = [ p for p in subs if not '.' in p]
         else:
             print("ERROR: 'part' must either be an array of subject ids or = 'all' ")  
     
@@ -548,16 +548,16 @@ class Spectrum:
             if norm not in ('integral', 'baseline'):
                 exit('Invalid value for norm: ' + str(norm))
                 
-        for i, p in enumerate(part):
+        for i, p in enumerate(subs):
             # loop through visits
-            if visit == 'all':
-                visit = listdir(self.rec_dir + '/' + p)
-                visit = [x for x in visit if not '.' in x]    
+            if sessions == 'all':
+                sessions = listdir(self.rec_dir + '/' + p)
+                sessions = [x for x in sessions if not '.' in x]    
             
-            for v, vis in enumerate(visit):
+            for v, ses in enumerate(sessions):
                 ## Define files
-                rdir = self.rec_dir + p + '/' + vis + '/'
-                xdir = self.xml_dir + p + '/' + vis + '/'
+                rdir = self.rec_dir + p + '/' + ses + '/'
+                xdir = self.xml_dir + p + '/' + ses + '/'
                 edf_file = [x for x in listdir(rdir) if x.endswith('.edf') or x.endswith('.rec') 
                             or x.endswith('.eeg') or x.endswith('.set')]
                 xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]            
@@ -567,9 +567,9 @@ class Spectrum:
                     mkdir(self.out_dir)
                 if not path.exists(self.out_dir + p ):
                     mkdir(self.out_dir + p)
-                if not path.exists(self.out_dir + p + '/' + vis):
-                    mkdir(self.out_dir + p + '/' + vis)
-                outpath = self.out_dir + p + '/' + vis + '/'
+                if not path.exists(self.out_dir + p + '/' + ses):
+                    mkdir(self.out_dir + p + '/' + ses)
+                outpath = self.out_dir + p + '/' + ses + '/'
                 
                 
                 ## Now import data
@@ -589,7 +589,7 @@ class Spectrum:
                     chan_full = [i + ' (' + general_opts['chan_grp_name'] + ')' for i in event_opts['event_chan']]
                 
                 ### select and read data
-                print('Reading data for ' + p + ', Visit: ' + vis)
+                print('Reading data for ' + p + ', Visit: ' + ses)
                 segments = fetch(dset, annot, cat=cat, evt_type=event_opts['evt_type'], 
                                  stage=stage, cycle=cycle, chan_full=chan_full, 
                                  epoch=epoch_opts['epoch'], 
@@ -826,12 +826,12 @@ class Spectrum:
                         as_matrix = asarray([y for x in xfreq for y in x['data']()[0]])
                         desc = get_descriptives(as_matrix)
                     
-                    filename = outpath + p + '_' + vis + f'_freq_full{suffix}.csv'
+                    filename = outpath + p + '_' + ses + f'_freq_full{suffix}.csv'
                     print('Writing to ' + filename)  
                     export_freq(xfreq, filename, desc=desc)
                     
                 if general_opts['freq_band']:
-                    filename = outpath + p + '_' + vis + f'_freq_band{suffix}.csv'
+                    filename = outpath + p + '_' + ses + f'_freq_band{suffix}.csv'
                     print('Writing to ' + filename)  
                     export_freq_band(xfreq, frequency_opts['bands'], filename)
                     
@@ -897,7 +897,7 @@ class Spectrum:
                                 seg['fooof_ap_params'][j, ...].ravel(),
                                 ))
                             
-                    outpath_fooof = outpath + p + '_' + vis + f'_fooofbands{suffix}.csv'
+                    outpath_fooof = outpath + p + '_' + ses + f'_fooofbands{suffix}.csv'
                     print(f'Saving {outpath_fooof}')
                     df = DataFrame(data=one_record, 
                                    columns=(seg_info + band_hdr + band_pk_params_hdr

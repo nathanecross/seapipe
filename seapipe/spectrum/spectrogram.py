@@ -28,10 +28,10 @@ from wonambi.trans import fetch
 from wonambi import Dataset
 import shutil
 
-def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage, 
-                      cycle_idx, chan, ref_chan, grp_name, evt_type, buffer, 
-                      polar, cat, filter_opts, tracking, progress=True, 
-                      outfile=False, filetype = '.edf'):
+def event_spectrogram(self, in_dir, xml_dir, out_dir, subs, sessions, stage, 
+                      cycle_idx, chan, ref_chan, rater, grp_name, evt_type, buffer, 
+                      invert, cat, filter_opts, outfile=False, filetype = '.edf', 
+                      progress=True, tracking = None):
 
         
     ### 0.a Set up logging
@@ -43,7 +43,7 @@ def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage,
         logfile = f'{self.log_dir}/detect_spindles_Spectrogram_{today}_log.txt'
         logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
         logger.info('')
-        logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
+        logger.info(f"-------------- New call of 'Spectrogram' evoked at {now} --------------")
     elif outfile:
         logfile = f'{self.log_dir}/{outfile}'
         logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
@@ -58,11 +58,11 @@ def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage,
              |...............'.......    .....................
              |....  ......... .......  .......'...............
              |....   ..'..... .......  '......'......'........
-             |...  .    ..... .......   ......'......'........
-             |...  .... ..... ................'......'........
-             |.... .... ..... ............... '......'........
-             |....,...; .... ',.....'........  ...... ........
-             |........   •.,    •... '.......  '..... ........
+             |...       ..... .......   ......'......'........
+             |...    .. ..... ................'......'........
+             |...  .... ..... ............... '......'........
+             |...  ...; .... :......'........  ...... ........
+             |... ....   •.,    •... '.......  '..... ........
              |.......;   '.;  . .... '......    ..... ........
              |......'     '.  . '...   ...       ..,  '.......
              |________________________________________________
@@ -98,7 +98,7 @@ def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage,
         for v, ses in enumerate(sessions):
             logger.info('')
             logger.debug(f'Commencing {sub}, {ses}')
-            tracking[f'{sub}'][f'{ses}'] = {'spindle':{}} 
+            tracking[f'{sub}'][f'{ses}'] = {'spectrogram':{}} 
 
             ## c. Load recording
             rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
@@ -126,7 +126,7 @@ def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage,
                     shutil.copy(xdir + xml_file[0], backup_file)
                 else:
                     logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                annot = Annotations(backup_file, rater_name=self.rater)
+                annot = Annotations(backup_file, rater_name=rater)
             except:
                 logger.warning(f' No input annotations file in {xdir}')
                 break
@@ -150,25 +150,53 @@ def event_spectrogram(self, rec_dir, xml_dir, out_dir, part, visit, stage,
             
             for c, ch in enumerate(chanset):
                 
-                # 5.b Rename channel for output file (if required)
+                # 5 Channel stuff
+                # a. Rename channel for output file (if required)
                 if newchans:
                     fnamechan = newchans[ch]
                 else:
                     fnamechan = ch
+                # b. Set ref channel name for log output
+                if not chanset[ch]:
+                    logchan = ['(no re-refrencing)']
+                else:
+                    logchan = chanset[ch]
+                    
+                if filter_opts['laplacian']:
+                    chans = filter_opts['lapchan']
+                else:
+                    chans = [ch]
+                    ref_chan=chanset[chans]
 
                 # h. Read data
-                logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
+                logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                 logger.debug(f"Using filter settings:\nNotch filter: {filter_opts['notch']}")
                 logger.debug(f"Notch harmonics filter: {filter_opts['notch_harmonics']}")
                 logger.debug(f"Laplacian filter: {filter_opts['laplacian']}")
 
                 
+                try:
+                    segments = fetch(dset, annot, cat=cat, stage=self.stage, 
+                                     cycle=cycle, evt_type=evt_type,
+                                     buffer=buffer, reject_artf=self.reject)
+
+                    segments.read_data(chans, ref_chan, grp_name=self.grp_name)
+                except Exception as error:
+                    logger.error(type(error).__name__, "–", error)
+                    flag+=1
+                    break
+                
+                
+
+
+
+
                 
     # Check input visits
-    if isinstance(visit, list):
+    if isinstance(sessions, list):
         None
-    elif visit == 'all':
-        lenvis = set([len(next(walk(rec_dir + x))[1]) for x in part])
+    elif sessions == 'all':
+        lenvis = set([len(next(walk(in_dir + x))[1]) for x in subs])
         if len(lenvis) > 1:
             print(colored('WARNING |', 'yellow', attrs=['bold']),
                   colored('number of visits are not the same for all subjects.',
