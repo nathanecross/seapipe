@@ -32,6 +32,7 @@ from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs
 #   - update export sleepstats to export by stage/cycle separately
 #   - possibility of cycle_idx = 'all'
 #   - enable macro_dataset per sleep cycle
+#   - enable downsampling of data
 
 ## FOR DOCUMENTATION:
 #   - Clearly describe how chanset & refset works, ie. chanset = per chan, refset = ALL chans

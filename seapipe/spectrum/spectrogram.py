@@ -186,6 +186,26 @@ def event_spectrogram(self, in_dir, xml_dir, out_dir, subs, sessions, stage,
                     flag+=1
                     break
                 
+                if len(segments) <1:
+                    logger.error(f'No events found for {sub}, {ses}, {str(ch)}, skipping...')
+                    continue
+                
+                nsegs=[]
+                # Check concatenation of stages
+                if cat[0] == 0 and cat[1] == 0:
+                    logger.debug('Splitting cycles and stages')
+                elif cat[0] == 0:
+                    logger.debug('Splitting cycles')
+                    for cy in cycle:
+                        segs = [s for s in segments if cy in s['cycle']]
+                        nsegs.append(segs)
+                elif cat[1] == 0:
+                    logger.debug('Splitting stages')
+                    for st in stage:
+                        segs = [s for s in segments if st in s['stage']]
+                        nsegs.append(segs)
+                else:
+                    nsegs = [segments]
                 
 
 
