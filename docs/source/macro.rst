@@ -56,28 +56,30 @@ Extraction Macro-Architecture
         * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
 
             * If put ``None``, it will point to the *sub* column in *tracking* file
-            * If put string of sub ID (e.g., ['sub-01', 'sub-02']), it will only detect those sub folders
+            * If put string of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
 
     **sessions**
         * Sessions/Visits to analyse per subject
         * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
 
             * If put ``None``, it will point to the *ses* column in *tracking* file
-            * If put string of ses visit (e.g., ['ses-V1']), it will only detect the selected session(s) within each subject
+            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
 
     **times**
         * Light off and light on in seconds from beginning of recording
         * Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
 
-**rater**
-Name of the rater to analyze
-Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
-    If put string of rater's name ``[Rater1]``, it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
+    **rater**
+        * Name of the rater to analyze
+        * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
+    
+            * If put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
 
-**outfile**
-Extraction of output file
-Default is ``True``which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
-    If put ``False``, it wwon't extract .csv file of macro-sleep characteristics which will impact creation of datasets
+    **outfile**
+        * Extraction of output file
+        * Default is ``True``which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
+            
+            * If put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
 
 
 .. _create_datasets:
