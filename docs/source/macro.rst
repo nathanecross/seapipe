@@ -61,13 +61,13 @@ Extraction Macro-Architecture
     **sessions**
         * Sessions/Visits to analyse per subject
         * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
-        
+
             * If put ``None``, it will point to the *ses* column in *tracking* file
             * If put string of ses visit (e.g., ['ses-V1']), it will only detect the selected session(s) within each subject
 
-**times**
-Light off and light on in seconds from beginning of recording
-Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
+    **times**
+        * Light off and light on in seconds from beginning of recording
+        * Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
 
 **rater**
 Name of the rater to analyze
