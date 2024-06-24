@@ -45,14 +45,17 @@ Extraction Macro-Architecture
 
     **xml_dir**
         * Path to folder with the .xml file containing sleep stages and arousal events. 
+
         * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **out_dir**
-        * Output path for the outcomes of charactertistics extraction per subject.
-        * Default is ``None`` which will point to ``root_dir/OUT/staging``
+        - Output path for the outcomes of charactertistics extraction per subject.
+
+        - Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **subs**
         * Subject to analyze
+
         * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
 
             * If put ``None``, it will point to the *sub* column in *tracking* file
@@ -60,23 +63,28 @@ Extraction Macro-Architecture
 
     **sessions**
         * Sessions/Visits to analyse per subject
+
         * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
 
             * If put ``None``, it will point to the *ses* column in *tracking* file
+
             * If put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
 
     **times**
         * Light off and light on in seconds from beginning of recording
+
         * Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
 
     **rater**
         * Name of the rater to analyze
+
         * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
     
             * If put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
 
     **outfile**
         * Extraction of output file
+
         * Default is ``True``which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
             
             * If put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
