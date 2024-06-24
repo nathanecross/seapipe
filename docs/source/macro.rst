@@ -9,20 +9,20 @@ You can extract the different markers of macro-architecture (see definitions in 
 
 *You will need to run two functions:*
 
-- Extract macro sleep characteristics for each subject.
-It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
+1. Extract macro sleep characteristics for each subject.
+    It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
 .. code-block:: console
 
-   >>>project_name.export_macro_stats()
+   >>> project_name.export_macro_stats()
 
 
-- Create datasets combining all the subjects
-It will combine all .csv into a single dataset per session (one row per subject)
+2. Create datasets combining all the subjects
+    It will combine all .csv into a single dataset per session (one row per subject)
 
 .. code-block:: console
 
-   >>>project_name.macro_dataset()
+   >>> project_name.macro_dataset()
  
 
 .. _extraction_macro:
@@ -44,24 +44,26 @@ Extraction Macro-Architecture
 *Positional arguments:*
 
     **xml_dir**
-        Path to folder with the .xml file containing sleep stages and arousal events. 
-        Default is ``None`` which will point to ``root_dir/OUT/staging``
+        * Path to folder with the .xml file containing sleep stages and arousal events. 
+        * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **out_dir**
-        Output path for the outcomes of charactertistics extraction per subject.
-        Default is ``None`` which will point to ``root_dir/OUT/staging``
+        * Output path for the outcomes of charactertistics extraction per subject.
+        * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **subs**
-        Subject to analyze
-        Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
-            If put ``None``, it will point to the *sub* column in *tracking* file
-            If put string of sub ID (e.g., ['sub-01', 'sub-02']), it will only detect those sub folders
+        * Subject to analyze
+        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
 
-**sessions**
-Sessions/Visits to analyse per subject
-Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
-    If put ``None``, it will point to the *ses* column in *tracking* file
-    If put string of ses visit (e.g., ['ses-V1']), it will only detect the selected session(s) within each subject
+            * If put ``None``, it will point to the *sub* column in *tracking* file
+            * If put string of sub ID (e.g., ['sub-01', 'sub-02']), it will only detect those sub folders
+
+    **sessions**
+        * Sessions/Visits to analyse per subject
+        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+        
+            * If put ``None``, it will point to the *ses* column in *tracking* file
+            * If put string of ses visit (e.g., ['ses-V1']), it will only detect the selected session(s) within each subject
 
 **times**
 Light off and light on in seconds from beginning of recording
