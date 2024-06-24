@@ -51,11 +51,11 @@ Extraction Macro-Architecture
         Output path for the outcomes of charactertistics extraction per subject.
         Default is ``None`` which will point to ``root_dir/OUT/staging``
 
-**subs**
-Subject to analyze
-Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
-    If put ``None``, it will point to the *sub* column in *tracking* file
-    If put string of sub ID (e.g., ['sub-01', 'sub-02']), it will only detect those sub folders
+    **subs**
+        Subject to analyze
+        Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+            If put ``None``, it will point to the *sub* column in *tracking* file
+            If put string of sub ID (e.g., ['sub-01', 'sub-02']), it will only detect those sub folders
 
 **sessions**
 Sessions/Visits to analyse per subject
