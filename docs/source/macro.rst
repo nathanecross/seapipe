@@ -7,14 +7,14 @@ Overview
 ------------
 You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
 
-You will need to run two functions:
+*You will need to run two functions:*
 
 - Extract macro sleep characteristics for each subject.
 It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
 .. code-block:: console
 
-   project_name.export_macro_stats()
+   >>>project_name.export_macro_stats()
 
 
 - Create datasets combining all the subjects
@@ -22,17 +22,17 @@ It will combine all .csv into a single dataset per session (one row per subject)
 
 .. code-block:: console
 
-   project_name.macro_dataset()
+   >>>project_name.macro_dataset()
  
 
 .. _extraction_macro:
 Extraction Macro-Architecture
 ----------------
-Command line argument:
+*Command line argument:*
 
 .. code-block:: console
 
-   project_name.export_macro_stats(xml_dir = None, 
+   >>>project_name.export_macro_stats(xml_dir = None, 
                                    out_dir = None, 
                                    subs = 'all', 
                                    sessions = 'all', 
@@ -41,14 +41,15 @@ Command line argument:
                                    outfile = True)
 
 
-Positional arguments:
-**xml_dir**
-Path to folder with the .xml file containing sleep stages and arousal events. 
-Default is ``None`` which will point to ``root_dir/OUT/staging``
+*Positional arguments:*
 
-**out_dir**
-Output path for the outcomes of charactertistics extraction per subject.
-Default is ``None`` which will point to ``root_dir/OUT/staging``
+    **xml_dir**
+        Path to folder with the .xml file containing sleep stages and arousal events. 
+        Default is ``None`` which will point to ``root_dir/OUT/staging``
+
+    **out_dir**
+        Output path for the outcomes of charactertistics extraction per subject.
+        Default is ``None`` which will point to ``root_dir/OUT/staging``
 
 **subs**
 Subject to analyze
