@@ -316,11 +316,11 @@ class FISH:
                                         data = sorted(data, key=lambda x: x['start'])
                                         stagename = '-'.join(self.stage)
                                         outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_{event}.csv'
-                                        logger.debug('Writing to ' + outputfile)  
                                         export_event_params(outputfile, data, count=len(evts), 
                                                             density=density)
+                                        logger.debug('Writing to ' + outputfile)
                                     except:
-                                        logger.warning('No valid data found.')
+                                        logger.warning(f'No valid data found for {sub}, {ses}, {fnamechan}, {stagename}, {event}.')
                                         flag +=1
                                         break
                                 
@@ -385,11 +385,11 @@ class FISH:
                                                     mkdir(self.out_dir + '/' + sub + '/' + ses)
                                                 out_dir = self.out_dir + '/' + sub + '/' + ses
                                                 data = sorted(data, key=lambda x: x['start'])
-                                                outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_cycle{cy+1}_{event}.csv'
-                                                logger.debug('Writing to ' + outputfile)  
+                                                outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_cycle{cy+1}_{event}.csv' 
                                                 export_event_params(outputfile, data, 
                                                                     count=len(evts), 
                                                                     density=density)
+                                                logger.debug('Writing to ' + outputfile) 
                                             except:
                                                 logger.warning(f'No STAGE {st} in CYCLE {cy+1}')   
                                         continue 
@@ -442,11 +442,11 @@ class FISH:
                                                 mkdir(self.out_dir + '/' + sub + '/' + ses)
                                             out_dir = self.out_dir + '/' + sub + '/' + ses
                                             
-                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_{event}.csv'
-                                            logger.debug('Writing to ' + outputfile)  
+                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_{event}.csv' 
                                             export_event_params(outputfile, data, 
                                                                 count=len(evts), 
                                                                 density=density)
+                                            logger.debug('Writing to ' + outputfile) 
                                         except:
                                             logger.warning(f'No valid data found for {sub}, {ses}, {st}.')
                                             flag +=1
@@ -512,11 +512,11 @@ class FISH:
                                             out_dir = self.out_dir + '/' + sub + '/' + ses
                                             data = sorted(data, key=lambda x: x['start'])
                                             stagename = '-'.join(self.stage)
-                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cy+1}_{event}.csv'
-                                            logger.debug('Writing to ' + outputfile)  
+                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cy+1}_{event}.csv'  
                                             export_event_params(outputfile, data, 
                                                                 count=len(evts), 
                                                                 density=density)
+                                            logger.debug('Writing to ' + outputfile)
                                         except:
                                             logger.warning(f'No data in CYCLE {cy+1}')    
                                         continue 
@@ -529,7 +529,7 @@ class FISH:
                                         # Calculate event density (per segment type)
                                         poi = get_times(annot, evt_type=[seg[0],seg[1]], 
                                                         stage=None, chan=[channel], 
-                                                        exclude=exclude_poor)
+                                                        exclude=True)
                                         duos=[]
                                         [duos.extend([(poi[0]['times'][x][0],poi[1]['times'][x][1])]) 
                                                              for x,item in enumerate(poi[0]['times'])]
