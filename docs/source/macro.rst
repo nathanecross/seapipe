@@ -5,102 +5,209 @@ Macro-Architecture
 
 Overview
 ------------
-You can extract the different markers of macro-architecture (see definition of outputs below) whole night or per cycle
+You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
 
-You will need to run two functions:
+*You will need to run two functions:*
 
-1) extract macro sleep characteristics for each subject
+1. Extract macro sleep characteristics for each subject.
+    It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
-.. code-block:: console
+.. code-block:: python
 
-   project_name.export_macro_stats()
+   >>> project_name.export_macro_stats()
 
-2) combine into a single dataset 
-.. code-block:: console
 
-   project.macro_dataset()
+2. Create datasets combining all the subjects
+    It will combine all .csv into a single dataset per session (one row per subject)
+
+.. code-block:: python
+
+   >>> project_name.macro_dataset()
  
-.. _creating_a_pipeline:
-Creating a pipeline
+
+.. _extraction_macro:
+Extract macro-architecture
 ----------------
-To begin, open python and load seapipe
+*Command line argument:*
 
-.. code-block:: console
+.. code-block:: python
 
-   (.venv) $ python
->>> from seapipe import pipeline
+   >>>project_name.export_macro_stats(xml_dir = None, 
+                                   out_dir = None, 
+                                   subs = 'all', 
+                                   sessions = 'all', 
+                                   times = None, 
+                                   rater = None, 
+                                   outfile = True)
 
-Then you can initiate the pipeline by specifying the path to your dataset.
 
->>> project_name = pipeline('/home/username/project/') 
+*Positional arguments:*
 
-.. _checking_your_dataset:
-Checking your dataset
+    **xml_dir**
+        * Path to folder with the .xml file containing sleep stages and arousal events. 
+
+        * Default is ``None`` which will point to ``root_dir/OUT/staging``
+
+    **out_dir**
+        - Output path for the outcomes of charactertistics extraction per subject.
+
+        - Default is ``None`` which will point to ``root_dir/OUT/staging``
+
+    **subs**
+        * Subject to analyze
+
+        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+
+            * If put ``None``, it will point to the *sub* column in *tracking* file
+            * If put string of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+
+    **sessions**
+        * Sessions/Visits to analyse per subject
+
+        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+
+            * If put ``None``, it will point to the *ses* column in *tracking* file
+
+            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
+
+    **times**
+        * Light off and light on in seconds from beginning of recording
+
+        * Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
+
+    **rater**
+        * Name of the rater to analyze
+
+        * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
+    
+            * If put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
+
+    **outfile**
+        * Extraction of output file
+
+        * Default is ``True`` which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
+            
+            * If put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
+
+
+.. _create_datasets:
+Create datasets
+----------------
+*Command line argument:*
+
+.. code-block:: python
+
+   project_name.macro_dataset(xml_dir = None, 
+                              out_dir = None, 
+                              subs = 'all', 
+                              sessions = 'all', 
+                              cycle_idx = None,
+                              outfile = True)
+
+
+*Positional arguments:*
+
+    **xml_dir**
+        * Path to folder with the .xml file which also contains the .csv extracted with the *export_macro_stats* function
+
+        * Default is ``None`` which will point to ``root_dir/OUT/staging``
+
+    **out_dir**
+        * Output path for the created datasets
+
+        * Default is ``None`` which will point to ``root_dir/OUT/datasets/macro/``
+
+    **subs**
+        * Subject to export in the datasets
+
+        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/OUT/staging``
+
+            * If put ``None``, it will point to the *sub* column in *tracking* file
+
+            * If put list of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+
+    **sessions**
+        * Sessions/Visits to extract per subject
+
+        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/OUT/staging``
+
+            * If put ``None``, it will point to the *ses* column in *tracking* file
+
+            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect that/these session(s) within each subject
+
+    **cycle_idx**
+        * Extract sleep macro-architecture per cycle
+
+        * Default is ``None`` which will create a .csv extracting macro-architecture for whole-night only (from light off to light on)
+    
+            * If put a list of cycle number (e.g., [1,2,3]), it will extract macro-architecture per cycle *!!! Make sure you marked the cycles on the .xml in staging (see wonambi)!!!*
+
+    **outfile**
+        * Extraction of output file
+
+        * Default is ``True`` which will create a .csv dataset file combining all subjects in ``root_dir/OUT/datasets/macro/`` per session
+    
+            * If put ``False``, it won't extract .csv file 
+
+
+.. note::
+    To combine datasets, use the *trawl* function (see XXXX)
+
+
+.. _output:
+Output
 ----------------
 
-Before running any analyses, it is important to check your data.
-For seapipe to run properly, the data needs to be organised in the **Brain Imaging Data Structure (BIDS)**.
-The compatibility of the dataset with BIDS can be validated `online <https://bids-standard.github.io/bids-validator/>`_.
+*Markers of macro-architecture:*
 
-However, seapipe also works almost symbiotically with the `Wonambi <https://wonambi-python.github.io/>`_ package.
-Therefore, any annotations (sleep scoring, artefact markings etc.) need to be inside a wonambi annotations (.xml) file. 
-For more information, see :ref:`Annotations file`.
+    **TIB_min** : time in bed from light off to light on - in minutes
 
-To receive an overview of your dataset, including whether the each participant's directory is BIDS compatible, as well as 
-how many sessions, recording (e.g. edfs) and annotation files they contain, you can call the ``pipeline.audit`` property 
-of every dataset:
- 
->>> pipeline.audit()
- 
-::
+    **TotalWake_min** : total wake duration between light off and light on (including SL, WASO, Wmor) - in minutes
 
-   Participants   BIDS?	   #sessions #recordings   #annotations
-   sub-002        TRUE	      2	         2	            2
-   sub-004        TRUE	      3	         3	            3
-   sub-006	  FALSE	      2	         2	            1
-   sub-007	  TRUE	      2	         2	            2
-   sub-008	  FALSE	      2	         1	            1
-   sub-009	  TRUE	      2	         2	            2
-   sub-011	  FALSE	      0	         0	            0
-   sub-013	  TRUE	      2	         2	            2
-   sub-014	  FALSE       0          2                  2
-   sub-015	  TRUE	      2	         2	            2
-   sub-016	  FALSE	      2	         2	            0
+    **SL_min** : sleep onset latency from light off to first epoch of sleep - in minutes
 
+    **WASOintra_min** : wake after sleep onset (wake duration from SOL to last epoch of sleep) - in minutes
 
-This will be automatically saved to a file *dataset_audit.csv*
+    **Wmor_min** : wake duration from last epoch of sleep to light on - in minutes
 
-To retrieve a list of all the files inside the root directory, along with the
-directories 1 and 2 levels preceding the files,
-you can use the ``pipeline.list_dataset()`` function:
+    **TSP_min** : total sleep period (duration from SOL to last epoch of sleep, includes epochs of N1, N2, N3, REM and Wake) - in minutes
 
->>> pipeline.list_dataset()
+    **TST_min** : total sleep time (only includes epochs of N1, N2, N3, REM) - in minutes
 
-:: 
+    **SE_%** : sleep efficiency (TST/TiB*100) - in percentage
 
-   Directory: project/bids
-   Files = ['dataset_description.json', 'participants.tsv']
-   ----------
-   Directory: ses-01/eeg
-   Files = ['sub-001_ses-01_eeg.edf']
-   ----------
-   Directory: ses-02/eeg
-   Files = ['sub-001_ses-02_eeg.edf']
-   ----------
-   Directory: ses-01/eeg
-   Files = ['sub-002_ses-01_eeg.edf']
-   ----------
-   etc.
+    **N1_min** : time spent in stage N1 - in minutes
 
-.. The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
-.. or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
-.. will raise an exception.
+    **N2_min** : time spent in stage N2 - in minutes
 
-.. .. autoexception:: lumache.InvalidKindError
+    **N3_min** : time spent in stage N3 - in minutes
 
-.. For example:
+    **REM_min** : time spent in stage REM - in minutes
 
-.. >>> import lumache
-.. >>> lumache.get_random_ingredients()
-.. ['shells', 'gorgonzola', 'parsley']
+    **W_%tsp** : proportion of time spent in wake relative to TSP (WASO_intra/TSP*100) - in percentage
 
+    **N1_%tsp** : proportion of time spent in N1 relative to TSP (N1/TSP*100) - in percentage
+
+    **N2_%tsp** : proportion of time spent in N2 relative to TSP (N2/TSP*100) - in percentage
+
+    **N3_%tsp** : proportion of time spent in N3 relative to TSP (N3/TSP*100) - in percentage
+
+    **REM_%tsp** : proportion of time spent in REM relative to TSP (REM/TSP*100) - in percentage
+
+    **SSI** : stage switching index (number of change from one stage to another) - number per hour (TSP)
+
+    **SFI** : sleep fragmentation index (number of change from one stage to a lighter stage) - number per hour (TSP)
+
+    **SL_toN2_min** : sleep latency to reach first epoch of N2 - in minutes
+
+    **SL_toN3_min** : sleep latency to reach first epoch of N3 - in minutes
+
+    **SL_toREM_min** : sleep latency to reach first epoch of REM - in minutes
+
+    **SL_toNREM_5m_min** : sleep latency to reach 5 minutes of consolidated NREM (N2+N3) - in minutes
+
+    **SL_toNREM_10m_min** : sleep latency to reach 10 minutes of consolidated NREM (N2+N3) - in minutes
+
+    **SL_toN3_5m_min** : sleep latency to reach 5 minutes of consolidated N3 - in minutes
+
+    **SL_toN3_10m_min** : sleep latency to reach 10 minutes of consolidated N3 - in minutes
