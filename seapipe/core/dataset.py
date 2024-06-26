@@ -412,7 +412,7 @@ class pipeline:
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
-        if not isinstance(chan, DataFrame) or not isinstance(chan, list):
+        if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
             return
