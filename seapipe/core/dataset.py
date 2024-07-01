@@ -354,7 +354,7 @@ class pipeline:
             return
             
         # Format concatenation
-        cat = (1,0,1,1)
+        cat = (1,1,1,1)
         
         # Default stage
         if stage == None:
