@@ -412,7 +412,7 @@ class pipeline:
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
-        if not isinstance(chan, DataFrame) or not isinstance(chan, list):
+        if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
             return
@@ -442,7 +442,8 @@ class pipeline:
                 logger.warning(f"Some spectral peak entries in 'tracking.tsv' are inconsistent or missing. In these cases, detection will revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
                 logger.info('')
             peaks = check_chans(self.rootpath, None, False, logger)
-        elif adap_bands == 'Auto':                
+        elif adap_bands == 'Auto':   
+            frequency = (9,16)             
             logger.debug('Detection using ADAPTED (automatic) frequency bands has been selected (adap_bands = Auto)')
             self.track(step='fooof', show = False, log = False)
             if not type(chan) == type(DataFrame()):
