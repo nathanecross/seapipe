@@ -34,8 +34,8 @@ class seasnakes:
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs='all', 
-                 sessions='all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
-                 tracking = None):
+                 sessions='all', tracking = None,
+                 reject_artf = ['Artefact', 'Arou', 'Arousal'],):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
