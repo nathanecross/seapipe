@@ -71,7 +71,7 @@ def check_chans(rootpath, chan, ref_chan, logger):
         try:
             chan = read_tracking_sheet(f'{rootpath}', logger)
         except:
-            logger.critical("Channels haven't been defined, and no 'tracking.tsv' file exists.")
+            logger.critical("Channels haven't been defined, and no tracking file exists.")
             logger.info('Check documentation for how to set up channel data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -80,7 +80,7 @@ def check_chans(rootpath, chan, ref_chan, logger):
         try:
             ref_chan = read_tracking_sheet(f'{rootpath}', logger)
         except:
-            logger.warning("Reference channels haven't been defined, and no 'tracking.tsv' file exists.")
+            logger.warning("Reference channels haven't been defined, and no tracking file exists.")
             logger.warning('No re-referencing will be performed prior to analysis.')
     
     if ref_chan is False:
@@ -96,19 +96,19 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(chan) == type(DataFrame()):
         if verbose==2:
-            logger.debug("Reading channel names from 'tracking.csv' ")
+            logger.debug("Reading channel names from 'tracking' ")
         # Search participant
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}.")
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}.")
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -120,7 +120,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No channel set found in 'tracking.tsv' for {sub}, {ses}, skipping...")
+                logger.warning(f"No channel set found in tracking file for {sub}, {ses}, skipping...")
             flag+=1
             return flag, None
     else:
@@ -128,24 +128,24 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(ref_chan) == type(DataFrame()):
         if verbose==2:
-            logger.debug("Reading reference channel names from 'tracking.csv' ")
+            logger.debug("Reading reference channel names from tracking file ")
         ref_chans = ref_chan[ref_chan['sub']==sub]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}.")
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans[ref_chans['ses']==ses]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}.")
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans.filter(regex='refset')
         ref_chans = ref_chans.dropna(axis=1, how='all')
         if len(ref_chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No reference channel set found in 'tracking.tsv' for {sub}, {ses}. Progressing without re-referencing...")
+                logger.warning(f"No reference channel set found in tracking file for {sub}, {ses}. Progressing without re-referencing...")
             ref_chans = []
     elif ref_chan:
         ref_chans = ref_chan
@@ -154,7 +154,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(chans) == list:
         if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
-            logger.error("Channels are hardcoded, but there were more than 2 reference channel sets found in 'tracking.tsv'. For channel setup options, refer to documentation:")
+            logger.error("Channels are hardcoded, but there were more than 2 reference channel sets found in tracking file. For channel setup options, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             flag+=1
             return flag, None
@@ -167,7 +167,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     elif type(chans) == type(DataFrame()):
         if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
-            logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking.tsv', but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
+            logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             flag+=1
             return flag, None
@@ -184,7 +184,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
         
     else:
-        logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of 'tracking.csv' - NOT a string.")
+        logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
         flag+=1
         return flag, None
     
@@ -219,7 +219,7 @@ def rename_channels(sub, ses, chan, logger):
     
     if type(oldchans) == type(DataFrame()):
         if type(newchans) == DataFrame and len(newchans.columns) != len(oldchans.columns):
-            logger.warning(f"There must be the same number of channel sets and channel rename sets in 'tracking.tsv', but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
+            logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.warning(f"Using original channel names for {sub}, {ses}...")
             return None
@@ -238,7 +238,7 @@ def rename_channels(sub, ses, chan, logger):
         if len(oldchans) == len(newchans):
             newchans = {chn:newchans[i] for i,chn in enumerate(oldchans)}
         else:
-            logger.warning(f"There must be the same number of original channel names and new renamed channels in 'tracking.tsv', but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
+            logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.warning(f"Using original channel names for {sub}, {ses}...")
             return None
@@ -266,12 +266,12 @@ def check_adap_bands(self, subs, sessions, chan, logger):
     peaks = peaks.dropna(axis=1, how='all')
     
     if len(peaks.columns) == 0:
-        logger.critical("No spectral peaks have been provided in 'tracking.tsv'. Peaks will need to be detected.")
+        logger.critical("No spectral peaks have been provided in tracking file. Peaks will need to be detected.")
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error', None
     elif len(peaks.columns) != len(chans.columns):
-        logger.critical("There must be the same number of channel sets and spectral peaks sets in 'tracking.tsv'")
+        logger.critical("There must be the same number of channel sets and spectral peaks sets in tracking file")
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         return 'error', None
     
@@ -308,12 +308,12 @@ def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
         # Search participant
         chans = frequency[frequency['sub']==sub]
         if len(chans.columns) == 0:
-            logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
             return None
         # Search session
         chans = chans[chans['ses']==ses]
         if len(chans.columns) == 0:
-            logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
             return None
         
         # Search channel
@@ -326,7 +326,7 @@ def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
         chans = chans.dropna(axis=1, how='all')
         
         if len(peaks.columns) == 0:
-            logger.warning(f"No spectral peaks found in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"No spectral peaks found in tracking file for {sub}, {ses}.")
             return None
 
         chans = chans.to_numpy()[0]
@@ -398,12 +398,12 @@ def read_inversion(sub, ses, invert, chan, logger):
         # Search participant
         chans = invert[invert['sub']==sub]
         if len(chans.columns) == 0:
-            logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
             return None
         # Search session
         chans = chans[chans['ses']==ses]
         if len(chans.columns) == 0:
-            logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
             return None
         
         # Search channel
@@ -416,7 +416,7 @@ def read_inversion(sub, ses, invert, chan, logger):
         chans = chans.dropna(axis=1, how='all')
         
         if len(inversion.columns) == 0:
-            logger.warning(f"No inversion info found in 'tracking.tsv' for {sub}, {ses}.")
+            logger.warning(f"No inversion info found in tracking file for {sub}, {ses}.")
             return None
 
         chans = chans.to_numpy()[0]
