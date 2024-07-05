@@ -153,7 +153,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
     return   
 
 
-def sleepstats_from_csvs(xml_dir, out_dir, rater, subs = 'all', sessions = 'all',
+def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all',
                          log_dir = None, outfile = 'macro_dataset_log.txt'):
     
     ### 0.a Set up logging
@@ -225,35 +225,34 @@ def sleepstats_from_csvs(xml_dir, out_dir, rater, subs = 'all', sessions = 'all'
             
                 data = read_csv(data_file, sep=',', delimiter=None, 
                             header=1, index_col=0) 
+                df.loc['ses', sub] = ses
+                df.loc['TIB_min', sub] = data['Value 2']['Total dark time (Time in bed)']
+                df.loc['TotalWake_min', sub] = data['Value 2']['Wake duration']
+                df.loc['SL_min', sub] = data['Value 2']['Sleep latency']
+                df.loc['WASOintra_min', sub] = data['Value 2']['Wake after sleep onset']
+                df.loc['Wmor_min', sub] = data['Value 2']['Wake, morning']
+                df.loc['TSP_min', sub] = data['Value 2']['Total sleep period']
+                df.loc['TST_min', sub] = data['Value 2']['Total sleep time']
+                df.loc['SE_%', sub] = data['Value 1']['Sleep efficiency']
+                df.loc['N1_min', sub] = data['Value 2']['N1 duration']
+                df.loc['N2_min', sub] = data['Value 2']['N2 duration']
+                df.loc['N3_min', sub] = data['Value 2']['N3 duration']
+                df.loc['REM_min', sub] = data['Value 2']['REM duration']
+                df.loc['W_%tsp', sub] = data['Value 1']['W % TSP']
+                df.loc['N1_%tsp', sub] = data['Value 1']['N1 % TSP']
+                df.loc['N2_%tsp', sub] = data['Value 1']['N2 % TSP']
+                df.loc['N3_%tsp', sub] = data['Value 1']['N3 % TSP']
+                df.loc['REM_%tsp', sub] = data['Value 1']['REM % TSP']
+                df.loc['SSI', sub] = data['Value 1']['Switch index H']
+                df.loc['SFI', sub] = data['Value 1']['Sleep fragmentation index H']
+                df.loc['SL_toN2_min', sub] = data['Value 2']['Sleep latency to N2']
+                df.loc['SL_toN3_min', sub] = data['Value 2']['Sleep latency to N3']
+                df.loc['SL_toREM_min', sub] = data['Value 2']['Sleep latency to REM']
+                df.loc['SL_toNREM_5m_min', sub] = data['Value 2']['Sleep latency to consolidated NREM, 5 min']
+                df.loc['SL_toNREM_10m_min', sub] = data['Value 2']['Sleep latency to consolidated NREM, 10 min']
+                df.loc['SL_toN3_5m_min', sub] = data['Value 2']['Sleep latency to consolidated N3, 5 min']
+                df.loc['SL_toN3_10m_min', sub] = data['Value 2']['Sleep latency to consolidated N3, 10 min']
 
-                df['ses'].loc[sub] = ses
-                df['TIB_min'].loc[sub] = data['Value 2']['Total dark time (Time in bed)']
-                df['TotalWake_min'].loc[sub] = data['Value 2']['Wake duration']
-                df['SL_min'].loc[sub] = data['Value 2']['Sleep latency']
-                df['WASOintra_min'].loc[sub] = data['Value 2']['Wake after sleep onset']
-                df['Wmor_min'].loc[sub] = data['Value 2']['Wake, morning']
-                df['TSP_min'].loc[sub] = data['Value 2']['Total sleep period']
-                df['TST_min'].loc[sub] = data['Value 2']['Total sleep time']
-                df['SE_%'].loc[sub] = data['Value 1']['Sleep efficiency']
-                df['N1_min'].loc[sub] = data['Value 2']['N1 duration']
-                df['N2_min'].loc[sub] = data['Value 2']['N2 duration']
-                df['N3_min'].loc[sub] = data['Value 2']['N3 duration']
-                df['REM_min'].loc[sub] = data['Value 2']['REM duration']
-                df['W_%tsp'].loc[sub] = data['Value 1']['W % TSP']
-                df['N1_%tsp'].loc[sub] = data['Value 1']['N1 % TSP']
-                df['N2_%tsp'].loc[sub] = data['Value 1']['N2 % TSP']
-                df['N3_%tsp'].loc[sub] = data['Value 1']['N3 % TSP']
-                df['REM_%tsp'].loc[sub] = data['Value 1']['REM % TSP']
-                df['SSI'].loc[sub] = data['Value 1']['Switch index H']
-                df['SFI'].loc[sub] = data['Value 1']['Sleep fragmentation index H']
-                df['SL_toN2_min'].loc[sub] = data['Value 2']['Sleep latency to N2']
-                df['SL_toN3_min'].loc[sub] = data['Value 2']['Sleep latency to N3']
-                df['SL_toREM_min'].loc[sub] = data['Value 2']['Sleep latency to REM']
-                df['SL_toNREM_5m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated NREM, 5 min']
-                df['SL_toNREM_10m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated NREM, 10 min']
-                df['SL_toN3_5m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated N3, 5 min']
-                df['SL_toN3_10m_min'].loc[sub] = data['Value 2']['Sleep latency to consolidated N3, 10 min']
-  
         df.to_csv(f'{out_dir}/{ses}_macro.csv', sep=',')
         
     ### 3. Check completion status and print

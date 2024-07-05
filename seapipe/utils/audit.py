@@ -466,7 +466,7 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                     update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{chanfile}')).strftime("%m-%d-%Y, %H:%M:%S")
                                     tracking['fooof'][sub][ses][chan].append({'Stage':chanfile.split('_')[3],      
                                                                               'Cycle':'',      # FLAG FOR UPDATE
-                                                                              'Bandwidth':chanfile.split('_')[-1].split('.')[0],
+                                                                              'Bandwidth':chanfile.split('_')[-1].split('.csv')[0],
                                                                               'File':f'{spath}/{sub}/{ses}/{chanfile}',
                                                                               'Updated':update})
         df['fooof'] = fooof_df
@@ -529,8 +529,8 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat,
                         num_files = len(stage)
                         files = []
                         for stg in stage:
-                            files.append([x['File'] for x in fooof if stg in x['Stage']
-                                          if bandwidth in x['Bandwidth']])
+                            [files.append(x['File']) for x in fooof if stg in x['Stage']
+                                          if bandwidth in x['Bandwidth']]
                     
                     if num_files != len(files):
                         flag +=1

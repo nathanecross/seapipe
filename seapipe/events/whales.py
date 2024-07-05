@@ -180,10 +180,12 @@ class whales:
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
                         logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                    annot = Annotations(backup_file, rater_name=self.rater)
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
                     break
+                
+                # Read annotations file
+                annot = Annotations(backup_file, rater_name=self.rater)
                 
                 ## e. Get sleep cycles (if any)
                 if cycle_idx is not None:
@@ -218,9 +220,9 @@ class whales:
                                                  adap_bw, logger)
                     elif adap_bands == 'Auto':
                         stagename = '-'.join(self.stage)
-                        bandwidth = f'{self.frequency[0]}-{self.frequency[1]}Hz'
+                        band_limits = f'{self.frequency[0]}-{self.frequency[1]}Hz'
                         freq = load_adap_bands(self.tracking['fooof'], sub, ses,
-                                               fnamechan, stagename, bandwidth, 
+                                               fnamechan, stagename, band_limits, 
                                                adap_bw, logger)
                     if not freq:
                         logger.warning('Will use fixed frequency bands instead.')
@@ -275,6 +277,10 @@ class whales:
                                 logger.debug('Detecting events in cycle {} of {}, stages: {}'.format(s + 1, 
                                       len(segments),self.stage))
                                 spindle = detection(seg['data'])
+                                if adap_bands == 'Fixed':
+                                    evt_name = meth 
+                                else:
+                                    evt_name = f'{meth}_adap'
                                 spindle.to_annot(annot, meth)
                                 if len(spindle.events) == 0:
                                     logger.warning(f'No events detected by {meth} for {sub}, {ses}')
@@ -286,7 +292,7 @@ class whales:
                                                                               'Updated':now}
                         
                         # l. Remove any duplicate detected spindles on channel 
-                        remove_duplicate_evts(annot, evt_name=meth, chan=f'{ch} ({self.grp_name})')
+                        remove_duplicate_evts(annot, evt_name=evt_name, chan=f'{ch} ({self.grp_name})')
                         
         ### 3. Check completion status and print
         if flag == 0:

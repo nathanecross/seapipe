@@ -35,8 +35,11 @@ def read_tracking_sheet(filepath, logger):
 def select_input_dirs(self, xml_dir, evt_name=None):
     if not xml_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
-                        'Moelle2011', 'Wamsley2012', 'Ray2015', 'Moelle2011', 
-                        'Lacourse2018', 'FASST', 'FASST2', 'Concordia','UCSD']:
+                        'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
+                        'FASST', 'FASST2', 'Concordia','UCSD','spindle_adap', 
+                        'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
+                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
+                        'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
             xml_dir = f'{self.outpath}/spindle'
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
             xml_dir = f'{self.outpath}/slowwave'
@@ -51,8 +54,11 @@ def select_ouput_dirs(self, out_dir, evt_name=None):
             
     if not out_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
-                        'Moelle2011', 'Wamsley2012', 'Ray2015', 'Moelle2011', 
-                        'Lacourse2018', 'FASST', 'FASST2', 'Concordia','UCSD']:
+                        'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
+                        'FASST', 'FASST2', 'Concordia','UCSD','spindle_adap', 
+                        'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
+                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
+                        'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
             out_dir = f'{self.outpath}/spindle'
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
             out_dir = f'{self.outpath}/slowwave'
@@ -96,7 +102,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(chan) == type(DataFrame()):
         if verbose==2:
-            logger.debug("Reading channel names from 'tracking' ")
+            logger.debug("Reading channel names from tracking file")
         # Search participant
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
@@ -349,7 +355,7 @@ def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
     return freq
 
 
-def load_adap_bands(tracking, sub, ses, ch, stage, bandwidth, adap_bw, logger):
+def load_adap_bands(tracking, sub, ses, ch, stage, band_limits, adap_bw, logger):
     
     logger.debug(f'Searching for spectral peaks for {sub}, {ses}, {ch}.')
     
@@ -360,31 +366,33 @@ def load_adap_bands(tracking, sub, ses, ch, stage, bandwidth, adap_bw, logger):
         return None
     
     files = [x for x in files if stage in x['Stage']]
-    files = [x for x in files if bandwidth in x['Bandwidth']]
-    
+    files = [x for x in files if band_limits in x['Bandwidth']]
+
     if len(files) == 0:
-        logger.warning(f'No specparams export file found for {sub}, {ses}, {ch}, {stage}, {bandwidth}.')
+        logger.warning(f'No specparams export file found for {sub}, {ses}, {ch}, {stage}, {band_limits}.')
         return None
     elif len(files) > 1:
-        logger.warning(f'>1 specparams export files found for {sub}, {ses}, {ch}, {stage}, {bandwidth} ?')
+        logger.warning(f'>1 specparams export files found for {sub}, {ses}, {ch}, {stage}, {band_limits} ?')
         return None
     else:
         file = files[0]['File']
     
-        df = read_csv(file)
-        df = df.filter(regex='peak')
-        df = df.dropna(axis=1, how='all')
-        
-        if len(df.columns) == 3:
-            peak = df.filter(regex='CF').values[0][0]
-        elif len(df.columns) == 0: 
-            logger.warning(f'No peaks found in export file for {sub}, {ses}, {ch}, {stage}, {bandwidth}.')
-            return None
-        else:
-            BW = df.filter(regex='BW')
-            maxcol = BW.idxmax(axis='columns')[0].split('_')[1]
-            df = df.filter(regex=maxcol)
-            peak = df.filter(regex='CF').values[0][0]
+    
+    # Read file and extract peak
+    df = read_csv(file)
+    df = df.filter(regex='peak')
+    df = df.dropna(axis=1, how='all')
+    
+    if len(df.columns) == 3:
+        peak = df.filter(regex='CF').values[0][0]
+    elif len(df.columns) == 0: 
+        logger.warning(f'No peaks found in export file for {sub}, {ses}, {ch}, {stage}, {band_limits}.')
+        return None
+    else:
+        BW = df.filter(regex='BW')
+        maxcol = BW.idxmax(axis='columns')[0].split('_')[1]
+        df = df.filter(regex=maxcol)
+        peak = df.filter(regex='CF').values[0][0]
             
     freq = (peak - adap_bw/2, 
             peak + adap_bw/2)

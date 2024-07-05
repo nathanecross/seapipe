@@ -179,10 +179,12 @@ class seasnakes:
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
                         logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                    annot = Annotations(backup_file, rater_name=self.rater)
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
                     break
+                
+                # Read annotations file
+                annot = Annotations(backup_file, rater_name=self.rater)
                 
                 ## e. Get sleep cycles (if any)
                 if cycle_idx is not None:

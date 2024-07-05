@@ -385,9 +385,10 @@ class pipeline:
     
     
     def detect_spindles(self, xml_dir = None, out_dir = None, subs = 'all', 
-                        sessions = 'all', filetype = '.edf', method = None, 
-                        chan = None, ref_chan = None, rater = None, stage = None, 
-                        grp_name = 'eeg', cycle_idx = None, frequency = (11,16), 
+                        sessions = 'all', filetype = '.edf', method = ['Moelle2011'], 
+                        chan = None, ref_chan = None, rater = None, 
+                        stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                        cycle_idx = None, concat_cycle = True, frequency = None, 
                         adap_bands = 'Fixed', adap_bw = 4, peaks = None, 
                         reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                         duration =( 0.5, 3), outfile = True):
@@ -403,10 +404,11 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
+            
         if not xml_dir:
             xml_dir = f'{self.outpath}/staging'   
         if not out_dir:
-            out_dir = f'{self.outpath}/spindle'    
+            out_dir = select_ouput_dirs(self, out_dir, method)  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -418,19 +420,16 @@ class pipeline:
             return
         
         # Format concatenation
-        cat = (1,0,1,1)
+        if concat_cycle == True:
+            cat = (1,0,1,1)
+        else:
+            cat = (0,0,1,1)
         
-        # Default stage
-        if stage == None:
-            stage = ['NREM2','NREM3']
-        
-        # Default method
-        if method == None:
-            method = ['Moelle2011']
-            
         # Check for adapted bands
         if adap_bands == 'Fixed':
             logger.debug('Detection using FIXED frequency bands has been selected (adap_bands = Fixed)')
+            if not frequency:
+                frequency = (11,16)
         elif adap_bands == 'Manual':
             logger.debug('Detection using ADAPTED (user-provided) frequency bands has been selected (adap_bands = Manual)')
             logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
@@ -442,8 +441,9 @@ class pipeline:
                 logger.warning(f"Some spectral peak entries in 'tracking.tsv' are inconsistent or missing. In these cases, detection will revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
                 logger.info('')
             peaks = check_chans(self.rootpath, None, False, logger)
-        elif adap_bands == 'Auto':   
-            frequency = (9,16)             
+        elif adap_bands == 'Auto': 
+            if not frequency:
+                frequency = (9,16)           
             logger.debug('Detection using ADAPTED (automatic) frequency bands has been selected (adap_bands = Auto)')
             self.track(step='fooof', show = False, log = False)
             if not type(chan) == type(DataFrame()):
@@ -471,6 +471,7 @@ class pipeline:
                 self.detect_spectral_peaks(subs = pk_sub, 
                                            sessions = pk_ses, 
                                            chan = pk_chan, 
+                                           frequency = frequency,
                                            concat_cycle=concat_cycle, 
                                            concat_stage=concat_stage)
   
@@ -604,7 +605,7 @@ class pipeline:
                                      rater, times, log_dir, outfile)
         return
     
-    def macro_dataset(self, xml_dir = None, out_dir = None, rater = None, 
+    def macro_dataset(self, xml_dir = None, out_dir = None, 
                       subs = 'all', sessions = 'all', outfile = True):
          
          # Set input/output directories
@@ -618,19 +619,19 @@ class pipeline:
          xml_dir = select_input_dirs(self, xml_dir, 'macro')
          out_dir = select_ouput_dirs(self, out_dir, 'macro')
          
-         sleepstats.sleepstats_from_csvs(xml_dir, out_dir, rater,   
+         sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
                                  subs, sessions, log_dir, outfile)
          return
     
     def export_eventparams(self, xml_dir = None, out_dir = None, subs = 'all', 
                            sessions = 'all', chan = None, ref_chan = None, 
-                           rater=None, stage = None, grp_name = 'eeg', 
-                           concat_cycle = True, concat_stage = False, 
-                           cycle_idx = None, keyword = None, evt_name = 'spindle', 
-                           frequency = (11,16), segs = None, adap_bands = False, 
-                           param_keys = 'all',  
-                           epoch_dur = 30, n_fft_sec = 4, Ngo = {'run':False},
-                           outfile = True):
+                           stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                           rater = None, cycle_idx = None, concat_cycle = True, 
+                           concat_stage = False, keyword = None, segs = None,
+                           evt_name = 'spindle', frequency = None,  
+                           adap_bands = 'Fixed', peaks = None,  adap_bw = 4,
+                           param_keys = 'all', epoch_dur = 30, n_fft_sec = 4, 
+                           Ngo = {'run':False}, outfile = True):
         
         # Set up logging
         logger = create_logger('Export params')
@@ -640,7 +641,9 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
+        out_dir = select_ouput_dirs(self, out_dir, evt_name)
         xml_dir = select_input_dirs(self, xml_dir, evt_name)
+        
         
         # Check annotations directory exists
         if not path.exists(xml_dir):
@@ -650,12 +653,10 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return
-        
-        out_dir = select_ouput_dirs(self, out_dir, evt_name)
-       
-        if adap_bands:
-            xml_dir = f'{xml_dir}_adapted'
-            out_dir = f'{out_dir}_adapted'
+
+        if adap_bands in ['Auto','Manual']:
+            evt_name = f'{evt_name}_adap'
+            self.track(step='fooof', show = False, log = False)
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
@@ -663,25 +664,20 @@ class pipeline:
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
-        # Default stage
-        if stage == None:
-            stage = ['NREM2','NREM3']
-            
         # Run line
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
-                          stage, frequency, rater, subs, sessions) 
-        fish.line(keyword, evt_name, cat, segs, cycle_idx, adap_bands, 
-                            param_keys, epoch_dur, 
-                            n_fft_sec, Ngo, outfile)
+                          stage, rater, subs, sessions, self.tracking) 
+        fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
+                  peaks, adap_bw, param_keys, epoch_dur, n_fft_sec, Ngo, outfile)
         return
     
     
     def event_dataset(self, xml_dir = None, out_dir = None, subs = 'all', 
                             sessions = 'all', chan = None, ref_chan = None, 
-                            rater = None, stage = None, concat_stage = False, 
+                            stage = None, concat_stage = False, 
                             concat_cycle = True, cycle_idx = None, grp_name = 'eeg', 
-                            frequency = (11,16), adap_bands = False, 
-                            evt_name = 'spindle', params = 'all', outfile=True):
+                            adap_bands = 'Fixed', evt_name = 'spindle', 
+                            params = 'all', outfile=True):
         
         # Set up logging
         logger = create_logger('Create dataset')
@@ -697,9 +693,13 @@ class pipeline:
             mkdir(log_dir)
         if not path.exists(self.outpath + '/datasets/'):
             mkdir(self.outpath + '/datasets/')
-        out_dir = self.outpath + f'/datasets/{evt_name}'
-        xml_dir = select_input_dirs(self, xml_dir, evt_name)
         
+        if adap_bands in ['Auto','Manual']:
+            evt_name = f'{evt_name}_adap'
+            self.track(step='fooof', show = False, log = False)
+        out_dir = self.outpath + f'/datasets/{evt_name}'
+        
+        xml_dir = select_input_dirs(self, xml_dir, evt_name)
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
@@ -707,15 +707,12 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return
-        
-        out_dir = select_ouput_dirs(self, out_dir, evt_name)
-        
-        if adap_bands:
-            xml_dir = f'{xml_dir}_adapted'
-            out_dir = f'{out_dir}_adapted'
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if not chan:
+            logger.info('')
+            logger.critical("'chan' must be defined for datasets")
+            return
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
@@ -725,8 +722,8 @@ class pipeline:
             stage = ['NREM2','NREM3']
             
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
-                          stage, frequency, rater, subs, sessions) 
-        fish.net(chan, evt_name, params, cat, cycle_idx, outfile)
+                          stage, subs = subs, sessions = sessions) 
+        fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
         
         return
     

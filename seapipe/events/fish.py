@@ -16,8 +16,7 @@ from wonambi.attr import Annotations
 from wonambi.trans import (fetch, get_times)
 from wonambi.trans.analyze import event_params, export_event_params
 from ..utils.logs import create_logger, create_logger_outfile, create_logger_empty
-from ..utils.load import (load_channels, rename_channels)
-
+from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
 
 class FISH:
     
@@ -29,7 +28,7 @@ class FISH:
     
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency = (11,16), rater = None, 
+                 grp_name, stage, rater = None,
                  subs = 'all', sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
@@ -41,7 +40,6 @@ class FISH:
         self.ref_chan = ref_chan
         self.grp_name = grp_name
         self.stage = stage
-        self.frequency = frequency
         self.rater = rater
         
         self.subs = subs
@@ -51,9 +49,9 @@ class FISH:
         self.tracking = tracking
 
     def line(self, keyword = None, evt_name = None, cat = (0,0,0,0), 
-             segs = None,  cycle_idx = None, adap_bands = False, 
-             param_keys = 'all',  
-             epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
+             segs = None,  cycle_idx = None, frequency = None, 
+             adap_bands = 'Fixed', peaks = None,  adap_bw = 4, 
+             param_keys = 'all', epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
              outfile = 'export_params_log.txt'):
                            
             '''
@@ -254,14 +252,37 @@ class FISH:
                                     fnamechan = channel
                                 
                                 # 5.c. Define frequency bands
-                                if adap_bands is True:
-                                    if path.exists(f'{self.out_dir}/fooof'):
-                                        freq = self.frequency[channel][sub + '_' + ses]
-                                        logger.debug(f'Using adapted bands for {sub}, {ses}: {round(freq[0],2)}-{round(freq[1],2)} Hz')
+                                if adap_bands == 'Fixed':
+                                    logger.debug("Adapted bands has been set as 'Fixed'.")
+                                    freq = frequency
+                                elif adap_bands == 'Manual':
+                                    logger.debug("Adapted bands has been set as 'Manual'. Will search for peaks within the tracking sheet")
+                                    freq = read_manual_peaks(sub, ses, peaks, ch, 
+                                                             adap_bw, logger)
+                                elif adap_bands == 'Auto':
+                                    stagename = '-'.join(self.stage)
+                                    if frequency == None:
+                                        logger.critical("If setting adap_bands = 'Auto' a frequency range must also be set.")
+                                        logger.info('                      Check documentation for how to extract event parameters:')
+                                        logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')
+                                        return
                                     else:
-                                        logger.warning(f'Adapted bands selected, but Spectral Parameterization has not been run for {sub}, {ses}.')
-                                else:
-                                    freq = self.frequency
+                                        band_limits = f'{frequency[0]}-{frequency[1]}Hz'
+                                        logger.debug(f"Adapted bands has been set as 'Auto'. Will search for peaks within the limits: {band_limits}")
+                                        freq = load_adap_bands(self.tracking['fooof'], sub, ses,
+                                                               fnamechan, stagename, band_limits, 
+                                                               adap_bw, logger)
+                                
+                                # Final freq check (and set defaults if none)
+                                if freq == None and self.out_dir.split('/')[-1] == 'spindle':
+                                    freq = (11,16)
+                                elif freq == None and self.out_dir.split('/')[-1] == 'slowwave':
+                                    freq = (0.5, 1.25)
+                                elif freq == None:
+                                    freq = (0, 35)
+                                
+                                band_limits = f'{freq[0]}-{freq[1]}Hz'
+                                logger.debug(f"Using band limits: {band_limits}")
                                 
                                 # 5.d. Select and read data
                                 logger.info('')
@@ -294,7 +315,7 @@ class FISH:
                                     density = count / (total_dur / epoch_dur)
                                     logger.debug('----- WHOLE NIGHT -----')
                                     logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                    logger.debug(f'Density = {density} per epoch')
+                                    logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                     logger.info('')
                                     
                                     # Set n_fft
@@ -366,7 +387,7 @@ class FISH:
                                                 logger.info('')
                                                 logger.debug(f'---- STAGE {st}, CYCLE {cy+1} ----')
                                                 logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                                logger.debug(f'Density = {density} per epoch')
+                                                logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                                 logger.info('')
         
                                                 # Set n_fft
@@ -418,7 +439,7 @@ class FISH:
                                             logger.info('')
                                             logger.debug(f'---- STAGE {st} ----')
                                             logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                            logger.debug(f'Density = {density} per epoch')
+                                            logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
         
                                             # Set n_fft
@@ -492,7 +513,7 @@ class FISH:
                                             logger.info('')
                                             logger.debug(f'---- CYCLE {cy+1} ----')
                                             logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                            logger.debug(f'Density = {density} per epoch')
+                                            logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
     
                                             # Set n_fft
@@ -545,7 +566,7 @@ class FISH:
                                         logger.info('')
                                         logger.debug(f'----- Segment {seg} -----')
                                         logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                        logger.debug(f'Density = {density} per epoch')
+                                        logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                         logger.info('')
                                         
                                         # Set n_fft
@@ -588,7 +609,7 @@ class FISH:
             #         tbinfo = traceback.format_tb(tb)[0]
             #         logger.info(tbinfo)
                         
-    def net(self, chan, evt_name, params = 'all', cat = (1,1,1,1), 
+    def net(self, chan, evt_name, adap_bands, params = 'all', cat = (1,1,1,1), 
             cycle_idx = None, outfile = True):
         
         '''
@@ -685,6 +706,7 @@ class FISH:
         else:
             variables = params
         
+        
         # 4. Begin data extraction
         for c, ch in enumerate(chan):
             logger.debug(f'Creating a {evt_name} dataset for {ch}..')
@@ -716,7 +738,7 @@ class FISH:
                                 return
                         else:
                             flag +=1
-                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {evt_name} - has export_eventparams been run for {model}?')
+                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                     if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                         mkdir(f'{self.out_dir}/{evt_name}_{model}')
                     df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}.csv")
@@ -740,7 +762,7 @@ class FISH:
                                         return
                                 else:
                                     flag +=1
-                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}?')
+                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                             if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                                 mkdir(f'{self.out_dir}/{evt_name}_{model}')
                             df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{st}_{cycle}.csv")
@@ -764,7 +786,7 @@ class FISH:
                                     return
                             else:
                                 flag +=1
-                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, {evt_name} - has export_eventparams been run for {model}?')
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                         if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                             mkdir(f'{self.out_dir}/{evt_name}_{model}')
                         df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}_{cycle}.csv")
@@ -786,7 +808,7 @@ class FISH:
                                     return
                             else:
                                 flag +=1
-                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}?')
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                         if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                             mkdir(f'{self.out_dir}/{evt_name}_{model}')  
                         df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{st}.csv")
