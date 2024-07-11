@@ -483,7 +483,8 @@ class pipeline:
         if not xml_dir:
             xml_dir = f'{self.outpath}/staging'   
         if not out_dir:
-            out_dir = select_ouput_dirs(self, out_dir, method)  
+            for met in method:
+                out_dir = select_ouput_dirs(self, out_dir, met)  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
