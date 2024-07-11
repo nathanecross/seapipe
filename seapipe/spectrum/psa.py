@@ -12,7 +12,7 @@ from glob import glob
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from numpy import (asarray, ceil, concatenate, empty, floor, mean, nan, 
-                   ones, pi, sqrt, stack, sum, zeros)
+                   ones, pi, sqrt, stack, sum, where, zeros)
 from openpyxl import Workbook
 from os import listdir, mkdir, path, walk
 from pandas import DataFrame, ExcelWriter
@@ -23,7 +23,7 @@ from wonambi.trans import (fetch, frequency, get_descriptives, export_freq,
                            export_freq_band)
 from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
 from ..utils.logs import create_logger
-from ..utils.load import load_channels, rename_channels
+from ..utils.load import infer_ref, load_channels, rename_channels
 
 
 def default_general_opts():
@@ -70,9 +70,9 @@ def default_filter_opts():
                    'notch': True, 
                    'notch_freq': 50, 
                    'notch_harmonics': False,
-                   'bandpass': False,
-                   'highpass': None,
-                   'lowpass': 50}
+                   'bandpass': True,
+                   'highpass': 0.25,
+                   'lowpass': 40}
     return filter_opts
 
 def default_epoch_opts():
@@ -174,7 +174,7 @@ class Spectrum:
     def fooof_it(self, general_opts, frequency_opts, filter_opts, 
                  epoch_opts, event_opts, fooof_opts, chan = None, rater = None, 
                  grp_name = 'eeg', cat = (1,1,1,1), cycle_idx = None,
-                 filetype = '.edf', suffix = 'fooof'):
+                 filetype = '.edf'):
         
 
         '''
@@ -208,6 +208,8 @@ class Spectrum:
         
         logger.info('')
         
+        suffix = general_opts['suffix']
+        
         ### 0.b. Set up organisation of export
         if cat[0] + cat[1] == 2:
             model = 'whole_night'
@@ -231,8 +233,8 @@ class Spectrum:
                      
                                   |
                                   |
+                                  |  
                                   |  .
-                                  |  \
                                   |   `~.
                         (µV2)     |      `~.       FOOOF !
                                   |         `^.
@@ -464,7 +466,7 @@ class Spectrum:
                                                                 out['fooof_ap_params'].ravel(),
                                                                 ))
                         
-                        ### WHOLE NIGHT ###
+                        ### Output filename ###
                         if model == 'whole_night':
                             stagename = '-'.join(self.stage)
                             outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
@@ -484,13 +486,9 @@ class Spectrum:
         
         return
 
-    def powerspec_it(self, cat, stage, chan, ref_chan, 
-                     general_opts, frequency_opts, rater = None, cycle_idx = None, 
-                     subs = 'all', sessions = 'all', filetype = '.edf', 
-                     filter_opts = None, 
-                     epoch_opts = None, event_opts = None, norm = None, 
-                     norm_opts = None, fooof_it = False,
-                     fooof_opts = None):
+    def powerspec_it(self, cat, stage, chan, ref_chan, general_opts, 
+                           frequency_opts, filter_opts, epoch_opts, event_opts, 
+                           norm, norm_opts, cycle_idx = None, filetype = '.edf'):
         
         
         ### 0.a. Set up logging
@@ -499,6 +497,8 @@ class Spectrum:
         flag = 0
         
         logger.info('')
+        
+        suffix = general_opts['suffix']
         
         ### 0.b. Set up organisation of export
         if cat[0] + cat[1] == 2:
@@ -526,14 +526,14 @@ class Spectrum:
                                   |
                                   |
                                   |  ,^\
-                                  | /   \
+                                  | /   \           P.S.A.
                                   |     `.
                         (µV2)     |      `~.       
                                   |         `./\
-                                  |            `~.
-                                  |               `•._
-                                  |                   `~¬.…_._._
-                                  |_____________________________
+                                  |             `~.
+                                  |                `•._
+                                  |                    `~¬.…_._._
+                                  |_______________________________
                                               (Hz)
                                   
                                                     """,)
@@ -550,7 +550,7 @@ class Spectrum:
         if isinstance(subs, list):
             None
         elif subs == 'all':
-                subs = next(walk(self.xml_dir))[1]
+                subs = next(walk(self.rec_dir))[1]
         else:
             logger.info('')
             logger.critical("'subs' must either be an array of Participant IDs or = 'all' ")
@@ -564,7 +564,7 @@ class Spectrum:
             # b. Begin loop through sessions
             sessions = self.sessions
             if sessions == 'all':
-                sessions = listdir(f'{self.rec_dir}/{sub}')
+                sessions = listdir(self.rec_dir + '/' + sub)
                 sessions = [x for x in sessions if not '.' in x] 
 
             for v, ses in enumerate(sessions):
@@ -596,7 +596,7 @@ class Spectrum:
                 
                 ## Now import data
                 dset = Dataset(rdir + edf_file[0])
-                annot = Annotations(xdir + xml_file[0], rater_name=rater)
+                annot = Annotations(xdir + xml_file[0], rater_name=self.rater)
                  
                 ### get cycles
                 if cycle_idx is not None:
@@ -605,32 +605,15 @@ class Spectrum:
                 else:
                     cycle = None
                     
-                ### if event channel only, specify event channels
-                # 4.d. Channel setup
-                if not chan:
-                    flag, chanset = load_channels(sub, ses, self.chan, 
-                                                  self.ref_chan, flag, logger)
-                    if not chanset:
-                        logger.error('Problem loading channels from tracking sheet')
-                        break
-                
-                    newchans = rename_channels(sub, ses, self.chan, logger)
-
-                
-                # Get segments of data
-                segments = fetch(dset, annot, cat = cat, evt_type = None, 
-                                 stage = self.stage, cycle=cycle,   
-                                 epoch = epoch_opts['epoch'], 
-                                 epoch_dur = epoch_opts['epoch_dur'], 
-                                 epoch_overlap = epoch_opts['epoch_overlap'], 
-                                 epoch_step = epoch_opts['epoch_step'], 
-                                 reject_epoch = epoch_opts['reject_epoch'], 
-                                 reject_artf = epoch_opts['reject_artf'],
-                                 min_dur = epoch_opts['min_dur'])
-                
-                if len(segments)==0:
-                    logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, {cycle}.")
-                    continue    
+                # 4.d. Channel setup          
+                flag, chanset = load_channels(sub, ses, self.chan, 
+                                              self.ref_chan, flag, logger)
+                if not chanset:
+                    logger.error('Problem loading channels from tracking sheet')
+                    break
+            
+                newchans = rename_channels(sub, ses, self.chan, logger)
+                filter_opts['oREF'] = infer_ref(sub, ses, chan, logger)    
                 
                 # Loop through channels
                 for c, ch in enumerate(chanset):
@@ -643,47 +626,39 @@ class Spectrum:
                     else:
                         fnamechan = ch
                     
-                    
-                    logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
-                    '''
-                    segments.read_data(chan = ch, ref_chan = chanset[ch])
-                    '''
-        
-
                     # Normalisation (if requested)
                     if norm == 'baseline':
-                        logger.debug('Applying baseline normalisation...')
+                        logger.debug('Extracting data for baseline normalisation...')
                         norm_seg = fetch(dset, annot, cat=norm_opts['norm_cat'], 
                                          evt_type=norm_opts['norm_evt_type'],
                                          stage=norm_opts['norm_stage'], 
                                          epoch=norm_opts['norm_epoch'])
-                        
                         if not norm_seg:
-                            logger.warning('No valid normalization data found. Skipping...')
+                            logger.warning('No valid baseline data found. Skipping...')
                             continue
-                        
                         if filter_opts['laplacian']:
                             try:
-                                norm_seg.read_data(filter_opts['lapchan'], ref_chan) 
+                                norm_seg.read_data(filter_opts['lapchan'], chanset[ch]) 
+                                logger.debug("Applying Laplacian filtering to baseline data...")
+                                laplace_flag = True
                             except:
                                 logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
-                                logger.error("Laplacian filtering will NOT be run. Check parameters under: filter_opts['lapchan']")
-                                return
+                                logger.warning("Laplacian filtering will NOT be run for BASELINE data. Check parameters under: filter_opts['lapchan']")
+                                norm_seg.read_data(ch, chanset[ch])
+                                laplace_flag = False
+                                flag += 1
                         else:
-                            norm_seg.read_data(chan_full, ref_chan)            
+                            norm_seg.read_data(ch, chanset[ch])            
                         all_nSxx = []
-                        
                         for seg in norm_seg:
                             normdata = seg['data']
-                            
-                            if filter_opts['laplacian']:
+                            if laplace_flag:
                                 normdata.data[0] = laplacian_mne(normdata, 
                                                          filter_opts['oREF'], 
                                                          channel=chan_full, 
-                                                         ref_chan=ref_chan, 
+                                                         ref_chan=chanset[ch], 
                                                          laplacian_rename=filter_opts['laplacian_rename'], 
                                                          renames=filter_opts['renames'])
-                            
                             Sxx = frequency(normdata, output=frequency_opts['output'], 
                                             scaling=frequency_opts['scaling'],
                                             sides=frequency_opts['sides'], 
@@ -698,7 +673,6 @@ class Spectrum:
                                             log_trans=frequency_opts['log_trans'], 
                                             centend=frequency_opts['centend'])
                             all_nSxx.append(Sxx)
-                            
                             nSxx = ChanFreq()
                             nSxx.s_freq = Sxx.s_freq
                             nSxx.axis['freq'] = Sxx.axis['freq']
@@ -710,15 +684,41 @@ class Spectrum:
                                     stack([x()[0] for x in all_nSxx], axis=2), axis=2)
                     
                     
+                    
+                    ## Get segments of data
+                    logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
+                    
+                    segments = fetch(dset, annot, cat = cat, evt_type = ['Staresina2015'], 
+                                     stage = self.stage, cycle=cycle,   
+                                     epoch = epoch_opts['epoch'], 
+                                     epoch_dur = epoch_opts['epoch_dur'], 
+                                     epoch_overlap = epoch_opts['epoch_overlap'], 
+                                     epoch_step = epoch_opts['epoch_step'], 
+                                     reject_epoch = epoch_opts['reject_epoch'], 
+                                     reject_artf = epoch_opts['reject_artf'],
+                                     min_dur = epoch_opts['min_dur'])
+                    if len(segments)==0:
+                        logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, {cycle}.")
+                        continue
+                    
                     # Read data
                     if filter_opts['laplacian']:
-                        segments.read_data(filter_opts['lapchan'], ref_chan)
+                        try:
+                            segments.read_data(filter_opts['lapchan'], chanset[ch]) 
+                            logger.debug("Applying Laplacian filtering to data...")
+                            laplace_flag = True
+                        except:
+                            logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
+                            logger.warning("Laplacian filtering will NOT be run. Check parameters under: filter_opts['lapchan']")
+                            segments.read_data(ch, chanset[ch])
+                            laplace_flag = False
+                            flag += 1
                     else:
-                        segments.read_data(chan_full, ref_chan)
-                    xfreq = []
+                        segments.read_data(ch, chanset[ch])
                     
+                    # Loop over segments and apply transforms
                     for sg, seg in enumerate(segments):
-                        print(f'Analysing segment {sg} of {len(segments)}')
+                        logger.debug(f'Analysing segment {sg} of {len(segments)}')
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -736,8 +736,9 @@ class Spectrum:
                         else:
                             selectchans = ch
                         
+                        # Notch filters
                         if filter_opts['notch']:
-                            print('Applying notch filtering.')
+                            logger.debug(f"Applying notch filtering: {filter_opts['notch_freq']}")
                             data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
                                                         channel=selectchans, 
                                                         freq=filter_opts['notch_freq'],
@@ -746,16 +747,17 @@ class Spectrum:
                                                         montage=filter_opts['montage'])
                             
                         if filter_opts['notch_harmonics']: 
-                            print('Applying notch harmonics filtering.')
-                            print(f'{selectchans}')
+                            logger.debug('Applying notch harmonics filtering.')
+                            logger.debug(f'{selectchans}')
                             data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans, 
                                                       rename=filter_opts['laplacian_rename'],
                                                       renames=filter_opts['renames'],
                                                       montage=filter_opts['montage'])    
                         
+                        # Bandpass filters
                         if filter_opts['bandpass']:
-                            print('Applying bandpass filtering.')
+                            logger.debug(f"Applying bandpass filtering: {filter_opts['highpass']} - {filter_opts['lowpass']} Hz")
                             data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans,
                                                       highpass=filter_opts['highpass'], 
@@ -764,20 +766,20 @@ class Spectrum:
                                                       renames=filter_opts['renames'],
                                                       montage=filter_opts['montage'])
                         
-                        if filter_opts['laplacian']:
-                            print('Applying Laplacian filtering.')
+                        # Laplacian transform
+                        if filter_opts['laplacian'] and laplace_flag:
+                            logger.debug('Applying Laplacian filtering.')
                             data.data[0] = laplacian_mne(data, 
                                                  filter_opts['oREF'], 
                                                  channel=chan_full, 
-                                                 ref_chan=ref_chan, 
+                                                 ref_chan=chanset[ch], 
                                                  laplacian_rename=filter_opts['laplacian_rename'], 
                                                  renames=filter_opts['renames'],
                                                  montage=filter_opts['montage'])
                             data.axis['chan'][0] = asarray([x for x in chanset])
                             selectchans = ch
                         
-                        
-                        ### frequency transformation
+                        ### Frequency transformation
                         Sxx = frequency(data, output=frequency_opts['output'], 
                                         scaling=frequency_opts['scaling'], 
                                         sides=frequency_opts['sides'], 
@@ -792,51 +794,55 @@ class Spectrum:
                                         log_trans=frequency_opts['log_trans'], 
                                         centend=frequency_opts['centend'])
                         
-                        
-                        
+                        # Baseline normalisation
                         if norm:
-                
+                            logger.debug('Applying baseline normalisation')
                             for j, ch in enumerate(Sxx.axis['chan'][0]):
-                
                                 dat = Sxx.data[0][j,:]
                                 sf = Sxx.axis['freq'][0]
                                 f_res = sf[1] - sf[0] # frequency resolution
-                
                                 if norm == 'integral':
                                     norm_dat = sum(dat) * f_res # integral by midpoint rule
                                 else:
                                     norm_dat = nSxx(chan=ch)[0]
-                
                                 Sxx.data[0][j,:] = dat / norm_dat
-                
+                                
                         out['data'] = Sxx
-                        
-          
-                        xfreq.append(out)
-                        
-                    if general_opts['freq_full']:                        
-                        if len(xfreq) == 1:
-                            desc = None
-                        else:
-                            as_matrix = asarray([y for x in xfreq for y in x['data']()[0]])
+
+                        # Export and save data
+                        ### Output filename ###
+                        if model == 'whole_night':
+                            stagename = '-'.join(self.stage)
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}**{suffix}.csv'
+                        elif model == 'stage*cycle':    
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{cycle_idx[sg]}**{suffix}.csv'
+                        elif model == 'per_stage':
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}**{suffix}.csv'
+                        elif model == 'per_cycle':
+                            stagename = '-'.join(self.stage)
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle_idx[sg]}**{suffix}.csv'
+
+                        if general_opts['freq_full']:
+                            low = where(out['data'].axis['freq'][0]==self.frequency[0])[0][0]
+                            hi = where(out['data'].axis['freq'][0]==self.frequency[1])[0][0]
+                            out['data'].axis['freq'][0] = out['data'].axis['freq'][0][low:hi]
+                            out['data'].data[0] = asarray([out['data'].data[0][0][low:hi]])
+                            as_matrix = asarray([y for y in out['data'].data[0]])
                             desc = get_descriptives(as_matrix)
+                            filename = f"{outputfile.split('*')[0]}_freq_full_{outputfile.split('*')[2]}"
+                            logger.debug(f'Writing to {filename}')  
+                            export_freq([out], filename, desc=desc)
                         
-                        filename = outpath + p + '_' + ses + f'_freq_full{suffix}.csv'
-                        print('Writing to ' + filename)  
-                        export_freq(xfreq, filename, desc=desc)
-                        
-                    if general_opts['freq_band']:
-                        filename = outpath + p + '_' + ses + f'_freq_band{suffix}.csv'
-                        print('Writing to ' + filename)  
-                        export_freq_band(xfreq, frequency_opts['bands'], filename)
-                        
-                    if general_opts['freq_plot']:
-                        fig = Figure()
-                        FigureCanvas(fig)
-                        idx_plot = 1
-                        
-                        for seg in xfreq:
-                            data = seg['data']
+                        if general_opts['freq_band']:
+                            filename = f"{outputfile.split('*')[0]}_freq_band_{outputfile.split('*')[2]}"
+                            logger.debug(f'Writing to {filename}')  
+                            export_freq_band([out], frequency_opts['bands'], filename)
+                            
+                        if general_opts['freq_plot']:
+                            fig = Figure()
+                            FigureCanvas(fig)
+                            idx_plot = 1
+                            data = out['data']
                             seg_chan = data.axis['chan'][0]
                             sf = data.axis['freq'][0]
                             if general_opts['max_freq_plot']:
@@ -844,62 +850,23 @@ class Spectrum:
                                         [abs(x - general_opts['max_freq_plot']) for x in sf]).argmin()
                             for ch in seg_chan:
                                 Sxx = data(chan=ch)[0]
-                                ax = fig.add_subplot(len(xfreq), len(seg_chan), idx_plot)
+                                ax = fig.add_subplot(len([out]), len(seg_chan), idx_plot)
                                 ax.semilogy(sf[1:idx_max], Sxx[1:idx_max])
                                 ax.set_xlabel('Frequency (Hz)')
-                                
-                                idx_plot += 1
-                            
-                        print('Saving figure to ' + outpath + p + '.png')
-                        fig.savefig(outpath + p + suffix + '.png')
+                                idx_plot += 1  
+                            logger.debug(f'Saving figure to {outpath}/{sub}_{ses}_{fnamechan}_powerspectrum.svg')
+                            fig.savefig(f'{outpath}/{sub}_{ses}_powerspectrum.svg')
                         
-                    if fooof_it:
-                        seg_info = ['Start time', 'End time', 'Duration', 'Stitches', 
-                            'Stage', 'Cycle', 'Event type', 'Channel']
-                        #band_hdr = [str(b1) + '-' + str(b2) for b1, b2 in bands_fooof]
-                        band_hdr = [f'{b1}-{b2} Hz' for b1, b2 in bands]
-                        pk_params_hdr = ['peak1_CF', 'peak1_PW', 'peak1_BW', 
-                                      'peak2_CF', 'peak2_PW', 'peak2_BW', 
-                                      'peak3_CF', 'peak3_PW', 'peak3_BW', ]
-                        ap_params_hdr = ['Offset', 'Exponent']
-                        band_pk_params_hdr = ['_'.join((b, p)) for b in band_hdr 
-                                              for p in pk_params_hdr]
-                        band_ap_params_hdr = ['_'.join((b, p)) for b in band_hdr 
-                                              for p in ap_params_hdr]
-                        one_record = zeros((len(xfreq) * len(chan), 
-                                            (len(seg_info) + len(bands) + 
-                                            len(band_pk_params_hdr) + 
-                                            len(band_ap_params_hdr))),
-                                            dtype='O')
-                        for i, seg in enumerate(xfreq):
-                            for j, ch in enumerate(chan):
-                                cyc = None
-                                if seg['cycle'] is not None:
-                                    cyc = seg['cycle'][2]
-                                
-                                one_record[i * len(chan) + j, :] = concatenate((asarray([
-                                    seg['start'],
-                                    seg['end'],
-                                    seg['duration'], 
-                                    seg['n_stitch'], # number of concatenated segments minus 1
-                                    seg['stage'],
-                                    cyc,
-                                    seg['name'], # event type
-                                    ch,
-                                    ]),
-                                    seg['fooof_powers'][j, :],
-                                    seg['fooof_pk_params'][j, ...].ravel(),
-                                    seg['fooof_ap_params'][j, ...].ravel(),
-                                    ))
-                                
-                        outpath_fooof = outpath + p + '_' + ses + f'_fooofbands{suffix}.csv'
-                        print(f'Saving {outpath_fooof}')
-                        df = DataFrame(data=one_record, 
-                                       columns=(seg_info + band_hdr + band_pk_params_hdr
-                                                + band_ap_params_hdr))
-                        df.to_csv(outpath_fooof)
         
-        print("Job's done.")
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.debug('Power spectral analyses finished without ERROR.')  
+        else:
+            logger.warning('Power spectral analyses finished with WARNINGS. See log for details.')
+        
+        #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
+        
+        return 
         
         
         

@@ -446,5 +446,69 @@ def read_inversion(sub, ses, invert, chan, logger):
             return None
     
 
-
+def infer_ref(sub, ses, chan, logger, verbose=0):
+    # verbose = 0 (error only)
+    # verbose = 1 (warning only)
+    # verbose = 2 (debug)
+    
+    if isinstance(chan, DataFrame):
+        # Search participant
+        chans = chan[chan['sub']==sub]
+        if len(chans.columns) == 0:
+            return None
+        # Search session
+        chans = chans[chans['ses']==ses]
+        if len(chans.columns) == 0:
+            return None
+        # Search channels
+        oldchans = chans.filter(regex='chanset')
+        oldchans = oldchans.filter(regex='^((?!rename).)*$')
+        oldchans = oldchans.filter(regex='^((?!peaks).)*$')
+        chans = chans.filter(regex='^((?!invert).)*$')
+        oldchans = oldchans.dropna(axis=1, how='all')
+        if len(oldchans.columns) == 0:
+            return None
+        newchans = chans.filter(regex='rename')
+        newchans = newchans.dropna(axis=1, how='all')
+        if len(newchans.columns) == 0:
+            return None
+    else:
+        return None
+    
+    if isinstance(oldchans, DataFrame):
+        if isinstance(newchans, DataFrame) and len(newchans.columns) != len(oldchans.columns):
+            if verbose>1:
+                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.warning(f"Using original channel names for {sub}, {ses}...")
+            return None
+        
+        oldchans=oldchans.to_numpy() 
+        oldchans = oldchans.astype(str)
+        oldchans = char.split(oldchans[0], sep=', ')
+        oldchans = [x for y in oldchans for x in y]
+        
+        if isinstance(newchans, DataFrame):
+            newchans = newchans.to_numpy()
+            newchans = newchans.astype(str)
+            newchans = char.split(newchans[0], sep=', ')
+            newchans = [x for y in newchans for x in y]
+        
+        if len(oldchans) == len(newchans):
+            ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF'][0]
+            if len(ref_chan) < 1:
+                return None
+        else:
+            logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.warning(f"Using original channel names for {sub}, {ses}...")
+            return None
+    else:
+        return None
+    
+    return ref_chan
+        
+    
+    
+    
 

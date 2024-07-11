@@ -488,7 +488,7 @@ def laplacian_mne(data, oREF, channel, ref_chan, laplacian_rename=False,
     dic = [{x:'eeg' for x in mneobj.ch_names}]
     mneobj.set_channel_types(dic[0],verbose=40)
     mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick_types(eeg=True).load_data()
+    a = mneobj.pick(['eeg']).load_data()
     a.set_eeg_reference(ref_chan,verbose=40)
     raw_csd = mne.preprocessing.compute_current_source_density(a, verbose=40)
     data = raw_csd.get_data(picks=channel)
@@ -512,7 +512,7 @@ def notch_mne(data, oREF, channel, freq, rename=False,
     dic = [{x:'eeg' for x in mneobj.ch_names}]
     mneobj.set_channel_types(dic[0],verbose=40)
     mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick_types(eeg=True).load_data()
+    a = mneobj.pick(['eeg']).load_data()
     anotch = a.notch_filter(freq,verbose=40)
     data = anotch.get_data(picks=channel)
     
@@ -533,7 +533,7 @@ def notch_mne2(data, oREF, channel, rename=False, renames=None,
     dic = [{x:'eeg' for x in mneobj.ch_names}]
     mneobj.set_channel_types(dic[0],verbose=40)
     mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick_types(eeg=True).load_data()
+    a = mneobj.pick(['eeg']).load_data()
     anotch = a.notch_filter(freqs=None, filter_length='auto', 
                             notch_widths=None, trans_bandwidth=1, 
                             method='spectrum_fit', verbose=None)
@@ -557,7 +557,7 @@ def bandpass_mne(data, oREF, channel, highpass, lowpass, rename=False,
     dic = [{x:'eeg' for x in mneobj.ch_names}]
     mneobj.set_channel_types(dic[0],verbose=40)
     mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick_types(eeg=True).load_data()
+    a = mneobj.pick(['eeg']).load_data()
     a_filt = a.filter(highpass, lowpass,verbose=40)
     data = a_filt.get_data(picks=channel)
     
