@@ -257,7 +257,7 @@ class FISH:
                                     freq = frequency
                                 elif adap_bands == 'Manual':
                                     logger.debug("Adapted bands has been set as 'Manual'. Will search for peaks within the tracking sheet")
-                                    freq = read_manual_peaks(sub, ses, peaks, ch, 
+                                    freq = read_manual_peaks(sub, ses, peaks, channel, 
                                                              adap_bw, logger)
                                 elif adap_bands == 'Auto':
                                     stagename = '-'.join(self.stage)
@@ -281,7 +281,7 @@ class FISH:
                                 elif freq == None:
                                     freq = (0, 35)
                                 
-                                band_limits = f'{freq[0]}-{freq[1]}Hz'
+                                band_limits = f'{round(freq[0],2)}-{round(freq[1],2)}Hz'
                                 logger.debug(f"Using band limits: {band_limits}")
                                 
                                 # 5.d. Select and read data

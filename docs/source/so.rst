@@ -7,18 +7,18 @@ Overview
 ------------
 You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
 
-**You will need to run two functions:**
+*You will need to run two functions:*
 
-1) Extract macro sleep characteristics for each subject.
-   * It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
+1. Extract macro sleep characteristics for each subject.
+    It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
 .. code-block:: python
 
    project_name.export_macro_stats()
 
 
-2) Create datasets combining all the subjects
-   * It will combine all .csv into a single dataset per session (one row per subject) in in ``root_dir/OUT/datasets/``
+2. Create datasets combining all the subjects
+    It will combine all .csv into a single dataset per session (one row per subject)
 
 .. code-block:: python
 

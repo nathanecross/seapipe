@@ -821,6 +821,7 @@ class pipeline:
         if adap_bands in ['Auto','Manual']:
             evt_name = f'{evt_name}_adap'
             self.track(step='fooof', show = False, log = False)
+            peaks = check_chans(self.rootpath, None, False, logger)
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
