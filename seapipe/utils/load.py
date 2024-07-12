@@ -257,11 +257,11 @@ def rename_channels(sub, ses, chan, logger):
 def check_adap_bands(self, subs, sessions, chan, logger):
     
     try:
-        track = read_tracking_sheet(f'{self.rootpath}')
+        track = read_tracking_sheet(f'{self.rootpath}', logger)
     except:
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
-        return 'error', None
+        return 'error'
     
     chans = track.filter(regex='chanset')
     chans = chans.filter(regex='^((?!rename).)*$')
@@ -275,11 +275,11 @@ def check_adap_bands(self, subs, sessions, chan, logger):
         logger.critical("No spectral peaks have been provided in tracking file. Peaks will need to be detected.")
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
-        return 'error', None
+        return 'error'
     elif len(peaks.columns) != len(chans.columns):
         logger.critical("There must be the same number of channel sets and spectral peaks sets in tracking file")
         logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
-        return 'error', None
+        return 'error'
     
     sub = {}
     for c, col in enumerate(chans.columns):

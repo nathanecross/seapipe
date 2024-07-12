@@ -570,7 +570,7 @@ class Spectrum:
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
-                tracking[f'{sub}'][f'{ses}'] = {'Spec_peaks':{}} 
+                tracking[f'{sub}'][f'{ses}'] = {'powerspec':{}} 
                 
                 ## Define files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
