@@ -89,7 +89,7 @@ class FISH:
                 logger = create_logger('Export params')
             
             logger.info('')
-            logger.debug(r"""Listing Individual aNnotated Events (LINE) 
+            logger.debug(r"""Listing Individual aNnotated Events (L.I.N.E) 
                          
                        
                                         /^. 
@@ -637,7 +637,7 @@ class FISH:
             logger = create_logger('Event dataset')
         
         logger.info('')
-        logger.debug(r""" aNnotated Events Tabulation (NET) 
+        logger.debug(r""" aNnotated Events Tabulation (N.E.T) 
 
                      
                               ∆       ∆       ∆    ∆     ∆       ∆    ∆         ∆

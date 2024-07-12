@@ -4,7 +4,8 @@ Created on Tue Oct  5 15:51:24 2021
 
 @author: Nathan Cross
 """
-from termcolor import colored
+from datetime import datetime, date
+
 from os import listdir, mkdir, path, walk
 from . cfc_func import _allnight_ampbin, circ_wwtest, mean_amp, klentropy
 from seapipe.utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
@@ -29,10 +30,12 @@ from wonambi import Dataset
 from wonambi.trans import fetch
 from wonambi.attr import Annotations 
 from wonambi.detect.spindle import transform_signal
+from seapipe.utils.logs import create_logger, create_logger_outfile
+from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
+from ..utils.misc import remove_duplicate_evts
 
 
-
-class Coupling:
+class octopus:
 
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, frequency, rater = None, subs = 'all', 
@@ -67,7 +70,7 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                  filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
                             'laplacian':False, 'lapchan':None,'laplacian_rename':False, 
                             'oREF':None,'chan_rename':False,'renames':None},
-               progress=True):
+                 progress=True, outfile = True):
 
     '''
     O.C.T.O.P.U.S
@@ -123,9 +126,41 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                                          (across all cycles or events) per phase bin.
 
     '''
+    # Calculate Coupling Strength
+    methods = {1: 'Mean Vector Length (MVL) [Canolty et al. 2006 (Science)]',
+               2 : 'Modulation Index (MI) [Tort 2010 (J Neurophys.)]',
+               3 : 'Heights Ratio (HR) [Lakatos 2005 (J Neurophys.)]',
+               4 : 'ndPAC [Ozkurt 2012 (IEEE)]',
+               5 : 'Phase-Locking Value (PLV) [Penny 2008 (J. Neuro. Meth.), Lachaux 1999 (HBM)]',
+               6 : 'Gaussian Copula PAC (GCPAC) `Ince 2017 (HBM)`'}
+    surrogates = {0 :' No surrogates', 
+                  1 : 'Swap phase / amplitude across trials [Tort 2010 (J Neurophys.)]',
+                  2 : 'Swap amplitude time blocks [Bahramisharif 2013 (J. Neurosci.) ]',
+                  3 : 'Time lag [Canolty et al. 2006 (Science)]'}
+    corrections = {0 : 'No normalization',
+                   1 : 'Substract the mean of surrogates',
+                   2 : 'Divide by the mean of surrogates',
+                   3 : 'Substract then divide by the mean of surrogates',
+                   4 : 'Z-score'}
+    
+    ### 0.a Set up logging
+    flag = 0
+    tracking = self.tracking
+    if outfile == True:
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{self.log_dir}/event_coupling_{today}_log.txt'
+        logger = create_logger_outfile(logfile=logfile, name='Phase Amplitude Coupling')
+        logger.info('')
+        logger.info(f"-------------- New call of 'Phase Amplitude Coupling' evoked at {now} --------------")
+    elif outfile:
+        logfile = f'{self.log_dir}/{outfile}'
+        logger = create_logger_outfile(logfile=logfile, name='Phase Amplitude Coupling')
+    else:
+        logger = create_logger('Phase Amplitude Coupling')
     
     logger.info('')
-    logger.debug(r"""Commencing Phase Amplitude Coupling... 
+    logger.debug(rf"""Commencing Pipeline... 
                             
                                     ___
                                  .-'   `'.
@@ -146,120 +181,132 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                         (/`    ( (`          ) )  '-;
                         `      '-;         (-'
 
-
+            
             Oscillatory Coupling: Timed Oscillations by Phase modUlation in Sleep
-                            
+            (O.C.T.O.P.U.S)
+            
+            Method: {methods[idpac[0]]}
+            Correction: {surrogates[idpac[1]]}
+            Normalisation: {corrections[idpac[2]]}
+                              
                                                 """,)
     
-    
-    # Make output directory
-    if not path.exists(out_dir):
-        mkdir(out_dir)
-    
-    
-    ## BIDS CHECKING
-    # Check input participants
-    if isinstance(part, list):
-        None
-    elif part == 'all':
-            part = listdir(rec_dir)
-            part = [ p for p in part if not '.' in p]
+    ### 1. First we check the directories
+    # a. Check for output folder, if doesn't exist, create
+    if path.exists(self.out_dir):
+            logger.debug("Output directory: " + self.out_dir + " exists")
     else:
-        print('')
-        print(colored('ERROR |', 'red', attrs=['bold']),
-              colored("'part' must either be an array of subject ids or = 'all'" ,'cyan', attrs=['bold']))
-        print('')
+        mkdir(self.out_dir)
     
-    # Check input visits
-    if isinstance(visit, list):
+    # b. Check input list
+    subs = self.subs
+    if isinstance(subs, list):
         None
-    elif visit == 'all':
-        lenvis = set([len(next(walk(rec_dir + x))[1]) for x in part])
-        if len(lenvis) > 1:
-            print(colored('WARNING |', 'yellow', attrs=['bold']),
-                  colored('number of visits are not the same for all subjects.',
-                          'white', attrs=['bold']))
-            print('')
-        visit = list(set([y for x in part for y in listdir(rec_dir + x)  if '.' not in y]))
+    elif subs == 'all':
+            subs = listdir(self.rec_dir)
+            subs = [p for p in subs if not '.' in p]
     else:
-        print('')
-        print(colored('ERROR |', 'red', attrs=['bold']),
-              colored("'visit' must either be an array of subject ids or = 'visit'" ,
-                      'cyan', attrs=['bold']))
-        print('')
+        logger.error("'subs' must either be an array of subject ids or = 'all' ")   
     
-    # Loop through participants and visits
-    
-    part.sort()
-    for i, p in enumerate(part):
+    ### 2. Begin loop through dataset
+   
+    # a. Begin loop through participants
+    subs.sort()
+    for i, sub in enumerate(subs):
+        tracking[f'{sub}'] = {}
+        # b. Begin loop through sessions
+        sessions = self.sessions
+        if sessions == 'all':
+            sessions = listdir(self.rec_dir + '/' + sub)
+            sessions = [x for x in sessions if not '.' in x]   
         
-        ###########################            DEBUGGING              ###########################
-        with open(out_dir + f'/debug_{p}.txt', 'w') as f:
-            f.write('making participant output directory')
-        ###########################            DEBUGGING              ###########################
-        
-        if not path.exists(out_dir + '/' + p):
-            mkdir(out_dir + '/' + p)
-        
-        if visit == 'all':
-            visit = listdir(xml_dir + '/' + p)
-            visit = [x for x in visit if not '.' in x]
-        visit.sort()    
-        for j, vis in enumerate(visit): 
-            if not path.exists(xml_dir + '/' + p + '/' + vis + '/'):
-                print(colored('WARNING |', 'yellow', attrs=['bold']),
-                      colored(f'input folder missing for Subject {p}, visit {j} ({vis}), skipping...',
-                              'white', attrs=['bold']))
-                print('')
-                continue
-            else:
-                
-                ###########################            DEBUGGING              ###########################
-                with open(out_dir + f'/debug_{p}.txt', 'w') as f:
-                    f.write(f'making visit {j} output directory')
-                ###########################            DEBUGGING              ###########################
-                
-                if not path.exists(out_dir + '/' + p + '/' + vis):
-                    mkdir(out_dir + '/' + p + '/' + vis)
-                rec_file = [s for s in listdir(rec_dir + '/' + p + '/' + vis) if 
-                            (".edf") in s or ('.rec') in s or ('.eeg')  in s if not s.startswith(".")]
-                xml_file = [x for x in listdir(xml_dir + '/' + p + '/' + vis) if 
-                            x.endswith('.xml') if not x.startswith(".")] 
-                
-                # Open recording and annotations files (if existing)
-                if len(xml_file) == 0:
-                    print(colored('WARNING |', 'yellow', attrs=['bold']),
-                          colored(f'annotations does not exist for Subject {p}, visit {j} ({vis}) - check this. Skipping...',
-                                  'white', attrs=['bold']))
-                    print('')
-                elif len(xml_file) >1:
-                    print(colored('WARNING |', 'yellow', attrs=['bold']),
-                          colored(f'multiple annotations files exist for Subject {p}, visit {j} ({vis}) - check this. Skipping...',
-                                  'white', attrs=['bold']))
-                    print('')
+        for v, ses in enumerate(sessions):
+            logger.info('')
+            logger.debug(f'Commencing {sub}, {ses}')
+            tracking[f'{sub}'][f'{ses}'] = {'pac':{}} 
+            
+            
+            ## c. Load recording
+            rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
+            try:
+                edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
+                dset = Dataset(rdir + edf_file[0])
+            except:
+                logger.warning(f' No input {filetype} file in {rdir}')
+                break
+            
+            ## d. Load annotations
+            xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
+            try:
+                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                # Copy annotations file before beginning
+                if not path.exists(self.out_dir):
+                    mkdir(self.out_dir)
+                if not path.exists(self.out_dir + '/' + sub):
+                    mkdir(self.out_dir + '/' + sub)
+                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                if not path.exists(backup_file):
+                    shutil.copy(xdir + xml_file[0], backup_file)
                 else:
+                    logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+            except:
+                logger.warning(f' No input annotations file in {xdir}')
+                break
+            
+            # Read annotations file
+            annot = Annotations(backup_file, rater_name=self.rater)
+            
+            ## e. Get sleep cycles (if any)
+            if cycle_idx is not None:
+                all_cycles = annot.get_cycles()
+                cycle = [all_cycles[y - 1] for y in cycle_idx if y <= len(all_cycles)]
+            else:
+                cycle = None
+            
+            ## f. Channel setup 
+            pflag = deepcopy(flag)
+            flag, chanset = load_channels(sub, ses, self.chan, self.ref_chan,
+                                          flag, logger)
+            if flag - pflag > 0:
+                logger.warning(f'Skipping {sub}, {ses}...')
+                break
+            
+            newchans = rename_channels(sub, ses, self.chan, logger)
+            
+            
+            for c, ch in enumerate(chanset):
+                
+                # 5.b Rename channel for output file (if required)
+                if newchans:
+                    fnamechan = newchans[ch]
+                else:
+                    fnamechan = ch
                     
-                    ###########################            DEBUGGING              ###########################
-                    with open(out_dir + f'/debug_{p}.txt', 'w') as f:
-                        f.write('opening participant edf and xml')
-                    ###########################            DEBUGGING              ###########################
+                # g. Check for adapted bands
+                if adap_bands == 'Fixed':
+                    freq = self.frequency
+                elif adap_bands == 'Manual':
+                    freq = read_manual_peaks(sub, ses, peaks, ch, 
+                                             adap_bw, logger)
+                elif adap_bands == 'Auto':
+                    stagename = '-'.join(self.stage)
+                    band_limits = f'{self.frequency[0]}-{self.frequency[1]}Hz'
+                    freq = load_adap_bands(self.tracking['fooof'], sub, ses,
+                                           fnamechan, stagename, band_limits, 
+                                           adap_bw, logger)
+                if not freq:
+                    logger.warning('Will use fixed frequency bands instead.')
+                    freq = self.frequency
+                if not chanset[ch]:
+                    logchan = ['(no re-refrencing)']
+                else:
+                    logchan = chanset[ch]
                     
-                    dset = Dataset(rec_dir + '/' + p + '/' + vis + '/' + rec_file[0]) 
-                    annot = Annotations(xml_dir + '/' + p + '/' + vis + '/' + xml_file[0], 
-                                        rater_name=rater)
-                    
-                    # Get sleep cycles
-                    if cycle_idx is not None and cat[0] == 1:
-                        all_cycles = annot.get_cycles()
-                        scycle = [all_cycles[i - 1] for i in cycle_idx if i <= len(all_cycles)]
-                        
-                        # Create output array (length #cycles)
-                        all_ampbin = zeros((6), dtype='object')
-                    else:
-                         
-                        # Create output array (length 1)
-                        all_ampbin = zeros((1), dtype='object')
-                        scycle = [None]
+                logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                
                     
                     # Loop through channels
                     for k, ch in enumerate(chan):
@@ -450,22 +497,7 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                                         longpha[-1,rem+pad] = longpha[-1,ran]
                                         longamp[-1,rem+pad] = longamp[-1,ran]
                                     
-                                # Calculate Coupling Strength
-                                methods = {1: 'Mean Vector Length (MVL) :cite:`canolty2006high`',
-                                           2 : 'Modulation Index (MI) :cite:`tort2010measuring`',
-                                           3 : 'Heights Ratio (HR) :cite:`lakatos2005oscillatory`',
-                                           4 : 'ndPAC :cite:`ozkurt2012statistically`',
-                                           5 : 'Phase-Locking Value (PLV) :cite:`penny2008testing,lachaux1999measuring`',
-                                           6 : 'Gaussian Copula PAC (GCPAC) :cite:`ince2017statistical`'}
-                                surrogates = {0 :' No surrogates', 
-                                              1 : 'Swap phase / amplitude across trials :cite:`tort2010measuring`',
-                                              2 : 'Swap amplitude time blocks :cite:`bahramisharif2013propagating`',
-                                              3 : 'Time lag :cite:`canolty2006high`'}
-                                corrections = {0 : 'No normalization',
-                                               1 : 'Substract the mean of surrogates',
-                                               2 : 'Divide by the mean of surrogates',
-                                               3 : 'Substract then divide by the mean of surrogates',
-                                               4 : 'Z-score'}
+                                
                                 print('')
                                 print('Calculating coupling strength.')
                                 print(f'Using method {methods[idpac[0]]}.')

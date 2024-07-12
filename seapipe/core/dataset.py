@@ -10,7 +10,7 @@ from pandas import DataFrame, read_csv
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.seasnakes import seasnakes
-from seapipe.pac.mean_amps import Coupling, pac_it
+from seapipe.pac.octopus import octopus
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
@@ -24,6 +24,7 @@ from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs
 
 
 ## TO DO:
+#   - add frequency option in export_eventparams to be default for SO & spindle
 #   - add selection of subs to be readable from 'tracking.tsv'
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
@@ -646,9 +647,10 @@ class pipeline:
     
     '''    
     def pac(self, xml_dir = None, out_dir = None, subs = 'all', sessions = 'all', 
-                  filetype = '.edf', method = ['Moelle2011'], chan = None, 
-                  ref_chan = None, rater = None, stage = ['NREM2','NREM3'], 
-                  grp_name = 'eeg', cycle_idx = None, concat_cycle = True, 
+                  filetype = '.edf', chan = None, ref_chan = None, rater = None, 
+                  grp_name = 'eeg', stage = ['NREM2','NREM3'], cycle_idx = None, 
+                  concat_cycle = True,
+                  
                   frequency = None, adap_bands = 'Fixed', adap_bw = 4, 
                   peaks = None, general_opts = None, 
                   frequency_opts = None, filter_opts = None, 
@@ -709,11 +711,11 @@ class pipeline:
         '''
         
         
-        CP = Coupling(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+        CP = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                      grp_name, stage, frequency, rater, subs, sessions, 
                      reject_artf, self.tracking)
         
-        pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
+        octopus.pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
                        polar, grp_name, cat, evt_type, buffer, ref_chan, nbins, idpac, 
                        fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
                        adap_bands=(False,False),
