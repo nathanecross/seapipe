@@ -835,8 +835,12 @@ class Spectrum:
                         
                         if general_opts['freq_band']:
                             filename = f"{outputfile.split('*')[0]}_freq_band_{outputfile.split('*')[2]}"
-                            logger.debug(f'Writing to {filename}')  
-                            export_freq_band([out], frequency_opts['bands'], filename)
+                            logger.debug(f'Writing to {filename}') 
+                            try:
+                                export_freq_band([out], frequency_opts['bands'], filename)
+                            except:
+                                logger.error(f'Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
+                                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                             
                         if general_opts['freq_plot']:
                             fig = Figure()
