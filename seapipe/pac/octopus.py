@@ -308,277 +308,277 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                 logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                 
                     
-                    # Loop through channels
-                    for k, ch in enumerate(chan):
+                    # # Loop through channels
+                    # for k, ch in enumerate(chan):
                         
-                        print(f'Reading data for {p}, visit {vis}, channel {ch}')
-                        chan_full = ch + ' (' + grp_name + ')'
+                    #     print(f'Reading data for {p}, visit {vis}, channel {ch}')
+                    #     chan_full = ch + ' (' + grp_name + ')'
                         
-                        # Check for adapted bands
-                        if adap_bands[0] is True:
-                            f_pha = fpha[ch][p + '_' + vis]
-                            print(f'Using adapted phase frequency for {p}: {round(f_pha[0],2)}-{round(f_pha[1],2)} Hz')
-                        else:
-                            f_pha = fpha
-                        if adap_bands[1] is True:
-                            f_amp = famp[ch][p + '_' + vis]
-                            print(f'Using adapted amplitude frequency for {p}: {round(f_amp[0],2)}-{round(f_amp[1],2)} Hz')
-                        else:
-                            f_amp = famp
+                    #     # Check for adapted bands
+                    #     if adap_bands[0] is True:
+                    #         f_pha = fpha[ch][p + '_' + vis]
+                    #         print(f'Using adapted phase frequency for {p}: {round(f_pha[0],2)}-{round(f_pha[1],2)} Hz')
+                    #     else:
+                    #         f_pha = fpha
+                    #     if adap_bands[1] is True:
+                    #         f_amp = famp[ch][p + '_' + vis]
+                    #         print(f'Using adapted amplitude frequency for {p}: {round(f_amp[0],2)}-{round(f_amp[1],2)} Hz')
+                    #     else:
+                    #         f_amp = famp
                             
-                        # Loop through sleep cycles 
-                        for l, cyc in enumerate(scycle):
-                            print('')
-                            # Select and read data
-                            if cycle_idx is not None:
-                                print(f'Analysing, cycle {l+1}')
-                            else:
-                                print('Analysing, all cycles')
-                            print('')
-                            print('Using filter settings:')
-                            print('')
-                            print(colored('Notch filter:','white', attrs=['bold']),
-                                  colored(f"{filter_opts['notch']}", 'yellow', attrs=['bold']))
-                            print(colored('Notch harmonics filter:','white', attrs=['bold']),
-                                  colored(f"{filter_opts['notch_harmonics']}", 'yellow', attrs=['bold']))
-                            print(colored('Laplacian filter:','white', attrs=['bold']),
-                                  colored(f"{filter_opts['laplacian']}", 'yellow', attrs=['bold']))
+                    #     # Loop through sleep cycles 
+                    #     for l, cyc in enumerate(scycle):
+                    #         print('')
+                    #         # Select and read data
+                    #         if cycle_idx is not None:
+                    #             print(f'Analysing, cycle {l+1}')
+                    #         else:
+                    #             print('Analysing, all cycles')
+                    #         print('')
+                    #         print('Using filter settings:')
+                    #         print('')
+                    #         print(colored('Notch filter:','white', attrs=['bold']),
+                    #               colored(f"{filter_opts['notch']}", 'yellow', attrs=['bold']))
+                    #         print(colored('Notch harmonics filter:','white', attrs=['bold']),
+                    #               colored(f"{filter_opts['notch_harmonics']}", 'yellow', attrs=['bold']))
+                    #         print(colored('Laplacian filter:','white', attrs=['bold']),
+                    #               colored(f"{filter_opts['laplacian']}", 'yellow', attrs=['bold']))
                             
-                            cat = list(cat)
-                            cat[2] = 0 #enforce non-concatenation of signal
-                            cat[3] = 0 #enforce non-concatenation of event types
-                            cat = tuple(cat)
+                    #         cat = list(cat)
+                    #         cat[2] = 0 #enforce non-concatenation of signal
+                    #         cat[3] = 0 #enforce non-concatenation of event types
+                    #         cat = tuple(cat)
                             
-                            segments = fetch(dset, annot, cat=cat, chan_full=[chan_full], 
-                                             cycle=[cyc], evt_type=evt_type, stage=stage,
-                                             buffer=buffer)
-                            if filter_opts['laplacian'] or filter_opts['notch'] or filter_opts['notch_harmonics']:
-                                chans = filter_opts['lapchan']
-                            else:
-                                chans = [ch]
-                            segments.read_data(chan=chans, ref_chan=ref_chan)
+                    #         segments = fetch(dset, annot, cat=cat, chan_full=[chan_full], 
+                    #                          cycle=[cyc], evt_type=evt_type, stage=stage,
+                    #                          buffer=buffer)
+                    #         if filter_opts['laplacian'] or filter_opts['notch'] or filter_opts['notch_harmonics']:
+                    #             chans = filter_opts['lapchan']
+                    #         else:
+                    #             chans = [ch]
+                    #         segments.read_data(chan=chans, ref_chan=ref_chan)
                             
-                            if len(segments) <1:
-                                print(colored('WARNING |', 'yellow', attrs=['bold']),
-                                      colored('No segments found.',
-                                              'white', attrs=['bold']))
+                    #         if len(segments) <1:
+                    #             print(colored('WARNING |', 'yellow', attrs=['bold']),
+                    #                   colored('No segments found.',
+                    #                           'white', attrs=['bold']))
                                 
                             
-                            # Define output & PAC object
+                    #         # Define output & PAC object
                             
-                            pac = Pac(idpac=idpac, f_pha=f_pha, f_amp=f_amp, dcomplex=dcomplex, 
-                                      cycle=filtcycle, width=width, n_bins=nbins)
+                    #         pac = Pac(idpac=idpac, f_pha=f_pha, f_amp=f_amp, dcomplex=dcomplex, 
+                    #                   cycle=filtcycle, width=width, n_bins=nbins)
                             
                             
-                            ###########################            DEBUGGING              ###########################
-                            with open(out_dir + f'/debug_{p}.txt', 'w') as f:
-                                f.write('Computing PAC')
-                            ###########################            DEBUGGING              ###########################
+                    #         ###########################            DEBUGGING              ###########################
+                    #         with open(out_dir + f'/debug_{p}.txt', 'w') as f:
+                    #             f.write('Computing PAC')
+                    #         ###########################            DEBUGGING              ###########################
                             
-                            nsegs=[]
+                    #         nsegs=[]
                             
-                            if cat[1] == 0:
-                                print('Splitting stages')
-                                for s, st in enumerate(stage):
-                                    segs = [s for s in segments if st in s['stage']]
-                                    nsegs.append(segs)
+                    #         if cat[1] == 0:
+                    #             print('Splitting stages')
+                    #             for s, st in enumerate(stage):
+                    #                 segs = [s for s in segments if st in s['stage']]
+                    #                 nsegs.append(segs)
                                     
-                            else:
-                                nsegs = [segments]
+                    #         else:
+                    #             nsegs = [segments]
                             
-                            for s in range(len(nsegs)):
-                                segments = nsegs[s]
-                                ampbin = zeros((len(segments), nbins))
+                    #         for s in range(len(nsegs)):
+                    #             segments = nsegs[s]
+                    #             ampbin = zeros((len(segments), nbins))
                                 
-                                if cat[1] == 1:
-                                    stagename = ''.join(stage) 
-                                else: 
-                                    stagename = stage[s]
+                    #             if cat[1] == 1:
+                    #                 stagename = ''.join(stage) 
+                    #             else: 
+                    #                 stagename = stage[s]
                                     
-                                print('')
-                                print(f'Stage {stagename}')
-                                print('Calculating mean amplitudes')
-                                print(f'No. Segments = {len(segments)}')
+                    #             print('')
+                    #             print(f'Stage {stagename}')
+                    #             print('Calculating mean amplitudes')
+                    #             print(f'No. Segments = {len(segments)}')
                                
-                                # Create blocks
-                                ms = int(ceil(len(segments)/50))
-                                longamp = zeros((ms,50),dtype=object) # initialise (blocked) ampltidue series
-                                longpha = zeros((ms,50),dtype=object) # initialise (blocked) phase series 
+                    #             # Create blocks
+                    #             ms = int(ceil(len(segments)/50))
+                    #             longamp = zeros((ms,50),dtype=object) # initialise (blocked) ampltidue series
+                    #             longpha = zeros((ms,50),dtype=object) # initialise (blocked) phase series 
                                 
-                                z=0
-                                for m, seg in enumerate(segments):
+                    #             z=0
+                    #             for m, seg in enumerate(segments):
                                     
-                                    # Print out progress
-                                    if progress:
-                                        z +=1
-                                        j = z/len(segments)
-                                        sys.stdout.write('\r')
-                                        sys.stdout.write(f"Progress: [{'=' * int(50 * j):{50}s}] {int(100 * j)}%")
-                                        sys.stdout.flush()
+                    #                 # Print out progress
+                    #                 if progress:
+                    #                     z +=1
+                    #                     j = z/len(segments)
+                    #                     sys.stdout.write('\r')
+                    #                     sys.stdout.write(f"Progress: [{'=' * int(50 * j):{50}s}] {int(100 * j)}%")
+                    #                     sys.stdout.flush()
                                     
-                                    # Select data from segment
-                                    data = seg['data']
+                    #                 # Select data from segment
+                    #                 data = seg['data']
                                     
-                                    # Find sampling frequency
-                                    s_freq = data.s_freq
+                    #                 # Find sampling frequency
+                    #                 s_freq = data.s_freq
 
-                                    # Apply filtering (if necessary)
-                                    if filter_opts['notch']:
-                                        selectchans = list(data.chan[0])
-                                        data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                                    channel=selectchans, 
-                                                                    freq=filter_opts['notch_freq'],
-                                                                    rename=filter_opts['chan_rename'],
-                                                                    renames=filter_opts['renames'])
+                    #                 # Apply filtering (if necessary)
+                    #                 if filter_opts['notch']:
+                    #                     selectchans = list(data.chan[0])
+                    #                     data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
+                    #                                                 channel=selectchans, 
+                    #                                                 freq=filter_opts['notch_freq'],
+                    #                                                 rename=filter_opts['chan_rename'],
+                    #                                                 renames=filter_opts['renames'])
                                     
-                                    if filter_opts['notch_harmonics']: 
-                                        selectchans = list(data.chan[0])
-                                        data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                                  channel=selectchans,
-                                                                  rename=filter_opts['chan_rename'],
-                                                                  renames=filter_opts['renames'])
+                    #                 if filter_opts['notch_harmonics']: 
+                    #                     selectchans = list(data.chan[0])
+                    #                     data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
+                    #                                               channel=selectchans,
+                    #                                               rename=filter_opts['chan_rename'],
+                    #                                               renames=filter_opts['renames'])
                                     
-                                    if filter_opts['laplacian']:
-                                        data = laplacian_mne(data, oREF=filter_opts['oREF'], channel=ch, 
-                                                             ref_chan=ref_chan, 
-                                                             laplacian_rename=filter_opts['laplacian_rename'], 
-                                                             renames=filter_opts['renames'])
-                                        dat = data[0]
-                                    else:
-                                        dat = data()[0][0]
+                    #                 if filter_opts['laplacian']:
+                    #                     data = laplacian_mne(data, oREF=filter_opts['oREF'], channel=ch, 
+                    #                                          ref_chan=ref_chan, 
+                    #                                          laplacian_rename=filter_opts['laplacian_rename'], 
+                    #                                          renames=filter_opts['renames'])
+                    #                     dat = data[0]
+                    #                 else:
+                    #                     dat = data()[0][0]
                                     
                                     
-                                    # Check polarity of recording
-                                    if isinstance(polar, list):
-                                        polarity = polar[i]
-                                    else:
-                                        polarity = polar
-                                    if polarity == 'opposite':
-                                        dat = dat*-1 
+                    #                 # Check polarity of recording
+                    #                 if isinstance(polar, list):
+                    #                     polarity = polar[i]
+                    #                 else:
+                    #                     polarity = polar
+                    #                 if polarity == 'opposite':
+                    #                     dat = dat*-1 
                                         
-                                    # Obtain phase signal
-                                    pha = squeeze(pac.filter(s_freq, dat, ftype='phase'))
+                    #                 # Obtain phase signal
+                    #                 pha = squeeze(pac.filter(s_freq, dat, ftype='phase'))
                                     
-                                    if len(pha.shape)>2:
-                                        pha = squeeze(pha)
+                    #                 if len(pha.shape)>2:
+                    #                     pha = squeeze(pha)
                                     
-                                    # Obtain amplitude signal
-                                    amp = squeeze(pac.filter(s_freq, dat, ftype='amplitude'))
-                                    if len(amp.shape)>2:
-                                        amp = squeeze(amp)
+                    #                 # Obtain amplitude signal
+                    #                 amp = squeeze(pac.filter(s_freq, dat, ftype='amplitude'))
+                    #                 if len(amp.shape)>2:
+                    #                     amp = squeeze(amp)
                                     
-                                    # Extract signal (minus buffer)
-                                    nbuff = int(buffer * s_freq)
-                                    minlen = s_freq * min_dur
-                                    if len(pha) >= 2 * nbuff + minlen:
-                                        pha = pha[nbuff:-nbuff]
-                                        amp = amp[nbuff:-nbuff]
+                    #                 # Extract signal (minus buffer)
+                    #                 nbuff = int(buffer * s_freq)
+                    #                 minlen = s_freq * min_dur
+                    #                 if len(pha) >= 2 * nbuff + minlen:
+                    #                     pha = pha[nbuff:-nbuff]
+                    #                     amp = amp[nbuff:-nbuff]
                                                                    
                                         
-                                    # Apply phase correction for hilbert transform
-                                    #pha = roll(pha, int(pi/2*s_freq), axis=-1)
+                    #                 # Apply phase correction for hilbert transform
+                    #                 #pha = roll(pha, int(pi/2*s_freq), axis=-1)
                                     
                                     
-                                    # Put data in blocks (for surrogate testing)
-                                    longpha[m//50, m%50] = pha
-                                    longamp[m//50, m%50] = amp
+                    #                 # Put data in blocks (for surrogate testing)
+                    #                 longpha[m//50, m%50] = pha
+                    #                 longamp[m//50, m%50] = amp
                                     
-                                    # Put data in long format (for preferred phase)
-                                    ampbin[m, :] = mean_amp(pha, amp, nbins=nbins)
-                                    
-                                
-                                # if number of events not divisible by block length
-                                # pad incomplete final block with randomly resampled events
-                                rem = len(segments) % 50
-                                if rem > 0:
-                                    pads = 50 - rem
-                                    for pad in range(pads):
-                                        ran = random.randint(0,rem)
-                                        longpha[-1,rem+pad] = longpha[-1,ran]
-                                        longamp[-1,rem+pad] = longamp[-1,ran]
+                    #                 # Put data in long format (for preferred phase)
+                    #                 ampbin[m, :] = mean_amp(pha, amp, nbins=nbins)
                                     
                                 
-                                print('')
-                                print('Calculating coupling strength.')
-                                print(f'Using method {methods[idpac[0]]}.')
-                                print(f'Surrogate method: {surrogates[idpac[1]]}.')
-                                print('Correcting strength using method:')
-                                print(f'{corrections[idpac[2]]}.')
-                                print('')
-                                mi = zeros((longamp.shape[0],1))
-                                mi_pv = zeros((longamp.shape[0],1))
-                                for row in range(longamp.shape[0]): 
-                                    amp = zeros((1))   
-                                    pha = zeros((1)) 
-                                    for col in range(longamp.shape[1]):
-                                        pha = concatenate((pha,longpha[row,col]))
-                                        amp = concatenate((amp,longamp[row,col]))
-                                    pha = reshape(pha,(1,1,len(pha)))
-                                    amp = reshape(amp,(1,1,len(amp)))
-                                    mi[row] = pac.fit(pha, amp, n_perm=400,random_state=5,
-                                                 verbose=False)[0][0]
-                                    mi_pv[row] = pac.infer_pvalues(p=0.95, mcp='fdr')[0][0]
+                    #             # if number of events not divisible by block length
+                    #             # pad incomplete final block with randomly resampled events
+                    #             rem = len(segments) % 50
+                    #             if rem > 0:
+                    #                 pads = 50 - rem
+                    #                 for pad in range(pads):
+                    #                     ran = random.randint(0,rem)
+                    #                     longpha[-1,rem+pad] = longpha[-1,ran]
+                    #                     longamp[-1,rem+pad] = longamp[-1,ran]
+                                    
+                                
+                    #             print('')
+                    #             print('Calculating coupling strength.')
+                    #             print(f'Using method {methods[idpac[0]]}.')
+                    #             print(f'Surrogate method: {surrogates[idpac[1]]}.')
+                    #             print('Correcting strength using method:')
+                    #             print(f'{corrections[idpac[2]]}.')
+                    #             print('')
+                    #             mi = zeros((longamp.shape[0],1))
+                    #             mi_pv = zeros((longamp.shape[0],1))
+                    #             for row in range(longamp.shape[0]): 
+                    #                 amp = zeros((1))   
+                    #                 pha = zeros((1)) 
+                    #                 for col in range(longamp.shape[1]):
+                    #                     pha = concatenate((pha,longpha[row,col]))
+                    #                     amp = concatenate((amp,longamp[row,col]))
+                    #                 pha = reshape(pha,(1,1,len(pha)))
+                    #                 amp = reshape(amp,(1,1,len(amp)))
+                    #                 mi[row] = pac.fit(pha, amp, n_perm=400,random_state=5,
+                    #                              verbose=False)[0][0]
+                    #                 mi_pv[row] = pac.infer_pvalues(p=0.95, mcp='fdr')[0][0]
 
-                                ## Calculate preferred phase
-                                print('Caclulating preferred phase.')
-                                print('')
-                                ampbin = ampbin / ampbin.sum(-1, keepdims=True) # normalise amplitude
-                                ampbin = ampbin.squeeze()
-                                ampbin = ampbin[~isnan(ampbin[:,0]),:] # remove nan trials
-                                ab = ampbin
+                    #             ## Calculate preferred phase
+                    #             print('Caclulating preferred phase.')
+                    #             print('')
+                    #             ampbin = ampbin / ampbin.sum(-1, keepdims=True) # normalise amplitude
+                    #             ampbin = ampbin.squeeze()
+                    #             ampbin = ampbin[~isnan(ampbin[:,0]),:] # remove nan trials
+                    #             ab = ampbin
                                 
-                                # Create bins for preferred phase
-                                vecbin = zeros(nbins)
-                                width = 2 * pi / nbins
-                                for n in range(nbins):
-                                    vecbin[n] = n * width + width / 2  
+                    #             # Create bins for preferred phase
+                    #             vecbin = zeros(nbins)
+                    #             width = 2 * pi / nbins
+                    #             for n in range(nbins):
+                    #                 vecbin[n] = n * width + width / 2  
                                 
-                                # Calculate mean direction (theta) & mean vector length (rad)
-                                ab_pk = argmax(ab,axis=1)
-                                theta = circ_mean(vecbin,histogram(ab_pk,bins=nbins, 
-                                                                   range=(0,nbins))[0])
-                                theta_deg = degrees(theta)
-                                if theta_deg < 0:
-                                    theta_deg += 360
-                                rad = circ_r(vecbin, histogram(ab_pk,bins=nbins)[0], d=width)
+                    #             # Calculate mean direction (theta) & mean vector length (rad)
+                    #             ab_pk = argmax(ab,axis=1)
+                    #             theta = circ_mean(vecbin,histogram(ab_pk,bins=nbins, 
+                    #                                                range=(0,nbins))[0])
+                    #             theta_deg = degrees(theta)
+                    #             if theta_deg < 0:
+                    #                 theta_deg += 360
+                    #             rad = circ_r(vecbin, histogram(ab_pk,bins=nbins)[0], d=width)
                                 
-                                # Take mean across all segments/events
-                                ma = nanmean(ab, axis=0)
+                    #             # Take mean across all segments/events
+                    #             ma = nanmean(ab, axis=0)
                                 
-                                # Correlation between mean amplitudes and phase-giving sine wave
-                                sine = sin(linspace(-pi, pi, nbins))
-                                sine = interp(sine, (sine.min(), sine.max()), (ma.min(), ma.max()))
-                                rho, pv1 = circ_corrcc(ma, sine)
+                    #             # Correlation between mean amplitudes and phase-giving sine wave
+                    #             sine = sin(linspace(-pi, pi, nbins))
+                    #             sine = interp(sine, (sine.min(), sine.max()), (ma.min(), ma.max()))
+                    #             rho, pv1 = circ_corrcc(ma, sine)
         
-                                # Rayleigh test for non-uniformity of circular data
-                                ppha = vecbin[ab.argmax(axis=-1)]
-                                z, pv2 = circ_rayleigh(ppha)
-                                pv2 = round(pv2,5)
+                    #             # Rayleigh test for non-uniformity of circular data
+                    #             ppha = vecbin[ab.argmax(axis=-1)]
+                    #             z, pv2 = circ_rayleigh(ppha)
+                    #             pv2 = round(pv2,5)
                                 
-                                # Prepare filename
-                                if cat[0] == 1:
-                                    cyclename = 'wholenight'
-                                else: 
-                                    cyclename = f'cycle{l+1}'
+                    #             # Prepare filename
+                    #             if cat[0] == 1:
+                    #                 cyclename = 'wholenight'
+                    #             else: 
+                    #                 cyclename = f'cycle{l+1}'
 
 
-                                # Save cfc metrics to dataframe
-                                d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 
-                                               theta_deg, rad, rho, pv1, z, pv2])
-                                d = d.transpose()
-                                d.columns = ['mi','mi_norm','sig','pp_rad','ppdegrees','mvl',
-                                             'rho','pval','rayl','pval2']
-                                d.to_csv(path_or_buf=out_dir + '/' + p + '/' + vis + '/' + 
-                                         p + '_' + vis + '_' + ch + '_' + stagename + '_' + 
-                                          '_' + cyclename + '_' + band_pairs + 
-                                          '_cfc_params.csv', sep=',')
+                    #             # Save cfc metrics to dataframe
+                    #             d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 
+                    #                            theta_deg, rad, rho, pv1, z, pv2])
+                    #             d = d.transpose()
+                    #             d.columns = ['mi','mi_norm','sig','pp_rad','ppdegrees','mvl',
+                    #                          'rho','pval','rayl','pval2']
+                    #             d.to_csv(path_or_buf=out_dir + '/' + p + '/' + vis + '/' + 
+                    #                      p + '_' + vis + '_' + ch + '_' + stagename + '_' + 
+                    #                       '_' + cyclename + '_' + band_pairs + 
+                    #                       '_cfc_params.csv', sep=',')
                                 
-                                # Save binned amplitudes to pickle file
-                                with open(out_dir + '/' + p + '/' + vis + '/' + p + '_' + 
-                                          vis + '_' + ch + '_' + stagename + '_' + 
-                                          '_' + cyclename + '_' + band_pairs + 
-                                          '_mean_amps.p', 'wb') as f:
-                                     dump(ab, f)
+                    #             # Save binned amplitudes to pickle file
+                    #             with open(out_dir + '/' + p + '/' + vis + '/' + p + '_' + 
+                    #                       vis + '_' + ch + '_' + stagename + '_' + 
+                    #                       '_' + cyclename + '_' + band_pairs + 
+                    #                       '_mean_amps.p', 'wb') as f:
+                    #                  dump(ab, f)
    
     print('The function pac_it completed without error.')                             
 
