@@ -25,6 +25,7 @@ from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs
 
 ## TO DO:
 #   - add frequency option in export_eventparams to be default for SO & spindle
+#   - add in log for detection whether auto, fixed or adapted bands was run
 #   - add selection of subs to be readable from 'tracking.tsv'
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
@@ -485,7 +486,7 @@ class pipeline:
             xml_dir = f'{self.outpath}/staging'   
         if not out_dir:
             for met in method:
-                out_dir = select_ouput_dirs(self, out_dir, met)  
+                out_dir = select_ouput_dirs(self.outpath, out_dir, met)  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -512,6 +513,7 @@ class pipeline:
             logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
             flag = check_adap_bands(self, subs, sessions, chan, logger)
             if flag == 'error':
+                logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
             elif flag == 'review':
                 logger.info('')
@@ -525,6 +527,7 @@ class pipeline:
             self.track(step='fooof', show = False, log = False)
             if not type(chan) == type(DataFrame()):
                 logger.critical("For adap_bands = Auto, the argument 'chan' must be 'None' and specfied in 'tracking.csv'")
+                logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
             else:
                 flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
@@ -537,6 +540,7 @@ class pipeline:
                 logger.info("Check documentation for how to set up channel names in tracking.tsv':")
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.info('-' * 10)
+                logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
             elif flag == 'review':
                 logger.debug('Spectral peaks have not been found for all subs, analysing the spectral parameters prior to spindle detection..')
@@ -561,6 +565,7 @@ class pipeline:
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
+            logger.critical('Spindle detection finished with ERRORS. See log for details.')
         else:   
            spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                             grp_name, stage, frequency, rater, subs, sessions, 
@@ -647,11 +652,16 @@ class pipeline:
     
     '''    
     def pac(self, xml_dir = None, out_dir = None, subs = 'all', sessions = 'all', 
-                  filetype = '.edf', chan = None, ref_chan = None, rater = None, 
-                  grp_name = 'eeg', stage = ['NREM2','NREM3'], cycle_idx = None, 
-                  concat_cycle = True,
+                  chan = None, ref_chan = None, rater = None, grp_name = 'eeg', 
+                  stage = ['NREM2','NREM3'], concat_stage = False, 
+                  cycle_idx = None, concat_cycle = True, filetype = '.edf', 
+                  adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
+                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),
                   
-                  frequency = None, adap_bands = 'Fixed', adap_bw = 4, 
+                  evt_name = None,
+                  
+                  
+                  adap_bw = 4, 
                   peaks = None, general_opts = None, 
                   frequency_opts = None, filter_opts = None, 
                   epoch_opts = None, event_opts = None, 
@@ -672,9 +682,9 @@ class pipeline:
             mkdir(log_dir)
             
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'   
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name) 
         if not out_dir:
-            out_dir = select_ouput_dirs(self, out_dir, method)  
+            out_dir = select_ouput_dirs(self.outpath, out_dir, evt_name)  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -685,7 +695,6 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
-    
         # Set default parameters
         if not general_opts:
             general_opts = default_general_opts()
@@ -697,25 +706,17 @@ class pipeline:
             event_opts = default_event_opts()
         if not norm_opts:
             norm_opts = default_norm_opts()
-        
         if not filter_opts:
             filter_opts = default_filter_opts()    
-        frequency = (filter_opts['highpass'], filter_opts['lowpass'])
-        
-        '''
-        spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                         grp_name, stage, frequency, rater, subs, sessions, 
-                         reject_artf, self.tracking) 
-        spindle.whale_it(method, cat, cycle_idx, adap_bands, peaks, adap_bw, 
-                         duration, filetype, outfile)
-        '''
         
         
-        CP = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                     grp_name, stage, frequency, rater, subs, sessions, 
-                     reject_artf, self.tracking)
         
-        octopus.pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
+
+        Octopus = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+                          grp_name, stage, rater, subs, sessions, reject_artf, 
+                          self.tracking)
+        
+        Octopus.pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
                        polar, grp_name, cat, evt_type, buffer, ref_chan, nbins, idpac, 
                        fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
                        adap_bands=(False,False),
@@ -755,8 +756,8 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        xml_dir = select_input_dirs(self, xml_dir, 'macro')
-        out_dir = select_ouput_dirs(self, out_dir, 'macro')
+        xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
+        out_dir = select_ouput_dirs(self.outpath, out_dir, 'macro')
         
         # Set channels
         times, ref_chan = check_chans(self.rootpath, None, True, logger)
@@ -780,8 +781,8 @@ class pipeline:
              mkdir(self.outpath + '/datasets/')
          out_dir = self.outpath + '/datasets/macro/'
          
-         xml_dir = select_input_dirs(self, xml_dir, 'macro')
-         out_dir = select_ouput_dirs(self, out_dir, 'macro')
+         xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
+         out_dir = select_ouput_dirs(self.outpath, out_dir, 'macro')
          
          sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
                                  subs, sessions, log_dir, outfile)
@@ -807,8 +808,8 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        out_dir = select_ouput_dirs(self, out_dir, evt_name)
-        xml_dir = select_input_dirs(self, xml_dir, evt_name)
+        out_dir = select_ouput_dirs(self.outpath, out_dir, evt_name)
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
         
         
         # Check annotations directory exists
@@ -866,7 +867,7 @@ class pipeline:
             self.track(step='fooof', show = False, log = False)
         out_dir = self.outpath + f'/datasets/{evt_name}'
         
-        xml_dir = select_input_dirs(self, xml_dir, evt_name)
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")

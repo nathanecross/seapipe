@@ -15,13 +15,13 @@ def read_tracking_sheet(filepath, logger):
         track_file = [x for x in listdir(filepath) if 'tracking' in x]
         
         if len(track_file) > 1:
-            logger.critical('>1 tracking file found.')
+            logger.error('>1 tracking file found.')
             logger.info('Check documentation for how to set up channel data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return 'error'
         elif len(track_file) == 0:
-            logger.warning('No tracking file found.')
+            logger.error('No tracking file found.')
             return 'error'
         else:
             track_file = track_file[0]
@@ -32,7 +32,7 @@ def read_tracking_sheet(filepath, logger):
     
         return track
 
-def select_input_dirs(self, xml_dir, evt_name=None):
+def select_input_dirs(outpath, xml_dir, evt_name=None):
     if not xml_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
                         'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
@@ -40,17 +40,17 @@ def select_input_dirs(self, xml_dir, evt_name=None):
                         'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
                         'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
                         'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
-            xml_dir = f'{self.outpath}/spindle'
+            xml_dir = f'{outpath}/spindle'
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
-            xml_dir = f'{self.outpath}/slowwave'
+            xml_dir = f'{outpath}/slowwave'
         elif evt_name in ['macro']:
-            xml_dir = f'{self.outpath}/staging'
+            xml_dir = f'{outpath}/staging'
         else:
-            xml_dir = f'{self.outpath}/{evt_name}'
+            xml_dir = f'{outpath}/{evt_name}'
         
     return xml_dir
 
-def select_ouput_dirs(self, out_dir, evt_name=None):
+def select_ouput_dirs(outpath, out_dir, evt_name=None):
             
     if not out_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
@@ -59,13 +59,13 @@ def select_ouput_dirs(self, out_dir, evt_name=None):
                         'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
                         'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
                         'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
-            out_dir = f'{self.outpath}/spindle'
+            out_dir = f'{outpath}/spindle'
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
-            out_dir = f'{self.outpath}/slowwave'
+            out_dir = f'{outpath}/slowwave'
         elif evt_name in ['macro']:
-            out_dir = f'{self.outpath}/staging'
+            out_dir = f'{outpath}/staging'
         else:
-            out_dir = f'{self.outpath}/{evt_name}'
+            out_dir = f'{outpath}/{evt_name}'
     
     if not path.exists(out_dir):
         mkdir(out_dir)
@@ -77,7 +77,7 @@ def check_chans(rootpath, chan, ref_chan, logger):
         try:
             chan = read_tracking_sheet(f'{rootpath}', logger)
         except:
-            logger.critical("Channels haven't been defined, and no tracking file exists.")
+            logger.error("Channels haven't been defined, and no tracking file exists.")
             logger.info('Check documentation for how to set up channel data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -259,7 +259,8 @@ def check_adap_bands(self, subs, sessions, chan, logger):
     try:
         track = read_tracking_sheet(f'{self.rootpath}', logger)
     except:
-        logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
+        logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error'
     
@@ -272,13 +273,13 @@ def check_adap_bands(self, subs, sessions, chan, logger):
     peaks = peaks.dropna(axis=1, how='all')
     
     if len(peaks.columns) == 0:
-        logger.critical("No spectral peaks have been provided in tracking file. Peaks will need to be detected.")
-        logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.error("No spectral peaks have been provided in tracking file. Peaks will need to be detected.")
+        logger.info("Check documentation for how to use adap_bands = 'Manual' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error'
     elif len(peaks.columns) != len(chans.columns):
-        logger.critical("There must be the same number of channel sets and spectral peaks sets in tracking file")
-        logger.info("Check documentation for how to use adap_bands = 'Fixed' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.error("There must be the same number of channel sets and spectral peaks sets in tracking file")
+        logger.info("Check documentation for how to use adap_bands = 'Manual' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         return 'error'
     
     sub = {}
@@ -324,12 +325,12 @@ def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
         
         # Search channel
         chans = chans.filter(regex='chanset')
-        peaks = chans.filter(regex='peaks')
-        peaks = peaks.dropna(axis=1, how='all')
         chans = chans.filter(regex='^((?!rename).)*$')
         chans = chans.filter(regex='^((?!peaks).)*$')
         chans = chans.filter(regex='^((?!invert).)*$')
         chans = chans.dropna(axis=1, how='all')
+        peaks = chans.filter(regex='peaks')
+        peaks = peaks.dropna(axis=1, how='all')
         
         if len(peaks.columns) == 0:
             logger.warning(f"No spectral peaks found in tracking file for {sub}, {ses}.")
@@ -349,7 +350,6 @@ def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
                 peaks[chans.index(chan)] + adap_bw/2)
         
     else:
-        logger.warning(f"Error reading manual peaks for {sub}, {ses}, {chan} ")
         freq = None
     
     return freq

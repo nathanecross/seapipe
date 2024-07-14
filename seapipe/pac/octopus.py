@@ -38,7 +38,7 @@ from ..utils.misc import remove_duplicate_evts
 class octopus:
 
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency, rater = None, subs = 'all', 
+                 grp_name, stage, rater = None, subs = 'all', 
                  sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                  tracking = None):
         
@@ -51,7 +51,6 @@ class octopus:
         self.ref_chan = ref_chan
         self.grp_name = grp_name
         self.stage = stage
-        self.frequency = frequency
         self.rater = rater
         self.reject = reject_artf
         
@@ -63,8 +62,7 @@ class octopus:
         self.tracking = tracking
 
 
-def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
-                 polar, grp_name, cat, evt_type, buffer, ref_chan, nbins, idpac, 
+def pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac, 
                  fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
                  logger, adap_bands=(False,False), 
                  filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
@@ -287,7 +285,8 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                     
                 # g. Check for adapted bands
                 if adap_bands == 'Fixed':
-                    freq = self.frequency
+                    f_pha = self.f_pha
+                    f_amp = self.f_amp
                 elif adap_bands == 'Manual':
                     freq = read_manual_peaks(sub, ses, peaks, ch, 
                                              adap_bw, logger)
@@ -308,6 +307,8 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                 logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                 
                     
+                
+                
                     # # Loop through channels
                     # for k, ch in enumerate(chan):
                         
@@ -350,8 +351,8 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                     #         cat = tuple(cat)
                             
                     #         segments = fetch(dset, annot, cat=cat, chan_full=[chan_full], 
-                    #                          cycle=[cyc], evt_type=evt_type, stage=stage,
-                    #                          buffer=buffer)
+                    #                           cycle=[cyc], evt_type=evt_type, stage=stage,
+                    #                           buffer=buffer)
                     #         if filter_opts['laplacian'] or filter_opts['notch'] or filter_opts['notch_harmonics']:
                     #             chans = filter_opts['lapchan']
                     #         else:
@@ -440,9 +441,9 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                                     
                     #                 if filter_opts['laplacian']:
                     #                     data = laplacian_mne(data, oREF=filter_opts['oREF'], channel=ch, 
-                    #                                          ref_chan=ref_chan, 
-                    #                                          laplacian_rename=filter_opts['laplacian_rename'], 
-                    #                                          renames=filter_opts['renames'])
+                    #                                           ref_chan=ref_chan, 
+                    #                                           laplacian_rename=filter_opts['laplacian_rename'], 
+                    #                                           renames=filter_opts['renames'])
                     #                     dat = data[0]
                     #                 else:
                     #                     dat = data()[0][0]
@@ -516,7 +517,7 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                     #                 pha = reshape(pha,(1,1,len(pha)))
                     #                 amp = reshape(amp,(1,1,len(amp)))
                     #                 mi[row] = pac.fit(pha, amp, n_perm=400,random_state=5,
-                    #                              verbose=False)[0][0]
+                    #                               verbose=False)[0][0]
                     #                 mi_pv[row] = pac.infer_pvalues(p=0.95, mcp='fdr')[0][0]
 
                     #             ## Calculate preferred phase
@@ -536,7 +537,7 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                     #             # Calculate mean direction (theta) & mean vector length (rad)
                     #             ab_pk = argmax(ab,axis=1)
                     #             theta = circ_mean(vecbin,histogram(ab_pk,bins=nbins, 
-                    #                                                range=(0,nbins))[0])
+                    #                                                 range=(0,nbins))[0])
                     #             theta_deg = degrees(theta)
                     #             if theta_deg < 0:
                     #                 theta_deg += 360
@@ -564,12 +565,12 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
 
                     #             # Save cfc metrics to dataframe
                     #             d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 
-                    #                            theta_deg, rad, rho, pv1, z, pv2])
+                    #                             theta_deg, rad, rho, pv1, z, pv2])
                     #             d = d.transpose()
                     #             d.columns = ['mi','mi_norm','sig','pp_rad','ppdegrees','mvl',
-                    #                          'rho','pval','rayl','pval2']
+                    #                           'rho','pval','rayl','pval2']
                     #             d.to_csv(path_or_buf=out_dir + '/' + p + '/' + vis + '/' + 
-                    #                      p + '_' + vis + '_' + ch + '_' + stagename + '_' + 
+                    #                       p + '_' + vis + '_' + ch + '_' + stagename + '_' + 
                     #                       '_' + cyclename + '_' + band_pairs + 
                     #                       '_cfc_params.csv', sep=',')
                                 
@@ -578,7 +579,7 @@ def pac_it(self, rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater,
                     #                       vis + '_' + ch + '_' + stagename + '_' + 
                     #                       '_' + cyclename + '_' + band_pairs + 
                     #                       '_mean_amps.p', 'wb') as f:
-                    #                  dump(ab, f)
+                    #                   dump(ab, f)
    
     print('The function pac_it completed without error.')                             
 
