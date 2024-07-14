@@ -5,11 +5,11 @@ Macro-architecture
 
 Overview
 ------------
-You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
+Different markers of macro-architecture (see definitions in section :ref:`Output`) can be extracted for the whole night or per cycle
 
 **You will need to run two functions:**
 
-1) Extract macro sleep characteristics for each subject.
+1) Extract macro sleep characteristics 
    * It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
 .. code-block:: python
@@ -18,7 +18,7 @@ You can extract the different markers of macro-architecture (see definitions in 
 
 
 2) Create datasets combining all the subjects
-   * It will combine all .csv into a single dataset per session (one row per subject) in in ``root_dir/OUT/datasets/``
+   * It will combine all .csv into a single dataset per session (one row per subject) in ``root_dir/OUT/datasets/``
 
 .. code-block:: python
 
@@ -49,26 +49,31 @@ Extract macro-architecture
         * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **out_dir**
-        - Output path for the outcomes of charactertistics extraction per subject.
+        * Output path for the outcomes of charactertistics extraction per subject.
 
-        - Default is ``None`` which will point to ``root_dir/OUT/staging``
+        * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **subs**
         * Subject to analyze
 
-        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *sub* column in *tracking* file
-            * If put string of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+            * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+
+            * If you put ``None``, it will point to the *sub* column in *tracking* file
+
+            * If you put string of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
 
     **sessions**
         * Sessions/Visits to analyse per subject
 
-        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *ses* column in *tracking* file
+            * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
 
-            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
+            * If you put ``None``, it will point to the *ses* column in *tracking* file
+
+            * If you put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
 
     **times**
         * Light off and light on in seconds from beginning of recording
@@ -78,16 +83,20 @@ Extract macro-architecture
     **rater**
         * Name of the rater to analyze
 
-        * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
+        * *Acceptable options:*
+
+            * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
     
-            * If put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
+            * If you put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
 
     **outfile**
         * Extraction of output file
 
-        * Default is ``True`` which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
+        * *Acceptable options:*
+
+            * Default is ``True`` which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
             
-            * If put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
+            * If you put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
 
 
 .. _create_datasets:
@@ -120,34 +129,43 @@ Create datasets
     **subs**
         * Subject to export in the datasets
 
-        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/OUT/staging``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *sub* column in *tracking* file
+            * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/OUT/staging``
 
-            * If put list of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+            * If you put ``None``, it will point to the *sub* column in *tracking* file
+
+            * If you put list of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
 
     **sessions**
         * Sessions/Visits to extract per subject
 
-        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/OUT/staging``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *ses* column in *tracking* file
+            * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/OUT/staging``
 
-            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect that/these session(s) within each subject
+            * If you put ``None``, it will point to the *ses* column in *tracking* file
+
+            * If you put string of ses visit (e.g., *['ses-V1']*), it will only detect that/these session(s) within each subject
 
     **cycle_idx**
         * Extract sleep macro-architecture per cycle
 
-        * Default is ``None`` which will create a .csv extracting macro-architecture for whole-night only (from light off to light on)
+        * *Acceptable options:*
+
+            * Default is ``None`` which will create a .csv extracting macro-architecture for whole-night only (from light off to light on)
     
-            * If put a list of cycle number (e.g., [1,2,3]), it will extract macro-architecture per cycle *!!! Make sure you marked the cycles on the .xml in staging (see wonambi)!!!*
+            * If you put a list of cycle number (e.g., [1,2,3]), it will extract macro-architecture per cycle *!!! Make sure you marked the cycles on the .xml 
+            in staging (see wonambi)!!!*
 
     **outfile**
         * Extraction of output file
 
-        * Default is ``True`` which will create a .csv dataset file combining all subjects in ``root_dir/OUT/datasets/macro/`` per session
+        * *Acceptable options:*
+
+            * Default is ``True`` which will create a .csv dataset file combining all subjects in ``root_dir/OUT/datasets/macro/`` per session
     
-            * If put ``False``, it won't extract .csv file 
+            * If you put ``False``, it won't extract .csv file 
 
 
 .. note::

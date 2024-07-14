@@ -1,44 +1,83 @@
-Macro-architecture
+Slow Oscillations
 =====
 
 .. _overview:
 
 Overview
 ------------
-You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
+Slow oscillations (SOs) are biphasic waves corresponding to the alternation between two stable membranes potential levels (UP states = depolarization and 
+DOWN states = hyperpolarization).Oscillating below 1.25 Hz, SOs are generated during NREM2 and NREM3.
 
-*You will need to run two functions:*
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output`) can be extracted across NREM (N2+N3), 
+per stage and/or per cycle.
 
-1. Extract macro sleep characteristics for each subject.
-    It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
+| We propose 3 standardized published methods to automatically detect SOs :
+    * *Staresina et al. (2015)*: recommended for event detection (<1.25Hz) with amplitude adapted per individual per channel
+    Method in brief: 1. Filter the signal (two-pass FIR bandpass filter, 0.5–1.25 Hz, order = 3); 2. A positive-to-negative zero crossing and a subsequent 
+    negative-to-positive zero crossing separated by 0.8-2.0 sec; 3. Top 25% of events with the largest amplitudes for trough-to-peak amplitude between two 
+    positive-to-negative zero crossings. `see reference`_.
+.. _see reference: https://doi.org/10.1038/nn.4119
+
+    * *Ngo et al. (2013)*: recommended for event detection (<3.5Hz) with amplitude adapted per individual across several channels (average)
+    Method in brief: 1. Filter the signal (lowpass filter, 3.5 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
+    separated by 0.833-2.0 sec ; 3. A negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject. `see reference`_.
+.. _see reference: https://doi.org/10.1016/j.neuron.2013.03.006
+
+    * *Massimini et al. (2004)*: recommended for detection of textbook SOs (75uV peak-to-peak, 1-4Hz)
+    Method in brief: 1. Filter the signal (bandpass, 0.1-4 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
+    separated by 0.3-1.0 sec; 3. A negative peak between the two zero crossings with voltage less than -80 uV,; 4. A negative-to-positive peak-to-peak 
+    amplitude >140 uV. `see reference`_.
+.. _see reference: https://doi.org/10.1523/JNEUROSCI.1318-04.2004
+
+
+**You will need to run three functions:**
+
+1) Detect SOs events
+    * It will copy the .xml from ``root_dir/OUT/staging/`` to ``root_dir/OUT/slowwave/`` and write events detected 
 
 .. code-block:: python
 
-   project_name.export_macro_stats()
+   project.detect_slow_oscillations()
 
 
-2. Create datasets combining all the subjects
-    It will combine all .csv into a single dataset per session (one row per subject)
+2) Export event characteristics 
+    * It will extract a .csv file per channel and/or stage in the subject and session folders in ``root_dir/OUT/slowwave/`` 
 
 .. code-block:: python
 
-   project_name.macro_dataset()
+   project_name.export_eventparams()
+ 
+3) Create datasets combining all the subjects
+   * It will combine all .csv into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+
+.. code-block:: python
+
+   project_name.event_dataset()
  
 
-.. _extraction_macro:
-Extract macro-architecture
+.. _extraction_SO:
+Extract slow oscillations
 ----------------
 *Command line argument:*
 
 .. code-block:: python
 
-   project_name.export_macro_stats(xml_dir = None, 
-                                   out_dir = None, 
-                                   subs = 'all', 
-                                   sessions = 'all', 
-                                   times = None, 
-                                   rater = None, 
-                                   outfile = True)
+    project.detect_slow_oscillations(xml_dir=None, 
+                                    out_dir=None, 
+                                    subs='all', 
+                                    sessions='all', 
+                                    filetype='.edf', 
+                                    method = ['Staresina2015'], 
+                                    chan=None,
+                                    ref_chan=None, 
+                                    rater=None, 
+                                    grp_name='eeg', 
+                                    stage = ['NREM2','NREM3'], 
+                                    cycle_idx=None, 
+                                    duration=(0.2, 2), 
+                                    invert = None,
+                                    average_channels = False, 
+                                    outfile=True)
 
 
 *Positional arguments:*
@@ -49,45 +88,139 @@ Extract macro-architecture
         * Default is ``None`` which will point to ``root_dir/OUT/staging``
 
     **out_dir**
-        - Output path for the outcomes of charactertistics extraction per subject.
+        * Output path for the .xml file containing the new detected event (named like the method used; e.g., Staresina2015)
 
-        - Default is ``None`` which will point to ``root_dir/OUT/staging``
+        * Default is ``None`` which will point to ``root_dir/OUT/slowwave``
 
     **subs**
         * Subject to analyze
 
-        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *sub* column in *tracking* file
-            * If put string of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+            * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+
+            * If you put ``None``, it will point to the *sub* column in *tracking* file
+
+            * If you put a string of sub IDs (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
 
     **sessions**
         * Sessions/Visits to analyse per subject
 
-        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+        * *Acceptable options:*
 
-            * If put ``None``, it will point to the *ses* column in *tracking* file
+            * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
 
-            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
+            * If you put ``None``, it will point to the *ses* column in *tracking* file
 
-    **times**
-        * Light off and light on in seconds from beginning of recording
+            * If you put a string of ses visits (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
 
-        * Default is ``None`` which will point to the *loff* and *lon* columns in *tracking* file
+    **filetype**
+        * Format of files containing EEG signal
+
+        * *Acceptable options:*
+
+            * Default is ``'.edf'`` format
+
+            * The pipeline can also read .eeg, .set formats
+
+    **method**
+        * Method of SOs detection (i.e., Staresina2015, Ngo2015, Massimini2004) 
+
+        * Default is ``['Staresina2015']`` method  
+
+     .. note::
+    Only ``['Staresina2015', 'Massimini2004']`` methods can be run simultaneously. ``['Ngo2015']`` can only be runned separately with ``average_channels = True``
+
+    **chan**
+        * Channel(s) of interest
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will point to the *chanset* columns in *tracking* file
+
+            * If you put string of channels' names (e.g., *['Cz']*), it will only detect the selected channels  
+
+    **ref_chan**
+        * Reference channel(s) for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will point to the *refset* columns in *tracking* file
+
+            * If you put string of channels' names (e.g., *['A1', 'A2']*), it will only re-reference to the channels written 
 
     **rater**
         * Name of the rater to analyze
 
-        * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
+        * *Acceptable options:*
+
+            * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
     
-            * If put string of rater's name (e.g., *[Rater1]*), it will only extract sleep architecture from this rater per .xml (and create an empty extraction file if the rater is absent)
+            * If put string of rater's name (e.g., *[Rater1]*), it will only detects events from this rater per .xml (and create an empty extraction file if the 
+            rater is absent)
+
+    **grp_name**
+        * Name of the tab in the montage which includes the channels of interest !! It is for visualization in Wonambi only !!
+
+        * *Acceptable options:*
+
+            * Default is ``eeg`` which is the name we recommend
+           
+            * If you put string of channels' names (e.g., *['eeg_hemiR']*), events can only be seen in Wonambi with a montage that includes a tab with this name
+
+    **stage**
+        * Stages of interest
+
+        * *Acceptable options:*
+
+            * Default is ``['NREM2', 'NREM3']`` 
+
+            * If you put string of stage (e.g., *['NREM3']*), it will only detect the events for this specific stage
+
+    **cycle_idx**
+        * Sleep cycle numbers
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will infer no cycles 
+
+            * If you put a list of indices corresponding to sleep cycle numbers (e.g., *(1,2,3,4,5,6,7)*), it will only detect the events for these specific 
+            cycles' numbers
+
+    **duration**
+        * Minimum and maximum duration of events
+
+        * *Acceptable options:*
+
+            * Default is ``(0.2, 2)`` 
+
+            * If you put a list of 2 indices (e.g., *(0.2,1)*), it will only detect the events with a duration within this range
+
+    **invert**
+        * Option to invert polarity
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will point to the *chanset_invert* columns in *tracking* file. However, if the *tracking* file does not specify *chanset_invert* 
+            columns, it will keep the polarity of the recording as it is 
+
+            * If you put ``False``, it will keep the polarity of the recording as it is
+
+            * If you put ``True``, it will reverse the polarity of the recording 
+
+    **average_channels**
+        * Options to average channels before the detection 
+
+        * Default is ``False``: only pass ``True`` if using the ['Ngo2015'] method
 
     **outfile**
         * Extraction of output file
 
-        * Default is ``True`` which will create a .csv file per subject and per session in ``root_dir/OUT/staging/``
+        * *Acceptable options:*
+
+            * Default is ``True`` which will create a .xml file per subject and per session in ``root_dir/OUT/slowwave/``
             
-            * If put ``False``, it won't extract .csv file of macro-sleep characteristics which will impact creation of datasets
+            * If put ``False``, it won't extract the .xml file with the events detection
 
 
 .. _create_datasets:
