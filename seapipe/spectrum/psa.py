@@ -6,6 +6,7 @@ Created on Thu Jul 29 10:29:11 2021
 """
 from copy import deepcopy
 from csv import reader
+from datetime import datetime
 from fooof import FOOOF
 from fooof.analysis import get_band_peak_fm
 from glob import glob
@@ -151,7 +152,7 @@ class Spectrum:
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, frequency = (11,16), rater = None, 
-                 subs = 'all', sessions = 'all'):
+                 subs = 'all', sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -168,11 +169,14 @@ class Spectrum:
         self.subs = subs
         self.sessions = sessions
         
-        self.tracking = {}
+        if tracking == None:
+            tracking = {}
+        self.tracking = tracking
+            
 
     
     def fooof_it(self, general_opts, frequency_opts, filter_opts, 
-                 epoch_opts, event_opts, fooof_opts, chan = None, rater = None, 
+                 epoch_opts, event_opts, fooof_opts, rater = None, 
                  grp_name = 'eeg', cat = (1,1,1,1), cycle_idx = None,
                  filetype = '.edf'):
         
@@ -203,7 +207,6 @@ class Spectrum:
         
         ### 0.a. Set up logging
         logger = create_logger('Specparam')
-        tracking = self.tracking
         flag = 0
         
         logger.info('')
@@ -281,13 +284,12 @@ class Spectrum:
                 subs = next(walk(self.xml_dir))[1]
         else:
             logger.info('')
-            logger.critical("'subs' must either be an array of Participant IDs or = 'all' ")
+            logger.error("'subs' must either be an array of Participant IDs or = 'all' ")
             return
         subs.sort()
         
         # 3.a. Begin loop through participants
         for p, sub in enumerate(subs):
-            tracking[f'{sub}'] = {}
             
             # b. Begin loop through sessions
             sessions = self.sessions
@@ -298,7 +300,6 @@ class Spectrum:
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
-                tracking[f'{sub}'][f'{ses}'] = {'Spec_peaks':{}} 
                 
                 ## Define files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
@@ -335,13 +336,12 @@ class Spectrum:
                     
                 ### if event channel only, specify event channels
                 # 4.d. Channel setup
-                if not chan:
-                    flag, chanset = load_channels(sub, ses, self.chan, 
-                                                  self.ref_chan, flag, logger)
-                    if not chanset:
-                        break
-                
-                    newchans = rename_channels(sub, ses, self.chan, logger)
+                flag, chanset = load_channels(sub, ses, self.chan, 
+                                              self.ref_chan, flag, logger)
+                if not chanset:
+                    break
+            
+                newchans = rename_channels(sub, ses, self.chan, logger)
 
                 
                 for c, ch in enumerate(chanset):
@@ -466,24 +466,27 @@ class Spectrum:
                                                                 out['fooof_ap_params'].ravel(),
                                                                 ))
                         
-                        ### Output filename ###
-                        if model == 'whole_night':
-                            stagename = '-'.join(self.stage)
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
-                        elif model == 'stage*cycle':    
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
-                        elif model == 'per_stage':
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_specparams_{suffix}.csv'
-                        elif model == 'per_cycle':
-                            stagename = '-'.join(self.stage)
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
+                    ### Output filename ###
+                    if model == 'whole_night':
+                        stagename = '-'.join(self.stage)
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
+                    elif model == 'stage*cycle':    
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
+                    elif model == 'per_stage':
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_specparams_{suffix}.csv'
+                    elif model == 'per_cycle':
+                        stagename = '-'.join(self.stage)
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
 
-                        logger.debug(f'Saving {outputfile}')
-                        df = DataFrame(data = one_record, 
-                                       columns = (seg_info + band_hdr + band_pk_params_hdr
-                                                  + band_ap_params_hdr))
-                        df.to_csv(outputfile)
-        
+                    logger.debug(f'Saving {outputfile}')
+                    df = DataFrame(data = one_record, 
+                                   columns = (seg_info + band_hdr + band_pk_params_hdr
+                                              + band_ap_params_hdr))
+                    df.to_csv(outputfile)
+                    
+                    # Update tracking
+                    update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
+
         return
 
     def powerspec_it(self, cat, stage, chan, ref_chan, general_opts, 

@@ -178,7 +178,7 @@ class seasnakes:
                     if not path.exists(backup_file):
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
-                        logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                        logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
                     break

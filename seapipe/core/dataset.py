@@ -326,7 +326,7 @@ class pipeline:
                                     subs = 'all', sessions = 'all', chan = None, 
                                     ref_chan = None, grp_name = 'eeg', 
                                     rater = None, frequency = (9,16), 
-                                    stage = ['NREM2','NREM3'], 
+                                    stage = ['NREM2','NREM3'], cycle_idx = None,
                                     concat_cycle = True, concat_stage = False,
                                     general_opts = None, frequency_opts = None,
                                     filter_opts = None, epoch_opts = None, 
@@ -363,7 +363,8 @@ class pipeline:
             logger.info('-' * 10)
         else:   
             spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                             grp_name, stage, frequency, rater, subs, sessions)
+                             grp_name, stage, frequency, rater, subs, sessions,
+                             self.tracking)
             
             if not general_opts:
                 general_opts = default_general_opts()
@@ -385,14 +386,15 @@ class pipeline:
                 general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
             
             spectrum.fooof_it(general_opts, frequency_opts, filter_opts, 
-                              epoch_opts, event_opts, fooof_opts, rater=None, 
-                              grp_name = 'eeg', cat = cat, cycle_idx=None,
-                              filetype = filetype)  
+                              epoch_opts, event_opts, fooof_opts, rater, 
+                              grp_name, cat, cycle_idx, filetype = filetype)  
             
             try:
-                self.tracking = self.tracking | spectrum.tracking
+                [self.tracking['fooof'][x].update(spectrum.tracking[x]) for x 
+                                        in self.tracking['fooof'].keys() if x 
+                                        in spectrum.tracking.keys()]
             except:
-                self.tracking = {**self.tracking, **spectrum.tracking}
+                self.tracking['fooof'] = {**self.tracking['fooof'], **spectrum.tracking}
                 
         return 
     
@@ -403,6 +405,7 @@ class pipeline:
                                        ref_chan=None, rater=None, grp_name='eeg', 
                                        stage = ['NREM2','NREM3'], cycle_idx=None, 
                                        duration=(0.2, 2), invert = None,
+                                       reject_artf = ['Artefact', 'Arou', 'Arousal'],
                                        average_channels = False, outfile=True):
         
         # Set up logging
@@ -434,6 +437,7 @@ class pipeline:
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
+            logger.critical('SO detection finished with ERRORS. See log for details.')
             return
             
         # Format concatenation
@@ -446,9 +450,10 @@ class pipeline:
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
+            logger.critical('SO detection finished with ERRORS. See log for details.')
         else:   
            SO = seasnakes(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                            grp_name, stage, rater, subs, sessions,
+                            grp_name, stage, rater, subs, sessions, reject_artf,
                             self.tracking) 
            SO.detect_slowosc(method, cat, cycle_idx, duration, 
                                   average_channels, invert, filetype, outfile)
@@ -532,7 +537,8 @@ class pipeline:
             else:
                 flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
                                                                   chan, ref_chan, 
-                                                                  stage, cat, 
+                                                                  stage, 
+                                                                  cat,
                                                                   cycle_idx, 
                                                                   logger)
             if flag == 'error':
@@ -544,21 +550,16 @@ class pipeline:
                 return
             elif flag == 'review':
                 logger.debug('Spectral peaks have not been found for all subs, analysing the spectral parameters prior to spindle detection..')
-                if 'NREM2' in stage and 'NREM3' in stage:
-                    concat_cycle = True
-                    concat_stage = True
-                else:
-                    concat_cycle = True 
-                    concat_stage = False
-                self.detect_spectral_peaks(subs = pk_sub, 
-                                           sessions = pk_ses, 
+                for (sub,ses) in zip(pk_sub,pk_ses):
+                    self.detect_spectral_peaks(subs = [sub], 
+                                           sessions = [ses], 
                                            chan = pk_chan, 
                                            frequency = frequency,
-                                           stage = stage,
+                                           stage = stage, cycle_idx = cycle_idx,
                                            concat_cycle=concat_cycle, 
-                                           concat_stage=concat_stage)
-  
+                                           concat_stage=True)
         # Check annotations directory exists, run detection
+        self.track(step='fooof', show = False, log = False)
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
@@ -658,15 +659,15 @@ class pipeline:
                   adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
                   adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),
                   
-                  evt_name = None,
-                  
+                  evt_name = None, invert = None,
+                  reject_artf = ['Artefact', 'Arou', 'Arousal'],
                   
                   adap_bw = 4, 
                   peaks = None, general_opts = None, 
                   frequency_opts = None, filter_opts = None, 
                   epoch_opts = None, event_opts = None, 
                   norm = None, norm_opts = None, 
-                  reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                  
                   outfile = True):
         
         # Set up logging
@@ -709,21 +710,35 @@ class pipeline:
         if not filter_opts:
             filter_opts = default_filter_opts()    
         
+        # Check inversion
+        if invert == None:
+            invert = check_chans(self.rootpath, None, False, logger)
+        elif type(invert) != bool:
+            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('SO detection finished with ERRORS. See log for details.')
+            return
         
         
+        # SO = seasnakes(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+        #                  grp_name, stage, rater, subs, sessions,
+        #                  self.tracking) 
+        # SO.detect_slowosc(method, cat, cycle_idx, duration, 
+        #                        average_channels, invert, filetype, outfile)
 
         Octopus = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                          grp_name, stage, rater, subs, sessions, reject_artf, 
+                          grp_name, stage, rater, subs, sessions, reject_artf,
                           self.tracking)
         
-        Octopus.pac_it(rec_dir, xml_dir, out_dir, part, visit, cycle_idx, chan, rater, stage,
-                       polar, grp_name, cat, evt_type, buffer, ref_chan, nbins, idpac, 
-                       fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
-                       adap_bands=(False,False),
-                       filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
+        Octopus.pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac, 
+                         fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
+                         logger, filetype, invert, adap_bands=(False,False), 
+                         filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
                                     'laplacian':False, 'lapchan':None,'laplacian_rename':False, 
                                     'oREF':None,'chan_rename':False,'renames':None},
-                       progress=True)
+                         progress=True, outfile = True)
     
     
     

@@ -88,7 +88,6 @@ class whales:
         
         ### 0.a Set up logging
         flag = 0
-        tracking = self.tracking
         if outfile == True:
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
@@ -142,7 +141,8 @@ class whales:
         # a. Begin loop through participants
         subs.sort()
         for i, sub in enumerate(subs):
-            tracking[f'{sub}'] = {}
+            if not sub in self.tracking['spindle'].keys():
+                self.tracking['spindle'][sub] = {}
             # b. Begin loop through sessions
             sessions = self.sessions
             if sessions == 'all':
@@ -152,7 +152,8 @@ class whales:
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
-                tracking[f'{sub}'][f'{ses}'] = {'spindle':{}} 
+                if not ses in self.tracking['spindle'][sub].keys():
+                    self.tracking['spindle'][sub][ses] = {} 
     
                 ## c. Load recording
                 rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
@@ -179,7 +180,7 @@ class whales:
                     if not path.exists(backup_file):
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
-                        logger.debug(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                        logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
                     break
@@ -267,7 +268,7 @@ class whales:
                                 if len(spindle.events) == 0:
                                     logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
                             now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
-                            tracking[f'{sub}'][f'{ses}']['spindle'][f'{ch}'] = {'Method':meth,
+                            self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
                                                                               'Stage':self.stage,
                                                                               'Cycle':'All',
                                                                               'File':backup_file,
@@ -285,7 +286,7 @@ class whales:
                                 if len(spindle.events) == 0:
                                     logger.warning(f'No events detected by {meth} for {sub}, {ses}')
                             now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
-                            tracking[f'{sub}'][f'{ses}']['spindle'][f'{ch}'] = {'Method':meth,
+                            self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
                                                                               'Stage':self.stage,
                                                                               'Cycle':list(range(1,len(segments))),
                                                                               'File':backup_file,

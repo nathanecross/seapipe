@@ -432,8 +432,7 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                fooof_df.loc[sub] = [x if x in stage_ses else '-' 
                              for x in tracking['ses'][sub]]
            except:
-               for ses in self.tracking['ses'][sub]:
-                   fooof_dict[sub] = {ses:'-'}
+               fooof_dict[sub] = dict([(ses,'-') for ses in self.tracking['ses'][sub]])
 
 
         # Update tracking
@@ -474,8 +473,7 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
     return df, tracking               
                 
                 
-def check_fooof(self, frequency, chan, ref_chan, stage, cat, 
-                cycle_idx, logger):
+def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
 
     bandwidth = f'{frequency[0]}-{frequency[1]}Hz'
     review = []

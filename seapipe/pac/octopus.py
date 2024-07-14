@@ -64,7 +64,7 @@ class octopus:
 
 def pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac, 
                  fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
-                 logger, adap_bands=(False,False), 
+                 logger, filetype, adap_bands=(False,False), 
                  filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
                             'laplacian':False, 'lapchan':None,'laplacian_rename':False, 
                             'oREF':None,'chan_rename':False,'renames':None},
@@ -284,21 +284,20 @@ def pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac,
                     fnamechan = ch
                     
                 # g. Check for adapted bands
-                if adap_bands == 'Fixed':
-                    f_pha = self.f_pha
-                    f_amp = self.f_amp
-                elif adap_bands == 'Manual':
-                    freq = read_manual_peaks(sub, ses, peaks, ch, 
+                if adap_bands_phase == 'Fixed':
+                    f_pha = self.f_pha   
+                elif adap_bands_phase == 'Manual':
+                    f_pha = read_manual_peaks(sub, ses, peaks, ch, 
                                              adap_bw, logger)
-                elif adap_bands == 'Auto':
+                elif adap_bands_phase == 'Auto':
                     stagename = '-'.join(self.stage)
                     band_limits = f'{self.frequency[0]}-{self.frequency[1]}Hz'
-                    freq = load_adap_bands(self.tracking['fooof'], sub, ses,
+                    f_pha = load_adap_bands(self.tracking['fooof'], sub, ses,
                                            fnamechan, stagename, band_limits, 
                                            adap_bw, logger)
-                if not freq:
-                    logger.warning('Will use fixed frequency bands instead.')
-                    freq = self.frequency
+                if not f_pha:
+                    logger.warning('Will use fixed frequency bands for PHASE instead.')
+                    f_pha = self.frequency
                 if not chanset[ch]:
                     logchan = ['(no re-refrencing)']
                 else:
@@ -306,7 +305,9 @@ def pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac,
                     
                 logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                 
-                    
+                
+                
+                f_amp = self.f_amp
                 
                 
                     # # Loop through channels
