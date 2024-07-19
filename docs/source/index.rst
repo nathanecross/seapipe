@@ -44,6 +44,7 @@ Contents
    usage
    wonambi
    macro
+   so
    api
 
 
