@@ -10,7 +10,7 @@ from pandas import DataFrame, read_csv
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.seasnakes import seasnakes
-from seapipe.pac.octopus import octopus
+from seapipe.pac.octopus import octopus, pac_method
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
@@ -654,38 +654,29 @@ class pipeline:
     '''    
     def pac(self, xml_dir = None, out_dir = None, subs = 'all', sessions = 'all', 
                   chan = None, ref_chan = None, rater = None, grp_name = 'eeg', 
-                  stage = ['NREM2','NREM3'], concat_stage = False, 
+                  stage = ['NREM2','NREM3'], concat_stage = True, 
                   cycle_idx = None, concat_cycle = True, filetype = '.edf', 
+                  method = 'MI', surrogate = 'Time lag', correction = 'Z-score',
                   adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
                   adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),
-                  
-                  evt_name = None, invert = None,
-                  reject_artf = ['Artefact', 'Arou', 'Arousal'],
-                  
-                  adap_bw = 4, 
-                  peaks = None, general_opts = None, 
-                  frequency_opts = None, filter_opts = None, 
-                  epoch_opts = None, event_opts = None, 
-                  norm = None, norm_opts = None, 
-                  
-                  outfile = True):
+                  evt_name = 'Staresina2015', min_dur = 1, nbins = 18, invert = None,
+                  adap_bw = 4, peaks = None, frequency_opts = None, 
+                  filter_opts = None, epoch_opts = None, event_opts = None, 
+                  reject_artf = ['Artefact', 'Arou', 'Arousal'], outfile = True):
         
         # Set up logging
         logger = create_logger('Phase-amplitude coupling')
-        logger.info('')
-        logger.debug("Commencing phase-amplitude coupling pipeline.")
         logger.info('')
         
         # Set input/output directories
         in_dir = self.datapath
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
-            mkdir(log_dir)
-            
+            mkdir(log_dir) 
         if not xml_dir:
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name) 
         if not out_dir:
-            out_dir = select_ouput_dirs(self.outpath, out_dir, evt_name)  
+            out_dir = select_ouput_dirs(self.outpath, out_dir, 'pac')  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -696,17 +687,19 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
+        # Format concatenation
+        cat = (int(concat_cycle),int(concat_stage),0,0)
+        
+        # Set PAC methods
+        idpac = pac_method(method, surrogate, correction)
+        
         # Set default parameters
-        if not general_opts:
-            general_opts = default_general_opts()
         if not frequency_opts:
             frequency_opts = default_frequency_opts()
         if not epoch_opts:
             epoch_opts = default_epoch_opts()  
         if not event_opts:
             event_opts = default_event_opts()
-        if not norm_opts:
-            norm_opts = default_norm_opts()
         if not filter_opts:
             filter_opts = default_filter_opts()    
         
@@ -718,29 +711,20 @@ class pipeline:
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
-            logger.critical('SO detection finished with ERRORS. See log for details.')
+            logger.critical('Phase amplitude coupling finished with ERRORS. See log for details.')
             return
-        
-        
-        # SO = seasnakes(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-        #                  grp_name, stage, rater, subs, sessions,
-        #                  self.tracking) 
-        # SO.detect_slowosc(method, cat, cycle_idx, duration, 
-        #                        average_channels, invert, filetype, outfile)
 
         Octopus = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                           grp_name, stage, rater, subs, sessions, reject_artf,
                           self.tracking)
         
-        Octopus.pac_it(self, cycle_idx, polar, cat, evt_type, buffer, nbins, idpac, 
-                         fpha, famp, dcomplex, filtcycle, width, min_dur, band_pairs,
-                         logger, filetype, invert, adap_bands=(False,False), 
-                         filter_opts={'notch':False,'notch_harmonics':False, 'notch_freq':None,
-                                    'laplacian':False, 'lapchan':None,'laplacian_rename':False, 
-                                    'oREF':None,'chan_rename':False,'renames':None},
-                         progress=True, outfile = True)
+        Octopus.pac_it(cycle_idx, cat, nbins, filter_opts, epoch_opts, 
+                       frequency_opts, event_opts, filetype, idpac, evt_name, 
+                       min_dur, adap_bands_phase, frequency_phase, 
+                       adap_bands_amplitude, frequency_amplitude, 
+                       peaks, adap_bw, invert, outfile)
     
-    
+        return
     
     #--------------------------------------------------------------------------
     '''

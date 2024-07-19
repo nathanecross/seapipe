@@ -73,7 +73,10 @@ def default_filter_opts():
                    'notch_harmonics': False,
                    'bandpass': True,
                    'highpass': 0.25,
-                   'lowpass': 40}
+                   'lowpass': 40,
+                   'dcomplex': 'hilbert',
+                   'filtcycle': (3, 6),
+                   'width': 7}
     return filter_opts
 
 def default_epoch_opts():
@@ -89,7 +92,8 @@ def default_epoch_opts():
 
 def default_event_opts():
     event_opts = {'evt_type': None,
-                  'event_chan': None}
+                  'event_chan': None,
+                  'buffer': 2}
     return event_opts
 
 def default_fooof_opts():
@@ -729,7 +733,7 @@ class Spectrum:
                         out['end'] = timeline[-1]
                         out['duration'] = len(timeline) / data.s_freq
                         
-                        if frequency_opts['fast_fft']:
+                        if not frequency_opts['fast_fft']:
                             n_fft = next_fast_len(data.number_of('time')[0])
                         else:
                             n_fft = frequency_opts['n_fft']
@@ -774,7 +778,7 @@ class Spectrum:
                             logger.debug('Applying Laplacian filtering.')
                             data.data[0] = laplacian_mne(data, 
                                                  filter_opts['oREF'], 
-                                                 channel=chan_full, 
+                                                 channel=selectchans, 
                                                  ref_chan=chanset[ch], 
                                                  laplacian_rename=filter_opts['laplacian_rename'], 
                                                  renames=filter_opts['renames'],

@@ -41,7 +41,8 @@ def select_input_dirs(outpath, xml_dir, evt_name=None):
                         'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
                         'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
             xml_dir = f'{outpath}/spindle'
-        elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
+        elif evt_name in ['Ngo2015','Staresina2015','Massimini2004','slowwave',
+                          'slowosc','SO']:
             xml_dir = f'{outpath}/slowwave'
         elif evt_name in ['macro']:
             xml_dir = f'{outpath}/staging'
@@ -60,10 +61,13 @@ def select_ouput_dirs(outpath, out_dir, evt_name=None):
                         'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
                         'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
             out_dir = f'{outpath}/spindle'
-        elif evt_name in ['Ngo2015','Staresina2015','Massimini2004']:
+        elif evt_name in ['Ngo2015','Staresina2015','Massimini2004','slowwave',
+                          'slowosc','SO']:
             out_dir = f'{outpath}/slowwave'
         elif evt_name in ['macro']:
             out_dir = f'{outpath}/staging'
+        elif evt_name in ['pac']:
+            out_dir = f'{outpath}/pac'
         else:
             out_dir = f'{outpath}/{evt_name}'
     

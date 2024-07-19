@@ -256,41 +256,34 @@ class whales:
                         detection = DetectSpindle(meth, frequency=freq, duration=duration)
 
                         ## k. Run detection and save to Annotations file
-                        if cat[0] == 1 and cat[1] == 0:
-                            for s, seg in enumerate(segments):
-                                logger.debug(f'Detecting events in stage {self.stage[s]}')
-                                spindle = detection(seg['data']) # detect spindles
-                                if adap_bands == 'Fixed':
-                                    evt_name = meth 
-                                else:
-                                    evt_name = f'{meth}_adap'
-                                spindle.to_annot(annot, evt_name) # write spindles to annotations file
-                                if len(spindle.events) == 0:
-                                    logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
-                            now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
+                        for s, seg in enumerate(segments):
+                            if cat[0] == 1:
+                                logger.debug('Detecting events in stage {}'.format(
+                                             self.stage[s]))
+                            else:
+                                logger.debug('Detecting events in cycle {} of {}, stage: {}'.format(
+                                             s + 1, len(segments),self.stage[s]))
+                            spindle = detection(seg['data']) # detect spindles
+                            if adap_bands == 'Fixed':
+                                evt_name = meth 
+                            else:
+                                evt_name = f'{meth}_adap'
+                            spindle.to_annot(annot, evt_name) # write spindles to annotations file
+                            if len(spindle.events) == 0:
+                                logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
+                        now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
+                        if cat[0] == 1:
                             self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                                                                              'Stage':self.stage,
-                                                                              'Cycle':'All',
-                                                                              'File':backup_file,
-                                                                              'Updated':now}
+                                                                      'Stage':self.stage,
+                                                                      'Cycle':'All',
+                                                                      'File':backup_file,
+                                                                      'Updated':now}
                         else:
-                            for s, seg in enumerate(segments):
-                                logger.debug('Detecting events in cycle {} of {}, stages: {}'.format(s + 1, 
-                                      len(segments),self.stage))
-                                spindle = detection(seg['data'])
-                                if adap_bands == 'Fixed':
-                                    evt_name = meth 
-                                else:
-                                    evt_name = f'{meth}_adap'
-                                spindle.to_annot(annot, meth)
-                                if len(spindle.events) == 0:
-                                    logger.warning(f'No events detected by {meth} for {sub}, {ses}')
-                            now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
                             self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                                                                              'Stage':self.stage,
-                                                                              'Cycle':list(range(1,len(segments))),
-                                                                              'File':backup_file,
-                                                                              'Updated':now}
+                                                                      'Stage':self.stage,
+                                                                      'Cycle':list(range(1,len(segments))),
+                                                                      'File':backup_file,
+                                                                      'Updated':now}
                         
                         # l. Remove any duplicate detected spindles on channel 
                         remove_duplicate_evts(annot, evt_name=evt_name, chan=f'{ch} ({self.grp_name})')
