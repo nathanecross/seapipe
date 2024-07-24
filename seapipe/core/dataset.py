@@ -848,8 +848,7 @@ class pipeline:
                                  evt_name = 'spindle', frequency = None,  
                                  adap_bands = 'Fixed',  
                                  adap_bw = 4, param_keys = 'all', epoch_dur = 30, 
-                                 n_fft_sec = 4, 
-                                 Ngo = {'run':False}, outfile = True):
+                                 average_channels = False, outfile = True):
         
         # Set up logging
         logger = create_logger('Export params')
@@ -881,6 +880,10 @@ class pipeline:
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if average_channels:
+            Ngo = {'run':True}
+        else:
+            Ngo = {'run':False}
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
@@ -889,7 +892,7 @@ class pipeline:
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, rater, subs, sessions, self.tracking) 
         fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
-                  peaks, adap_bw, param_keys, epoch_dur, n_fft_sec, Ngo, outfile)
+                  peaks, adap_bw, param_keys, epoch_dur, Ngo, outfile)
         return
     
     

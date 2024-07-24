@@ -51,7 +51,7 @@ class FISH:
     def line(self, keyword = None, evt_name = None, cat = (0,0,0,0), 
              segs = None,  cycle_idx = None, frequency = None, 
              adap_bands = 'Fixed', peaks = None,  adap_bw = 4, 
-             param_keys = 'all', epoch_dur = 30, n_fft_sec = 4, Ngo = False, 
+             param_keys = 'all', epoch_dur = 30, Ngo = False, 
              outfile = 'export_params_log.txt'):
                            
             '''
@@ -257,6 +257,11 @@ class FISH:
                                 if adap_bands == 'Fixed':
                                     logger.debug("Adapted bands has been set as 'Fixed'.")
                                     freq = frequency
+                                    if frequency == None:
+                                        logger.critical("If setting adap_bands = 'Fixed' a frequency range must also be set.")
+                                        logger.info('                      Check documentation for how to extract event parameters:')
+                                        logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')
+                                        return
                                 elif adap_bands == 'Manual':
                                     logger.debug("Adapted bands has been set as 'Manual'. Will search for peaks within the tracking sheet")
                                     freq = read_manual_peaks(sub, ses, peaks, channel, 
@@ -320,17 +325,12 @@ class FISH:
                                     logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                     logger.info('')
                                     
-                                    # Set n_fft
-                                    n_fft = None
-                                    if segments and n_fft_sec is not None:
-                                        s_freq = segments[0]['data'].s_freq
-                                        n_fft = int(n_fft_sec * s_freq)
                                     
                                     # Export event parameters 
                                     lg = create_logger_empty()
                                     try:
                                         data = event_params(segments, params=param_keys, 
-                                                            band=freq, n_fft=n_fft)
+                                                            band=freq, n_fft=None)
                                         if not path.exists(self.out_dir + '/' + sub):
                                             mkdir(self.out_dir + '/' + sub)
                                         if not path.exists(self.out_dir + '/' + sub + '/' + ses):
