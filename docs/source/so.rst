@@ -5,37 +5,39 @@ Slow Oscillations
 
 Overview
 ------------
-Slow oscillations (SOs) are biphasic waves corresponding to the alternation between two stable membranes potential levels (UP states = depolarization and 
-DOWN states = hyperpolarization).Oscillating below 1.25 Hz, SOs are generated during NREM2 and NREM3.
+Slow oscillations (SOs) are biphasic waves corresponding to the alternation between two stable membranes potential levels (UP states = depolarization and DOWN states = hyperpolarization).Oscillating below 1.25 Hz, SOs are generated during NREM2 and NREM3.
 
-| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output`) can be extracted across NREM (N2+N3), 
-per stage and/or per cycle.
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output`) can be extracted across NREM (N2+N3), per stage and/or per cycle.
 
 | We propose 4 standardized published methods to automatically detect SOs :
+
     * *Staresina et al. (2015)*: recommended for event detection (<1.25Hz) with amplitude adapted per individual per channel
+    
     Method in brief: 1. Filter the signal (two-pass FIR bandpass filter, 0.5–1.25 Hz, order = 3); 2. A positive-to-negative zero crossing and a subsequent 
     negative-to-positive zero crossing separated by 0.8-2 sec; 3. Top 25% of events with the largest amplitudes for trough-to-peak amplitude between two 
     positive-to-negative zero crossings. `see reference`_.
 .. _see reference: https://doi.org/10.1038/nn.4119
 
     * *Ngo et al. (2015)*: recommended for event detection (<3.5Hz) with amplitude adapted per individual across several channels (average)
+    
     Method in brief: 1. Filter the signal (lowpass filter, 3.5 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
     separated by 0.833-2 sec ; 3. A negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject. `see reference`_.
 .. _see reference: https://doi.org/10.1016/j.neuron.2013.03.006
 
     * *Massimini et al. (2004)*: recommended for detection of SOs with rigid criteria
+    
     Method in brief: 1. Filter the signal (bandpass, 0.1-4 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
     separated by 0.3-1 sec; 3. A negative peak between the two zero crossings with voltage less than -80 uV,; 4. A negative-to-positive peak-to-peak 
     amplitude >140 uV. `see reference`_.
 .. _see reference: https://doi.org/10.1523/JNEUROSCI.1318-04.2004
 
     * *Adapted Massimini et al*: recommended for detection of SOs with rigid criteria (based on AASM)
+   
     Method in brief: 1. Filter the signal (bandpass, 0.1-4 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
     separated by 0.25-1 sec; 3. A negative peak between the two zero crossings with voltage less than -40 uV,; 4. A negative-to-positive peak-to-peak 
     amplitude >75 uV.
 
-
-**You will need to run three functions:**
+| **You will need to run three functions:**
 
 1) Detect SOs events: it will copy the .xml from ``root_dir/OUT/staging/`` to ``root_dir/OUT/slowwave/`` and write events detected 
 
