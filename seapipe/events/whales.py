@@ -6,6 +6,7 @@ Created on Thu Jul 29 10:34:53 2021
 """
 from copy import deepcopy
 from datetime import datetime, date
+from itertools import product
 from os import listdir, mkdir, path
 import shutil
 from wonambi import Dataset
@@ -60,8 +61,8 @@ class whales:
         self.tracking = tracking
 
     def whale_it(self, method, cat, cycle_idx = None, adap_bands = False, 
-                 peaks = None, adap_bw = 4, duration = (0.5, 3), filetype = '.edf', 
-                 outfile = 'detect_spindles_log.txt'):
+                       peaks = None, adap_bw = 4, duration = (0.5, 3), 
+                       filetype = '.edf', outfile = 'detect_spindles_log.txt'):
         
         '''
         Runs one (or multiple) automatic spindle detection algorithms and saves the 
@@ -299,70 +300,158 @@ class whales:
         return 
     
     
-    def whales(self, out_dir, method, chan, rater, cat, stage, ref_chan, grp_name, keyword,
-               cs_thresh, s_freq, min_duration, frequency=(11, 16), duration= (0.5, 3),  
-                 part='all', visit='all', evt_type='spindle', weights=None,
-                 outfile='export_params_log.txt'):
+    '''
+                     method, chan, rater, stage, ref_chan, grp_name, 
+                              keyword, cs_thresh, min_duration, s_freq, 
+                              frequency = (11, 16), 
+                              duration= (0.5, 3), evt_type='spindle', weights = None,
+                               
+                              outfile='export_params_log.txt', filetype = '.edf'
+    '''
+    
+    
+    def whales(self, method, merge_type, chan, rater, stage, ref_chan, grp_name, keyword,
+                     cs_thresh, min_duration, s_freq=None, frequency=(11, 16), 
+                     duration= (0.5, 3), evt_out = 'spindle', weights=None, 
+                     outfile='export_params_log.txt', filetype = '.edf'):
         
-        
-        ### 0. Set up logging
-        logger = create_logger('Detect spindles')
-        tracking = self.tracking
+        ### 0.a Set up logging
         flag = 0
-        
-        # loop through records
-        if isinstance(part, list):
-            None
-        elif part == 'all':
-                part = listdir(out_dir + '/')
-                part = [ p for p in part if not '.' in p]
+        if outfile == True:
+            evt_out = '_'.join(method)
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/detect_spindles_WHALES_{today}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
+            logger.info('')
+            logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
         else:
-            print('')
-            print("ERROR: 'part' must either be an array of subject ids or = 'all' ")
-            print('')
-            
-        logger.debug(r"""Whaling it... 
+            logger = create_logger('Detect spindles (WHALES)')
+        
+        logger.info('')
+        logger.debug(r""" Whaling it... 
+                     
                                    
-                             'spindles'                 
-                                ":"
-                             ___:____    |"\/"|
-                           ,'        `.   \  /
-                          |  O        \___/  |
-                        ~^~^~^~^~^~^~^~^~^~^~^~^~ 
-                                                    """,)
+                                 'spindles'                 
+                                    ":"
+                                  ___:____     |"\/"|
+                                ,'        `.    \  /
+                               |  O        \___/  |
+                            ~^~^~^~^~^~^~^~^~^~^~^~^~ 
+                                                    
+                        
+                        Wonambi Heuristic Approach to Locating Elementary Spindles
+                        (W.H.A.L.E.S)
+                        
+                        """,)
+        
 
-                
-        for i, p in enumerate(part):
-            if visit == 'all':
-                visit = listdir(out_dir + '/' + p)
-                visit = [x for x in visit if not '.' in x]
-            for v, vis in enumerate(visit): 
-                if not path.exists(out_dir + '/'+ p + '/' + vis + '/'):
-                    print(f'WARNING: whale_it has not been run for Subject {p}, skipping..')
-                    continue
-                elif not path.exists(out_dir + '/' + p + '/' + vis + r'/consensus/'):
-                    mkdir(out_dir + '/' + p + '/' + vis + r'/consensus/')
-                backup_dir = out_dir + '/'+ p + '/' + vis + r'/consensus'
-                xml_file = [x for x in listdir(out_dir + '/'+ p + '/' + vis) if x.endswith('.xml')] 
-                for x, file in enumerate(xml_file):
-                    pre = file.split(".")[0]
-                    ext = file.split(".")[1]
-                    backup_file = (f'{backup_dir}/{pre}_{keyword}.{ext}')
-                    orig_file = out_dir + '/' + p + '/' + vis + '/' + file
-                    shutil.copy(orig_file, backup_file)
+        ### 1. First we check the directories
+        # a. Check for output folder, if doesn't exist, create
+        if path.exists(self.out_dir):
+                logger.debug("Output directory: " + self.out_dir + " exists")
+        else:
+            mkdir(self.out_dir)
+        
+        # b. Check input list
+        subs = self.subs
+        if isinstance(subs, list):
+            None
+        elif subs == 'all':
+                subs = listdir(self.rec_dir)
+                subs = [p for p in subs if not '.' in p]
+        else:
+            logger.error("'subs' must either be an array of subject ids or = 'all' ")       
+        
+        ### 2. Begin loop through dataset
+       
+        # a. Begin loop through participants
+        subs.sort()
+        for i, sub in enumerate(subs):
+            if not sub in self.tracking['spindle'].keys():
+                self.tracking['spindle'][sub] = {}
+            # b. Begin loop through sessions
+            sessions = self.sessions
+            if sessions == 'all':
+                sessions = listdir(self.rec_dir + '/' + sub)
+                sessions = [x for x in sessions if not '.' in x]   
             
-                    # Create consensus events and export to XML    
-                    annot = Annotations(backup_file, rater_name=rater)
-                    for c, ch in enumerate(chan):
-                        print(ch)
-                        all_events = []
-                        for m in method:
-                            all_events.append(annot.get_events(name=m, chan=ch + ' (' + grp_name + ')'))
-                        print('Coming to a consensus for ' + file + ', ' + "channel '" + ch + "'...")
-                        cons = consensus(all_events, cs_thresh, s_freq, min_duration=min_duration,
-                                         weights=weights)
-                        cons.to_annot(annot, evt_type, chan= ch + ' (' + grp_name + ')') # New consensus XML
-     
+            for v, ses in enumerate(sessions):
+                logger.info('')
+                logger.debug(f'Commencing {sub}, {ses}')
+                if not ses in self.tracking['spindle'][sub].keys():
+                    self.tracking['spindle'][sub][ses] = {} 
+                     
+                # Get sampling frequency
+                if not s_freq:
+                    rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
+                    try:
+                        edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
+                        s_freq = Dataset(rdir + edf_file[0]).header['s_freq']
+                    except:
+                        logger.warning(f'No input {filetype} file in {rdir}, cannot obtain sampling frequency for {sub}, {ses}. Skipping...')
+                        flag +=1
+                        continue
+                    
+                ## c. Load annotations
+                xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
+                try:
+                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                    # Copy annotations file before beginning
+                    if not path.exists(self.out_dir):
+                        mkdir(self.out_dir)
+                    if not path.exists(self.out_dir + '/' + sub):
+                        mkdir(self.out_dir + '/' + sub)
+                    if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                        mkdir(self.out_dir + '/' + sub + '/' + ses)
+                    backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                    backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                    if not path.exists(backup_file):
+                        shutil.copy(xdir + xml_file[0], backup_file)
+                    else:
+                        logger.warning(f'Annotations file already exists for {sub}, {ses}, new events will be written into the same annotations file.')
+                except:
+                    logger.warning(f' No input annotations file in {xdir}')
+                    break
+                
+                # Read annotations file
+                annot = Annotations(backup_file, rater_name=self.rater)
+                
+                ## f. Channel setup 
+                pflag = deepcopy(flag)
+                flag, chanset = load_channels(sub, ses, self.chan, self.ref_chan,
+                                              flag, logger)
+                if flag - pflag > 0:
+                    logger.warning(f'Skipping {sub}, {ses}...')
+                    break
+                
+                for c, ch in enumerate(chanset):
+                    all_events = []
+                    for m in method:
+                        all_events.append(annot.get_events(name = m, 
+                                                           chan = f'{ch} ({grp_name})'))
+                    cons = consensus(all_events, cs_thresh, s_freq, 
+                                     min_duration = min_duration,
+                                     weights = weights)
+                    
+                    if merge_type == 'consensus':
+                        logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')
+                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})') # save consensus event
+                    elif merge_type == 'addition':
+                        logger.debug(f'Adding spindle events for {sub}, {ses}, {ch}')
+                        ac_events = deepcopy(cons.events)
+                        all_events = [x for y in all_events for x in y]
+                        
+                        for pair in product(all_events, ac_events):
+                            st = pair[1]['start'] < pair[0]['start'] < pair[1]['end']
+                            fin = pair[1]['start'] < pair[0]['end'] < pair[1]['end']
+                            if st or fin:
+                                cons.events.remove(pair[0])
+                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+
         return 
     
 

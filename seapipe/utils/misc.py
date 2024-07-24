@@ -478,7 +478,9 @@ def laplacian_mne(data, oREF, channel, ref_chan, laplacian_rename=False,
     
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
-    dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+    
+    if oREF:
+        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
     
     if laplacian_rename:
         dig.rename_channels(renames, allow_duplicates=False)
@@ -506,7 +508,9 @@ def notch_mne(data, oREF, channel, freq, rename=False,
     if rename:
         dig.rename_channels(renames, allow_duplicates=False)
         
-    dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+    if oREF:
+        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+    
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
     dic = [{x:'eeg' for x in mneobj.ch_names}]
@@ -527,7 +531,9 @@ def notch_mne2(data, oREF, channel, rename=False, renames=None,
     if rename:
         dig.rename_channels(renames, allow_duplicates=False)
         
-    dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+    if oREF:
+        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
     dic = [{x:'eeg' for x in mneobj.ch_names}]
@@ -551,7 +557,9 @@ def bandpass_mne(data, oREF, channel, highpass, lowpass, rename=False,
     if rename:
         dig.rename_channels(renames, allow_duplicates=False)
         
-    dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+    if oREF:
+        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
     dic = [{x:'eeg' for x in mneobj.ch_names}]

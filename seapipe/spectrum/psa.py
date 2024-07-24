@@ -10,13 +10,14 @@ from datetime import datetime
 from fooof import FOOOF
 from fooof.analysis import get_band_peak_fm
 from glob import glob
+from itertools import product
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from numpy import (asarray, ceil, concatenate, empty, floor, mean, nan, 
+from numpy import (arange, asarray, ceil, concatenate, empty, floor, mean, nan, 
                    ones, pi, sqrt, stack, sum, where, zeros)
 from openpyxl import Workbook
 from os import listdir, mkdir, path, walk
-from pandas import DataFrame, ExcelWriter
+from pandas import DataFrame, ExcelWriter, read_csv
 from scipy.fftpack import next_fast_len
 from wonambi import ChanFreq, Dataset
 from wonambi.attr import Annotations
@@ -37,6 +38,13 @@ def default_general_opts():
     return general_opts
 
 def default_frequency_opts():
+    headers = ['SO', 
+               'Delta', 
+               'Theta', 
+               'Alpha', 
+               'Sigma', 
+               'Low Beta', 
+               'High Beta']
     bands = [(0.25, 1.25),  #SO
              (0.5, 4),      #delta
              (4, 7.75),     #theta
@@ -45,13 +53,15 @@ def default_frequency_opts():
              (16.25, 19),   #low beta
              (19.25, 35)]   #high beta
     frequency_opts = {'bands': bands,
+                      'headers': headers,
+                      'frequency': (11, 16),
                       'output':'spectraldensity', 
                       'scaling':'power', 
                       'sides':'one', 
                       'taper':'hann', 
                       'detrend':'linear', 
                       'n_fft': None, 
-                      'fast_fft': False, 
+                      'fast_fft': True, 
                       'duration': 4,
                       'overlap': 0.5,
                       'step': None,
@@ -155,7 +165,7 @@ class Spectrum:
     """ 
     
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                 grp_name, stage, frequency = (11,16), rater = None, 
+                 grp_name, stage, cat, rater = None, cycle_idx = None,
                  subs = 'all', sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
@@ -163,15 +173,17 @@ class Spectrum:
         self.out_dir = out_dir
         self.log_dir = log_dir
         
+        self.subs = subs
+        self.sessions = sessions
+        
         self.chan = chan
         self.ref_chan = ref_chan
         self.grp_name = grp_name
-        self.stage = stage
-        self.frequency = frequency
         self.rater = rater
         
-        self.subs = subs
-        self.sessions = sessions
+        self.stage = stage
+        self.cycle_idx = cycle_idx
+        self.cat = cat
         
         if tracking == None:
             tracking = {}
@@ -179,10 +191,8 @@ class Spectrum:
             
 
     
-    def fooof_it(self, general_opts, frequency_opts, filter_opts, 
-                 epoch_opts, event_opts, fooof_opts, rater = None, 
-                 grp_name = 'eeg', cat = (1,1,1,1), cycle_idx = None,
-                 filetype = '.edf'):
+    def fooof_it(self, general_opts, frequency_opts, filter_opts, epoch_opts, 
+                       event_opts, fooof_opts, filetype = '.edf'):
         
 
         '''
@@ -211,30 +221,29 @@ class Spectrum:
         
         ### 0.a. Set up logging
         logger = create_logger('Specparam')
+        logger.info('')
         flag = 0
         
-        logger.info('')
-        
-        suffix = general_opts['suffix']
-        
         ### 0.b. Set up organisation of export
-        if cat[0] + cat[1] == 2:
+        suffix = general_opts['suffix']
+        freq_bw = frequency_opts['frequency']
+        if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Parameterizing power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz for the whole night.')
-        elif cat[0] + cat[1] == 0:
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+        elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
-            logger.debug(f'Parameterizing power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per stage and cycle separately.')
-        elif cat[0] == 0:
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
+        elif self.cat[0] == 0:
             model = 'per_cycle'
-            logger.debug(f'Parameterizing power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per cycle separately.')
-        elif cat[1] == 0:
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per cycle separately.')
+        elif self.cat[1] == 0:
             model = 'per_stage'  
-            logger.debug(f'Parameterizing power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per stage separately.')
-        if 'cycle' in model and cycle_idx == None:
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage separately.')
+        if 'cycle' in model and self.cycle_idx == None:
             logger.info('')
             logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
             return
-        cat = tuple((cat[0],cat[1],1,1)) # force concatenation of discontinuous & events
+        cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
         logger.info('')
         logger.debug(r"""
                      
@@ -329,12 +338,12 @@ class Spectrum:
                 
                 ## Now import data
                 dset = Dataset(rdir + edf_file[0])
-                annot = Annotations(xdir + xml_file[0], rater_name=rater)
+                annot = Annotations(xdir + xml_file[0], rater_name=self.rater)
                  
                 ### get cycles
-                if cycle_idx is not None:
+                if self.cycle_idx is not None:
                     all_cycles = annot.get_cycles()
-                    cycle = [all_cycles[i - 1] for i in cycle_idx if i <= len(all_cycles)]
+                    cycle = [all_cycles[i - 1] for i in self.cycle_idx if i <= len(all_cycles)]
                 else:
                     cycle = None
                     
@@ -475,12 +484,12 @@ class Spectrum:
                         stagename = '-'.join(self.stage)
                         outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
                     elif model == 'stage*cycle':    
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
                     elif model == 'per_stage':
                         outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_specparams_{suffix}.csv'
                     elif model == 'per_cycle':
                         stagename = '-'.join(self.stage)
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle_idx[sg]}_specparams_{suffix}.csv'
+                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
 
                     logger.debug(f'Saving {outputfile}')
                     df = DataFrame(data = one_record, 
@@ -488,43 +497,41 @@ class Spectrum:
                                               + band_ap_params_hdr))
                     df.to_csv(outputfile)
                     
-                    # Update tracking
-                    update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
+                    # Update tracking TO DO
+                    #update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
 
         return
-
-    def powerspec_it(self, cat, stage, chan, ref_chan, general_opts, 
-                           frequency_opts, filter_opts, epoch_opts, event_opts, 
-                           norm, norm_opts, cycle_idx = None, filetype = '.edf'):
-        
+    
+    
+    def powerspec_it(self, general_opts, frequency_opts, filter_opts, epoch_opts, 
+                           event_opts, norm, norm_opts, filetype = '.edf'):
         
         ### 0.a. Set up logging
-        logger = create_logger('Specparam')
+        logger = create_logger('Power Spectral Analysis')
         tracking = self.tracking
+        logger.info('')
         flag = 0
         
-        logger.info('')
-        
-        suffix = general_opts['suffix']
-        
         ### 0.b. Set up organisation of export
-        if cat[0] + cat[1] == 2:
+        suffix = general_opts['suffix']
+        freq_bw = frequency_opts['frequency']
+        if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Calculating power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz for the whole night.')
-        elif cat[0] + cat[1] == 0:
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+        elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
-            logger.debug(f'Calculating power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per stage and cycle separately.')
-        elif cat[0] == 0:
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
+        elif self.cat[0] == 0:
             model = 'per_cycle'
-            logger.debug(f'Calculating power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per cycle separately.')
-        elif cat[1] == 0:
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per cycle separately.')
+        elif self.cat[1] == 0:
             model = 'per_stage'  
-            logger.debug(f'Calculating power spectrum in range {self.frequency[0]}-{self.frequency[1]} Hz per stage separately.')
-        if 'cycle' in model and cycle_idx == None:
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage separately.')
+        if 'cycle' in model and self.cycle_idx == None:
             logger.info('')
             logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
             return
-        cat = tuple((cat[0],cat[1],1,1)) # force concatenation of discontinuous & events
+        cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
         
         
         logger.info('')
@@ -606,9 +613,9 @@ class Spectrum:
                 annot = Annotations(xdir + xml_file[0], rater_name=self.rater)
                  
                 ### get cycles
-                if cycle_idx is not None:
+                if self.cycle_idx is not None:
                     all_cycles = annot.get_cycles()
-                    cycle = [all_cycles[i - 1] for i in cycle_idx if i <= len(all_cycles)]
+                    cycle = [all_cycles[i - 1] for i in self.cycle_idx if i <= len(all_cycles)]
                 else:
                     cycle = None
                     
@@ -620,7 +627,7 @@ class Spectrum:
                     break
             
                 newchans = rename_channels(sub, ses, self.chan, logger)
-                filter_opts['oREF'] = infer_ref(sub, ses, chan, logger)    
+                filter_opts['oREF'] = infer_ref(sub, ses, self.chan, logger)    
                 
                 # Loop through channels
                 for c, ch in enumerate(chanset):
@@ -734,7 +741,7 @@ class Spectrum:
                         out['duration'] = len(timeline) / data.s_freq
                         
                         if not frequency_opts['fast_fft']:
-                            n_fft = next_fast_len(data.number_of('time')[0])
+                            n_fft = n_fft = 256*8
                         else:
                             n_fft = frequency_opts['n_fft']
                         
@@ -822,16 +829,16 @@ class Spectrum:
                             stagename = '-'.join(self.stage)
                             outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}**{suffix}.csv'
                         elif model == 'stage*cycle':    
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{cycle_idx[sg]}**{suffix}.csv'
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
                         elif model == 'per_stage':
                             outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}**{suffix}.csv'
                         elif model == 'per_cycle':
                             stagename = '-'.join(self.stage)
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle_idx[sg]}**{suffix}.csv'
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
 
                         if general_opts['freq_full']:
-                            low = where(out['data'].axis['freq'][0]==self.frequency[0])[0][0]
-                            hi = where(out['data'].axis['freq'][0]==self.frequency[1])[0][0]
+                            low = where(out['data'].axis['freq'][0]==freq_bw[0])[0][0]
+                            hi = where(out['data'].axis['freq'][0]==freq_bw[1])[0][0]
                             out['data'].axis['freq'][0] = out['data'].axis['freq'][0][low:hi]
                             out['data'].data[0] = asarray([out['data'].data[0][0][low:hi]])
                             as_matrix = asarray([y for y in out['data'].data[0]])
@@ -846,7 +853,7 @@ class Spectrum:
                             try:
                                 export_freq_band([out], frequency_opts['bands'], filename)
                             except:
-                                logger.error(f'Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
+                                logger.error('Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
                                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                             
                         if general_opts['freq_plot']:
@@ -881,146 +888,317 @@ class Spectrum:
         
         
         
-    def powerspec_summary_bands(root_dir, out_dir, part, visit, chan, stage, col_headers, 
-                          excel_output_file):
-    
-        ## Script will create a file with multiple tab: once per STAGE*CHANNEL
+    def powerspec_summary(self, chan, general_opts, frequency_opts, filter_opts, 
+                                epoch_opts, event_opts, logger):
         
-        """ SCRIPT """
-        csvs = []
-        which_files = '*_freq_band.csv' # Name extension of output files to search for
-        tabs = [' '.join((c,s)) for c in chan for s in stage] # Create matrices for each stage*channel combo
+        ### 0.a. Set up logging
+        logger = create_logger('Power Spectral Summary')
+        logger.info('')
         
-        # Loop through participants and visits to extract individual CSV output files
-        if isinstance(part, list):
-                None
-        elif part == 'all':
-                part = listdir(root_dir)
-                part = [x for x in part if not('.' in x)]
+        logger.info('')
+        logger.debug(r""" Summarising Power Spectrum Data...
+                     
+                                     .^.
+                                    / |\\_
+                                   / | \ ¯;
+                                   `|  \ /
+                                    |  \ \
+                                    |  \ \
+                                    \__\_|
+                                    (    )
+                                    (0 ) )
+                                   // ||\\
+                                 /(( // ||
+                               // \\))||\\
+                              )) //|| ||))
+                                (( )) |//
+                                  //  ((
+                                  
+                    Spectral Quantification Unified In a Dataset
+                    (S.Q.U.I.D)
+                    
+                                                    """,)
+        
+        ### 0.b. Set up output file params
+        suffix = general_opts['suffix']
+        frequency = frequency_opts['frequency']
+        flag = 0
+        if general_opts['freq_full']:
+            variables_full = [str(x) for x in (arange(0.25,filter_opts['lowpass']*4,0.25))]
+            idx_data_full = list(range(9,8+filter_opts['lowpass']*4))
+        if general_opts['freq_band']:
+            col_headers = frequency_opts['headers'] 
+            variables_band = col_headers
+            idx_data_band = list(range(9,9+len(col_headers)))
+        
+        ### 0.c. Set up organisation of export
+        if self.cat[0] == 0 and self.cycle_idx == None:
+            logger.info('')
+            logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
+            return
+        if self.cat[0] + self.cat[1] == 2:
+            model = 'whole_night'
+            logger.debug(f'Summarising power spectrum in range {frequency[0]}-{frequency[1]} Hz for the whole night.')
+        elif self.cat[0] + self.cat[1] == 0:
+            model = 'stage*cycle'
+            logger.debug(f'Calculating power spectrum in range {frequency[0]}-{frequency[1]} Hz per stage and cycle separately.')
+        elif self.cat[0] == 0:
+            model = 'per_cycle'
+            logger.debug(f'Calculating power spectrum in range {frequency[0]}-{frequency[1]} Hz per cycle separately.')
+        elif self.cat[1] == 0:
+            model = 'per_stage'  
+            logger.debug(f'Calculating power spectrum in range {frequency[0]}-{frequency[1]} Hz per stage separately.')
+        
+        ### 1. First check the directories
+        # a. Check for output folder, if doesn't exist, create
+        if not path.exists(self.out_dir):
+            mkdir(self.out_dir)
+        outdir = f'{self.out_dir}/powerspec_{model}'
+        if path.exists(outdir):
+            logger.debug(f"Output directory: {outdir} exists")
         else:
-            print("ERROR: 'part' must either be an array of subject ids or = 'all' ")      
-                
-        for i, p in enumerate(part):
-                print(p)
-                # loop through visits
-                if visit == 'all':
-                    visit = listdir(root_dir + '/' + p)
-                    visit = [x for x in visit if not('.' in x)]
-                
-                for v, vis in enumerate(visit):
-                    ## Define files
-                    rdir = root_dir + p + '/' + vis + '/'
-                    
-                    try:
-                        csvs.append(glob(f'{rdir}/{which_files}')[0]) #glob= va chercher tous les path du filename
-                    except Exception as e:
-                        print(f'No files found for {p}, visit {vis}')
-                    
-        ids = [x + '_' + y for x in part for y in visit] 
-        idx_data_col = list(range(9,9+len(col_headers)))
-        data = ones((len(chan) * len(stage), len(ids), len(idx_data_col))) * nan #create matrice - *nan to make sure that missing value will be blank
-            
-        for i, one_csv in enumerate(csvs): #on va passer dans la liste 1 a 1 (commence a compter a 0)    
-            with open(one_csv, newline='') as f: #with open = to open a text/csv file
-                csv_reader = reader(f, delimiter=',') #f = file, delimiter = what separate value in xcl (;, ou, ou .)
-                
-                for row in range(2): #skip first line
-                    row = next(csv_reader) #next = move forward
-                    
-                if col_headers is None:
-                    col_headers = [row[x] for x in idx_data_col] #if None in col_header then will use the name of the csv
-                
-                for row in csv_reader:
-                    try: #try below, but if valueerror continue to except
-                        int(row[0]) #find integer (chiffre)
-                        idx_tab = tabs.index(' '.join((row[8], row[5]))) #join column 8 (channel) and 5(stage) to know which tab to go to
-                        
-                        for j, idx_col in enumerate(idx_data_col):
-                            data[idx_tab, i, j] = row[idx_col] #create data, 1 column at a time and write it in correct tab
-                                        
-                    except ValueError:
-                        continue
+            logger.debug(f"Creating output directory: {outdir}")
+            mkdir(outdir)
         
-        wb = Workbook()
-        wb.save(excel_output_file)
-                       
-        with ExcelWriter(excel_output_file, engine="openpyxl", mode='a') as writer: #create xcl
-        
-            for i, tab_label in enumerate(tabs):
-                df = DataFrame(data[i, ...], index=ids, columns=col_headers) #create dataframe and write data in it
-                df.to_excel(writer, sheet_name=tab_label) #method of df to create xcl
-            
-        print(f'Saved to {excel_output_file}')
-        
-        
-        
-    def powerspec_summary_full(root_dir, out_dir, part, visit, chan, stage, lowpass,
-                          excel_output_file):
-    
-        ## Script will create a file with multiple tab: once per STAGE*CHANNEL
-        
-        """ SCRIPT """
-        csvs = []
-        which_files = '*_freq_full.csv' # Name extension of output files to search for
-        tabs = [' '.join((c,s)) for c in chan for s in stage] # Create matrices for each stage*channel combo
-        
-        # Loop through participants and visits to extract individual CSV output files
-        if isinstance(part, list):
-                None
-        elif part == 'all':
-                part = listdir(root_dir)
-                part = [x for x in part if not('.' in x)]
+        # b. Get subject IDs
+        subs = self.subs
+        if isinstance(subs, list):
+            None
+        elif subs == 'all':
+                subs = next(walk(self.xml_dir))[1]
         else:
-            print("ERROR: 'part' must either be an array of subject ids or = 'all' ")      
-                
-        for i, p in enumerate(part):
-                print(p)
-                # loop through visits
-                if visit == 'all':
-                    visit = listdir(root_dir + '/' + p)
-                    visit = [x for x in visit if not('.' in x)]
-                
-                for v, vis in enumerate(visit):
-                    ## Define files
-                    rdir = root_dir + p + '/' + vis + '/'
-                    
-                    try:
-                        csvs.append(glob(f'{rdir}/{which_files}')[0]) #glob= va chercher tous les path du filename
-                    except Exception as e:
-                        print(f'No files found for {p}, visit {vis}')
-                    
-        ids = [x + '_' + y for x in part for y in visit] 
-        idx_data_col = list(range(9,9+lowpass*4))
-        data = ones((len(chan) * len(stage), len(ids), len(idx_data_col))) * nan #create matrice - *nan to make sure that missing value will be blank
+            logger.error("'subs' must either be an array of participant ids or = 'all' ")
             
-        for i, one_csv in enumerate(csvs): #on va passer dans la liste 1 a 1 (commence a compter a 0)    
-            with open(one_csv, newline='') as f: #with open = to open a text/csv file
-                csv_reader = reader(f, delimiter=',') #f = file, delimiter = what separate value in xcl (;, ou, ou .)
-                
-                for row in range(2): #skip first line
-                    row = next(csv_reader) #next = move forward
-                    
-                
-                col_headers = [row[x] for x in idx_data_col] #if None in col_header then will use the name of the csv
-                
-                for row in csv_reader:
-                    try: #try below, but if valueerror continue to except
-                        int(row[0]) #find integer (chiffre)
-                        idx_tab = tabs.index(' '.join((row[8], row[5]))) #join column 8 (channel) and 5(stage) to know which tab to go to
+        # c. Take a look through directories to get sessions
+        subs.sort()
+        sessions = {}
+        for s, sub in enumerate(subs):
+            if self.sessions == 'all':
+                sessions[sub] = next(walk(f'{self.xml_dir}/{sub}'))[1]
+        sessions = list(set([y for x in sessions.values() for y in x]))           
+        sessions.sort() 
+  
+        # 4. Begin data extraction
+        for c, ch in enumerate(chan):
+            logger.debug(f'Creating a summary dataset for channel: {ch}')
+            
+            # a. Create column names (append chan and ses names)
+            for v, ses in enumerate(sessions):
+                if general_opts['freq_full']:
+                    sesvar = []
+                    for pair in product(variables_full, [ses]):
+                        sesvar.append('_'.join(pair))
+                    columns_f = []
+                    for pair in product(sesvar, [ch]):
+                        columns_f.append('_'.join(pair))
+                if general_opts['freq_band']:
+                    sesvar = []
+                    for pair in product(variables_band, [ses]):
+                        sesvar.append('_'.join(pair))
+                    columns_b = []
+                    for pair in product(sesvar, [ch]):
+                        columns_b.append('_'.join(pair))
                         
-                        for j, idx_col in enumerate(idx_data_col):
-                            data[idx_tab, i, j] = row[idx_col] #create data, 1 column at a time and write it in correct tab
-                                        
-                    except ValueError:
-                        continue
+                # b. Extract data based on cycle and stage setup
+                if model == 'whole_night':
+                    stagename = '-'.join(self.stage)
+                    if general_opts['freq_full']:
+                        st_columns = [x + f'_{stagename}' for x in columns_f]
+                        freq_full = DataFrame(index=subs, columns=st_columns, dtype=float)
+                    if general_opts['freq_full']:    
+                        st_columns = [x + f'_{stagename}' for x in columns_b]
+                        freq_band = DataFrame(index=subs, columns=st_columns, dtype=float)
+                    if not path.exists(f'{self.out_dir}/spectrum_{model}'):
+                        mkdir(f'{self.out_dir}/spectrum_{model}')
+                    for sub in subs: 
+                        logger.debug(f'Extracting from {sub}, {ses}')
+                        paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}**{suffix}.csv'
+                        if general_opts['freq_full']:
+                            filename = f"{paramsfile.split('*')[0]}_freq_full_{paramsfile.split('*')[2]}"
+                            if not path.exists(filename):
+                                logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_full' been run for {model}? Skipping...")
+                                flag += 1
+                                continue
+                            else:
+                                try:
+                                    df = read_csv(filename, skiprows=1)
+                                    freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                except:
+                                    extract_psa_error(logger)
+                                    flag +=1
+                                    continue
+                        if general_opts['freq_band']:
+                            filename = f"{paramsfile.split('*')[0]}_freq_band_{paramsfile.split('*')[2]}" 
+                            if not path.exists(filename):
+                                logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_band' been run for {model}? Skipping...")
+                                flag += 1
+                                continue
+                            else:
+                                try:
+                                    df = read_csv(filename, skiprows=1)
+                                    freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                except:
+                                    extract_psa_error(logger)
+                                    flag +=1
+                                    continue
+                    if general_opts['freq_full']:
+                        freq_full.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}.csv")
+                    if general_opts['freq_band']:
+                        freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}.csv")
+ 
+                elif model == 'stage*cycle':
+                    for cyc in self.cycle_idx:
+                        cycle = f'cycle{cyc}'
+                        for st in self.stage:
+                            if general_opts['freq_full']:
+                                st_columns = [x + f'_{st}_{cycle}' for x in columns_f]
+                                freq_full = DataFrame(index=subs, columns=st_columns, dtype=float)
+                            if general_opts['freq_full']:    
+                                st_columns = [x + f'_{st}_{cycle}' for x in columns_b]
+                                freq_band = DataFrame(index=subs, columns=st_columns, dtype=float) 
+                            for sub in subs: 
+                                logger.debug(f'Extracting from {sub}, {ses}, stage {st}, {cycle}')
+                                paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}_cycle{cycle}**{suffix}.csv'
+                                if general_opts['freq_full']:
+                                    filename = f"{paramsfile.split('*')[0]}_freq_full_{paramsfile.split('*')[2]}"
+                                    if not path.exists(filename):
+                                        logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_full' been run for {model}? Skipping...")
+                                        flag += 1
+                                        continue
+                                    else:
+                                        try:
+                                            df = read_csv(filename, skiprows=1)
+                                            freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                        except:
+                                            extract_psa_error(logger)
+                                            flag +=1
+                                            continue
+                                if general_opts['freq_band']:
+                                    filename = f"{paramsfile.split('*')[0]}_freq_band_{paramsfile.split('*')[2]}" 
+                                    if not path.exists(filename):
+                                        logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_band' been run for {model}? Skipping...")
+                                        flag += 1
+                                        continue
+                                    else:
+                                        try:
+                                            df = read_csv(filename, skiprows=1)
+                                            freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                        except:
+                                            extract_psa_error(logger)
+                                            flag +=1
+                                            continue
+                            if general_opts['freq_full']:
+                                freq_full.to_csv(f"{self.out_dir}/pectrum_{ses}_{ch}_{st}_{cycle}.csv")
+                            if general_opts['freq_band']:
+                                freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{st}_{cycle}.csv")
+
+                elif model == 'per_cycle':
+                    for cyc in self.cycle_idx:
+                        cycle = f'cycle{cyc}'
+                        stagename = '-'.join(self.stage)
+                        if general_opts['freq_full']:
+                            st_columns = [x + f'_{stagename}_{cycle}' for x in columns_f]
+                            freq_full = DataFrame(index=subs, columns=st_columns, dtype=float)
+                        if general_opts['freq_full']:    
+                            st_columns = [x + f'_{stagename}_{cycle}' for x in columns_b]
+                            freq_band = DataFrame(index=subs, columns=st_columns, dtype=float) 
+                        for sub in subs: 
+                            logger.debug(f'Extracting from {sub}, {ses}, {cycle}')
+                            paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{cycle}**{suffix}.csv'
+                            if general_opts['freq_full']:
+                                filename = f"{paramsfile.split('*')[0]}_freq_full_{paramsfile.split('*')[2]}"
+                                if not path.exists(filename):
+                                    logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_full' been run for {model}? Skipping...")
+                                    flag += 1
+                                    continue
+                                else:
+                                    try:
+                                        df = read_csv(filename, skiprows=1)
+                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                    except:
+                                        extract_psa_error(logger)
+                                        flag +=1
+                                        continue
+                            if general_opts['freq_band']:
+                                filename = f"{paramsfile.split('*')[0]}_freq_band_{paramsfile.split('*')[2]}" 
+                                if not path.exists(filename):
+                                    logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_band' been run for {model}? Skipping...")
+                                    flag += 1
+                                    continue
+                                else:
+                                    try:
+                                        df = read_csv(filename, skiprows=1)
+                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                    except:
+                                        extract_psa_error(logger)
+                                        flag +=1
+                                        continue
+                        if general_opts['freq_full']:
+                            freq_full.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}.csv")
+                        if general_opts['freq_band']:
+                            freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}.csv")
+
+                elif model == 'per_stage':
+                    for st in self.stage:
+                        if general_opts['freq_full']:
+                            st_columns = [x + f'_{st}' for x in columns_f]
+                            freq_full = DataFrame(index=subs, columns=st_columns, dtype=float)
+                        if general_opts['freq_full']:    
+                            st_columns = [x + f'_{st}' for x in columns_b]
+                            freq_band = DataFrame(index=subs, columns=st_columns, dtype=float) 
+                        for sub in subs: 
+                            logger.debug(f'Extracting from {sub}, {ses}, stage {st}')
+                            paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}**{suffix}.csv'
+                            if general_opts['freq_full']:
+                                filename = f"{paramsfile.split('*')[0]}_freq_full_{paramsfile.split('*')[2]}"
+                                if not path.exists(filename):
+                                    logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_full' been run for {model}? Skipping...")
+                                    flag += 1
+                                    continue
+                                else:
+                                    try:
+                                        df = read_csv(filename, skiprows=1)
+                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                    except:
+                                        extract_psa_error(logger)
+                                        flag +=1
+                                        continue
+                            if general_opts['freq_band']:
+                                filename = f"{paramsfile.split('*')[0]}_freq_band_{paramsfile.split('*')[2]}" 
+                                if not path.exists(filename):
+                                    logger.warning(f"No (exported) spectrum data found for {sub}, {ses}. Has 'power_spectrum' by 'freq_band' been run for {model}? Skipping...")
+                                    flag += 1
+                                    continue
+                                else:
+                                    try:
+                                        df = read_csv(filename, skiprows=1)
+                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                    except:
+                                        extract_psa_error(logger)
+                                        flag +=1
+                                        continue
+                        if general_opts['freq_full']:
+                            freq_full.to_csv(f"{outdir}/spectrum_{ses}_{ch}_{st}.csv")
+                        if general_opts['freq_band']:
+                            freq_band.to_csv(f"{outdir}/spectrum_{ses}_{ch}_{st}.csv")
+                            
+         
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.info('')
+            logger.debug('Create powerspec dataset finished without ERROR.')  
+        else:
+            logger.info('')
+            logger.warning('Create powerspec dataset finished with WARNINGS. See log for details.')
+        return 
+                            
         
-        wb = Workbook()
-        wb.save(excel_output_file)
-                       
-        with ExcelWriter(excel_output_file, engine="openpyxl", mode='a') as writer: #create xcl
+def extract_psa_error(logger):
+    logger.critical("Data extraction error: Check that all 'params' are written correctly.")
+    logger.info('                      Check documentation for how event parameters need to be written:')
+    logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')            
         
-            for i, tab_label in enumerate(tabs):
-                df = DataFrame(data[i, ...], index=ids, columns=col_headers) #create dataframe and write data in it
-                df.to_excel(writer, sheet_name=tab_label) #method of df to create xcl
-            
-        print(f'Saved to {excel_output_file}')
+        
+ 
+        
+        

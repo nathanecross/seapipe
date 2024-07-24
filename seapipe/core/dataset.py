@@ -243,7 +243,7 @@ class pipeline:
                              frequency_opts = None, filter_opts = None, 
                              epoch_opts = None, event_opts = None, 
                              norm = None, norm_opts = None, 
-                             filetype = '.edf', suffix = None):
+                             filetype = '.edf'):
         
         # Set up logging
         logger = create_logger('Power spectrum')
@@ -280,11 +280,11 @@ class pipeline:
         
         if not filter_opts:
             filter_opts = default_filter_opts()    
-        frequency = (filter_opts['highpass'], filter_opts['lowpass'])
+        frequency_opts['frequency'] = (filter_opts['highpass'], filter_opts['lowpass'])
         
         # Set suffix for output filename
-        if not suffix:
-            general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
+        if not general_opts['suffix']:
+            general_opts['suffix'] = f"{frequency_opts['frequency'][0]}-{frequency_opts['frequency'][1]}Hz"
         
         # Check annotations directory exists, run detection
         if not path.exists(xml_dir):
@@ -295,13 +295,13 @@ class pipeline:
             logger.info('-' * 10)
         else:   
             spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                             grp_name, stage, frequency, rater, subs, sessions)
+                                grp_name, stage, cat, rater, cycle_idx, subs, 
+                                sessions, self.tracking)
             
-
-            spectrum.powerspec_it(cat, stage, chan, ref_chan, general_opts, 
-                                        frequency_opts, filter_opts, epoch_opts, 
-                                        event_opts, norm, norm_opts, cycle_idx, 
-                                        filetype) 
+                                  
+            spectrum.powerspec_it(general_opts, frequency_opts, filter_opts, 
+                                  epoch_opts, event_opts, norm, norm_opts, 
+                                  filetype) 
             
             try:
                 self.tracking = self.tracking | spectrum.tracking
@@ -362,9 +362,9 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
         else:   
-            spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                             grp_name, stage, frequency, rater, subs, sessions,
-                             self.tracking)
+            spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
+                                ref_chan, grp_name, stage, cat, rater, 
+                                cycle_idx, subs, sessions, self.tracking)
             
             if not general_opts:
                 general_opts = default_general_opts()
@@ -386,8 +386,7 @@ class pipeline:
                 general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
             
             spectrum.fooof_it(general_opts, frequency_opts, filter_opts, 
-                              epoch_opts, event_opts, fooof_opts, rater, 
-                              grp_name, cat, cycle_idx, filetype = filetype)  
+                              epoch_opts, event_opts, fooof_opts, filetype = filetype)  
             
             try:
                 [self.tracking['fooof'][x].update(spectrum.tracking[x]) for x 
@@ -580,6 +579,52 @@ class pipeline:
         return
     
     
+    def whales(self, xml_dir = None, out_dir = None, subs = 'all', 
+                     sessions = 'all', filetype = '.edf', 
+                     method = ['Moelle2011', 'Ray2015'], 
+                     merge_type = 'consensus', chan = None, 
+                     ref_chan = None, rater = None, 
+                     stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                     cycle_idx = None, cs_thresh = 0.6,
+                     s_freq = None, keyword = None, min_duration = 0.3,
+                     frequency = None, adap_bands = 'Fixed', 
+                     adap_bw = 4, peaks = None, duration =( 0.5, 3),
+                     reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                     outfile = True):
+        
+        # Set up logging
+        logger = create_logger('Detect spindles (WHALES)')
+        logger.info('')
+        logger.debug("Commencing spindle optimisation pipeline.")
+        logger.info('')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+            
+        xml_dir = select_input_dirs(self.outpath, xml_dir, 'spindle')  
+        out_dir = select_ouput_dirs(self.outpath, out_dir, 'spindle')  
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            return
+        elif isinstance(ref_chan, str):
+            return
+        
+        spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+                         grp_name, stage, frequency, rater, subs, sessions, 
+                         reject_artf, self.tracking) 
+        spindle.whales(method, merge_type, chan, rater, stage, ref_chan, grp_name, 
+                       keyword, cs_thresh, min_duration, s_freq, 
+                       frequency = (11, 16), duration= (0.5, 3), 
+                       evt_out = 'spindle', weights = None,
+                       outfile = 'export_params_log.txt', filetype = '.edf')
+    
     #--------------------------------------------------------------------------
     '''
     PLOTTING.
@@ -662,7 +707,8 @@ class pipeline:
                   evt_name = 'Staresina2015', min_dur = 1, nbins = 18, invert = None,
                   adap_bw = 4, peaks = None, frequency_opts = None, 
                   filter_opts = None, epoch_opts = None, event_opts = None, 
-                  reject_artf = ['Artefact', 'Arou', 'Arousal'], outfile = True):
+                  reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                  progress = True, outfile = True):
         
         # Set up logging
         logger = create_logger('Phase-amplitude coupling')
@@ -701,7 +747,8 @@ class pipeline:
         if not event_opts:
             event_opts = default_event_opts()
         if not filter_opts:
-            filter_opts = default_filter_opts()    
+            filter_opts = default_filter_opts()   
+        filter_opts['bandpass'] = False
         
         # Check inversion
         if invert == None:
@@ -722,7 +769,7 @@ class pipeline:
                        frequency_opts, event_opts, filetype, idpac, evt_name, 
                        min_dur, adap_bands_phase, frequency_phase, 
                        adap_bands_amplitude, frequency_amplitude, 
-                       peaks, adap_bw, invert, outfile)
+                       peaks, adap_bw, invert, progress, outfile)
     
         return
     
@@ -839,8 +886,8 @@ class pipeline:
         return
     
     
-    def event_dataset(self, xml_dir = None, out_dir = None, subs = 'all', 
-                            sessions = 'all', chan = None, ref_chan = None, 
+    def event_dataset(self, chan, xml_dir = None, out_dir = None, subs = 'all', 
+                            sessions = 'all', ref_chan = None, 
                             stage = None, concat_stage = False, 
                             concat_cycle = True, cycle_idx = None, grp_name = 'eeg', 
                             adap_bands = 'Fixed', evt_name = 'spindle', 
@@ -874,12 +921,6 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return
-            
-        # Set channels
-        if not chan:
-            logger.info('')
-            logger.critical("'chan' must be defined for datasets")
-            return
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
@@ -895,9 +936,80 @@ class pipeline:
         return
     
 
-    
-    
-    
+    def powerspec_dataset(self, chan, xml_dir = None, out_dir = None, 
+                                subs = 'all', sessions = 'all', stage = None, 
+                                concat_stage = False, concat_cycle = True, 
+                                cycle_idx = None, grp_name = 'eeg', 
+                                rater = None,
+                                adap_bands = 'Fixed', params = 'all', 
+                                general_opts = None, 
+                                frequency_opts = None, filter_opts = None, 
+                                epoch_opts = None, event_opts = None,
+                                outfile=True):
+        
+        # Set up logging
+        logger = create_logger('Power spectrum dataset')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not path.exists(self.outpath + '/datasets/'):
+            mkdir(self.outpath + '/datasets/')
+        
+        if adap_bands in ['Auto','Manual']:
+            out_dir = self.outpath + '/datasets/powerspec_adap'
+            self.track(step='fooof', show = False, log = False)
+        else:
+            out_dir = self.outpath + '/datasets/powerspec'
+        
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name='spectrum')
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+            logger.info('Check documentation for how to run a pipeline:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        
+        # Set default parameters
+        if not general_opts:
+            general_opts = default_general_opts()
+        if not frequency_opts:
+            frequency_opts = default_frequency_opts()
+        if not epoch_opts:
+            epoch_opts = default_epoch_opts()  
+        if not event_opts:
+            event_opts = default_event_opts()
+        
+        if not filter_opts:
+            filter_opts = default_filter_opts()    
+        frequency_opts['frequency'] = (filter_opts['highpass'], filter_opts['lowpass'])
+        
+        # Set suffix for output filename
+        if not general_opts['suffix']:
+            general_opts['suffix'] = f"{frequency_opts['frequency'][0]}-{frequency_opts['frequency'][1]}Hz"
+        
+        # Format chan
+        if isinstance(chan,str):
+            chan = [chan]
+        
+        # Format concatenation
+        cat = (int(concat_cycle),int(concat_stage),1,1)
+        
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+
+        spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
+                            ref_chan = None, grp_name = grp_name, stage = stage, 
+                            cat = cat, rater = rater, cycle_idx = cycle_idx, 
+                            subs = subs, sessions = sessions) 
+        spectrum.powerspec_summary(chan, general_opts, frequency_opts, filter_opts, 
+                                   epoch_opts, event_opts, logger)
+        
+        return
     
         
         

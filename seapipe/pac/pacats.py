@@ -69,7 +69,7 @@ def pac_method(method, surrogate, correction, list_methods=False):
     return idpac
 
 
-class octopus:
+class pacats:
 
     def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs = 'all', 
@@ -105,19 +105,21 @@ class octopus:
                  outfile = 'event_coupling_log.txt'):
 
         '''
-        O.C.T.O.P.U.S
+        P.A.C.A.T.S
         
-        Oscillatory Coupling: Timed Oscillations by Phase modUlation in Sleep 
+        Phase Amplitude Coupling Across Time Series
         
-        This script runs Phase Amplitude Coupling analyses on sleep EEG data. 
+        This script runs Phase Amplitude Coupling analyses on continuous sleep 
+        EEG data (unlike O.C.T.O.P.U.S. which is for events). 
         The method for calculating PAC is set by the parameter <idpac>. 
         For more information on the available methods, refer to the documentation of 
         tensorpac (https://etiennecmb.github.io/tensorpac/index.html) or the article
         (Combrisson et al. 2020, PLoS Comp Bio: https://doi.org/10.1371/journal.pcbi.1008302)
         
         The script does the following:
-            1. Extracts the EEG signal at each event specified by <evt_type> ± a buffer
-               on either side of length (in sec) specified by <buffer>.
+            1. Extracts the continuous EEG signal segments defined by <cat> and 
+                if the segment is too short ± a buffer on either side of length 
+                (in sec) specified by <buffer>.
             2. For these EEG segments, filters the signal within a given frequency range
                specified by <fpha> to obtain the phase, and again within a given frequency 
                range specified by <famp>.  
@@ -183,28 +185,23 @@ class octopus:
         logger.info('')
         logger.debug(rf"""Commencing phase-amplitude coupling pipeline... 
                                 
-                                        ___
-                                     .-'   `'.
-                                    /         \
-                                    |         ;
-                                    |         |           ___.--,
-                           _.._     |0) ~ (0) |    _.---'`__.-( (_.
-                     __.--'`_..'.__.\    '--. \_.-' ,.--'`     `""`
-                    ( ,.--'`   ',__ /./;   ;, '.__.'`    __
-                  _`) )    .---.__.' / |   |\   \__..--""  ""--.,_
-                 `---'   .'.''-._.-'`_./  /\ '.  \ _.-~~~````~~~-._`-.__.'
-                         | |  .' _.-' |  |  \  \  '.               `~---`
-                         \ \/ .'     \  \   '. '-._)
-                          \/ /        \  \    `=.__`~-.
-                          / /\         `) )    / / `"".`\
-                    , _.-'.'\ \        / /    ( (     / /
-                    `--~`   ) )    .-'.'      '.'.  | (
-                            (/`    ( (`          ) )  '-;
-                            `      '-;         (-'
-    
+                     
+                                                                       /~~\
+                        ____                                         /'o  |
+                     .';;|;;\            _,-;;;\;-_               ,'  _/'|
+                    `\_/;;;/;\         /;;\;;;;\;;;,             |     .'
+                       `;/;;;|      ,;\;;;|;;;|;;;|;\          ,';;\  |
+                       |;;;/;:     |;;;\;/~~~~\;/;;;|        ,;;;;;;.'
+                      |;/;;;|     |;;;,'      `\;;/;|      /;\;;;;/
+                      `|;;;/;\___/;~\;|         |;;;;;----\;;;|;;/'
+                       `;/;;;|;;;|;;;,'         |;;;;|;;;;;|;;|/'
+                        `\;;;|;;;/;;,'           `\;/;;;;;;|/~'
+                         `\/;;/;;;/               `~------'
+                           `~~~~~  
+
                 
-                Oscillatory Coupling: Timed Oscillations by Phase modUlation in Sleep
-                (O.C.T.O.P.U.S)
+                Phase Amplitude Coupling Across Time Series
+                (P.A.C.A.T.S)
                 
                 Method: {methods[idpac[0]]}
                 Correction: {surrogates[idpac[1]]}

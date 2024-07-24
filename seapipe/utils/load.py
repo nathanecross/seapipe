@@ -46,6 +46,8 @@ def select_input_dirs(outpath, xml_dir, evt_name=None):
             xml_dir = f'{outpath}/slowwave'
         elif evt_name in ['macro']:
             xml_dir = f'{outpath}/staging'
+        elif evt_name is None:
+            xml_dir = f'{outpath}/staging'
         else:
             xml_dir = f'{outpath}/{evt_name}'
         

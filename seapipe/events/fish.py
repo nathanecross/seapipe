@@ -89,7 +89,7 @@ class FISH:
                 logger = create_logger('Export params')
             
             logger.info('')
-            logger.debug(r"""Listing Individual aNnotated Events (L.I.N.E) 
+            logger.debug(r""" Exporting event parameters...
                          
                        
                                         /^. 
@@ -117,6 +117,8 @@ class FISH:
                                               |  O   v    \___/  |
                                               \_________________/   
                
+                Listing Individual aNnotated Events 
+                (L.I.N.E) 
                                                         """,)
             
             ### 1.a. Set up organisation of export
@@ -822,9 +824,6 @@ class FISH:
             logger.info('')
             logger.warning('Create dataset finished with WARNINGS. See log for details.')
         return 
-        
-        
-        return
  
     
     def trawls():
