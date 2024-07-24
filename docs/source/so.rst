@@ -13,13 +13,12 @@ Slow oscillations (SOs) are biphasic waves corresponding to the alternation betw
 
     * *Staresina et al. (2015)*: recommended for event detection (<1.25Hz) with amplitude adapted per individual per channel
     
-    Method in brief: 1. Filter the signal (two-pass FIR bandpass filter, 0.5–1.25 Hz, order = 3); 2. A positive-to-negative zero crossing and a subsequent 
-    negative-to-positive zero crossing separated by 0.8-2 sec; 3. Top 25% of events with the largest amplitudes for trough-to-peak amplitude between two 
-    positive-to-negative zero crossings. `see reference`_.
+        Method in brief: 1. Filter the signal (two-pass FIR bandpass filter, 0.5–1.25 Hz, order = 3); 2. A positive-to-negative zero crossing and a subsequent 
+        negative-to-positive zero crossing separated by 0.8-2 sec; 3. Top 25% of events with the largest amplitudes for trough-to-peak amplitude between two 
+        positive-to-negative zero crossings. `see reference`_.
 .. _see reference: https://doi.org/10.1038/nn.4119
 
     * *Ngo et al. (2015)*: recommended for event detection (<3.5Hz) with amplitude adapted per individual across several channels (average)
-    
     Method in brief: 1. Filter the signal (lowpass filter, 3.5 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
     separated by 0.833-2 sec ; 3. A negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject. `see reference`_.
 .. _see reference: https://doi.org/10.1016/j.neuron.2013.03.006
