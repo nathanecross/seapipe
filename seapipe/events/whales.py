@@ -40,6 +40,7 @@ class whales:
                  sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                  tracking = None):
         
+        self.rootpath = rec_dir.split('/DATA')[0]
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
