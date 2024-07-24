@@ -470,7 +470,7 @@ class pipeline:
                               stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                               cycle_idx = None, concat_cycle = True, 
                               frequency = None, adap_bands = 'Fixed', 
-                              adap_bw = 4, peaks = None, duration =( 0.5, 3),
+                              adap_bw = 4, duration =( 0.5, 3),
                               reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                               outfile = True):
         
@@ -566,9 +566,9 @@ class pipeline:
             logger.info('-' * 10)
             logger.critical('Spindle detection finished with ERRORS. See log for details.')
         else:   
-           spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                            grp_name, stage, frequency, rater, subs, sessions, 
-                            reject_artf, self.tracking) 
+           spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
+                            chan, ref_chan, grp_name, stage, frequency, rater, 
+                            subs, sessions, reject_artf, self.tracking) 
            spindle.whale_it(method, cat, cycle_idx, adap_bands, adap_bw, 
                             duration, filetype, outfile)
            try:

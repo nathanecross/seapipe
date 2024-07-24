@@ -35,12 +35,12 @@ class whales:
                
     """   
     
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, frequency, rater = None, subs = 'all', 
                  sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                  tracking = None):
         
-        self.rootpath = rec_dir.split('/DATA')[0]
+        self.rootpath = rootpath
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
