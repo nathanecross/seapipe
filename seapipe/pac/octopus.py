@@ -401,9 +401,15 @@ class octopus:
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     if not evt_type == None and not isinstance(evt_type, list):
                         evt_type = [evt_type]
-                    segments = fetch(dset, annot, cat = cat, evt_type = evt_type, 
+                    try:
+                        segments = fetch(dset, annot, cat = cat, evt_type = evt_type, 
                                      stage = self.stage,  cycle = cycle, 
                                      buffer = event_opts['buffer'])
+                    except Exception as error:
+                        logger.error(error.args[0])
+                        logger.warning(f"Skipping {sub}, {ses}, channel {str(ch)} ... ")
+                        flag+=1
+                        continue
                     # segments = fetch(dset, annot, cat = cat, evt_type = evt_type, 
                     #                  stage = self.stage, cycle=cycle,   
                     #                  epoch = epoch_opts['epoch'], 

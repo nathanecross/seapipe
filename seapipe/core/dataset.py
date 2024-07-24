@@ -847,7 +847,7 @@ class pipeline:
                                  keyword = None, segs = None, 
                                  evt_name = 'spindle', frequency = None,  
                                  adap_bands = 'Fixed',  
-                                 adap_bw = 4, param_keys = 'all', epoch_dur = 30, 
+                                 adap_bw = 4, params = 'all', epoch_dur = 30, 
                                  average_channels = False, outfile = True):
         
         # Set up logging
@@ -892,19 +892,18 @@ class pipeline:
         fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, rater, subs, sessions, self.tracking) 
         fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
-                  peaks, adap_bw, param_keys, epoch_dur, Ngo, outfile)
+                  peaks, adap_bw, params, epoch_dur, Ngo, outfile)
         return
     
     
-    def event_dataset(self, chan, xml_dir = None, out_dir = None, subs = 'all', 
-                            sessions = 'all',
-                            stage = None, concat_stage = False, 
-                            concat_cycle = True, cycle_idx = None, grp_name = 'eeg', 
-                            adap_bands = 'Fixed', evt_name = 'spindle', 
-                            params = 'all', outfile=True):
+    def event_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
+                            subs = 'all', sessions = 'all', stage = None, 
+                            concat_stage = False, concat_cycle = True, 
+                            cycle_idx = None, grp_name = 'eeg', 
+                            adap_bands = 'Fixed',  params = 'all', outfile=True):
         
         # Set up logging
-        logger = create_logger('Create dataset')
+        logger = create_logger('Event dataset')
         
         if type(evt_name) is not str:
             logger.critical("'evt_name' MUST be a string only (i.e.) only 1 event at a time.")

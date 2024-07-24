@@ -245,9 +245,10 @@ class whales:
                                          reject_artf=self.reject)
                         segments.read_data([ch], ref_chan=chanset[ch], grp_name=self.grp_name)
                     except Exception as error:
-                        logger.error(type(error).__name__, "–", error)
+                        logger.error(error.args[0])
+                        logger.warning(f"Skipping {sub}, {ses}, channel {str(ch)} ... ")
                         flag+=1
-                        break
+                        continue
     
                     ## i. Loop through methods (i.e. Whale it!)
                     for m, meth in enumerate(method):

@@ -16,9 +16,7 @@ def read_tracking_sheet(filepath, logger):
         
         if len(track_file) > 1:
             logger.error('>1 tracking file found.')
-            logger.info('Check documentation for how to set up channel data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
+            logger.warning("Is the tracking file currently open?")
             return 'error'
         elif len(track_file) == 0:
             logger.error('No tracking file found.')
@@ -80,20 +78,22 @@ def select_ouput_dirs(outpath, out_dir, evt_name=None):
 
 def check_chans(rootpath, chan, ref_chan, logger):
     if chan is None:
-        try:
-            chan = read_tracking_sheet(f'{rootpath}', logger)
-        except:
-            logger.error("Channels haven't been defined, and no tracking file exists.")
+        chan = read_tracking_sheet(f'{rootpath}', logger)
+        if not isinstance(chan, DataFrame) and chan == 'error':
+            logger.error("Channels haven't been defined, and there was an error reading the tracking file.")
             logger.info('Check documentation for how to set up channel data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
         
     if ref_chan is None:
-        try:
-            ref_chan = read_tracking_sheet(f'{rootpath}', logger)
-        except:
-            logger.warning("Reference channels haven't been defined, and no tracking file exists.")
+        ref_chan = read_tracking_sheet(f'{rootpath}', logger)
+        if not isinstance(ref_chan, DataFrame) and ref_chan == 'error':
+            logger.warning("Reference channels haven't been defined, and there was an error reading the tracking file.")
+            logger.info('Check documentation for how to set up channel data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
             logger.warning('No re-referencing will be performed prior to analysis.')
+            ref_chan = None
     
     if ref_chan is False:
         return chan
@@ -166,16 +166,25 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(chans) == list:
         if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
-            logger.error("Channels are hardcoded, but there were more than 2 reference channel sets found in tracking file. For channel setup options, refer to documentation:")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            flag+=1
-            return flag, None
+            chan = ref_chan[ref_chan['sub']==sub]
+            chan = chan[chan['ses']==ses]
+            chan = chan.filter(regex='chanset')
+            chan = chan.filter(regex='^((?!rename).)*$')
+            ref_chan=[]
+            for c in chans:
+                ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
+            ref_chan = [char.split(x, sep=', ').tolist() for x in ref_chan]
+            
+            chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
+            
         elif type(ref_chans) == DataFrame:
             ref_chans = ref_chans.to_numpy()[0]
             ref_chans = ref_chans.astype(str)
             ref_chans = char.split(ref_chans, sep=', ')
             ref_chans = [x for y in ref_chans for x in y]
-        chanset = {chn:ref_chans for chn in chans}    
+            chanset = {chn:ref_chans for chn in chans}    
+        else:
+            chanset = {chn:[] for chn in chans}
     
     elif type(chans) == type(DataFrame()):
         if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):

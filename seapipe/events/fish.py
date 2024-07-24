@@ -723,7 +723,7 @@ class FISH:
                                 return
                         else:
                             flag +=1
-                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                     if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                         mkdir(f'{self.out_dir}/{evt_name}_{model}')
                     df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}.csv")
@@ -747,7 +747,7 @@ class FISH:
                                         return
                                 else:
                                     flag +=1
-                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                             if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                                 mkdir(f'{self.out_dir}/{evt_name}_{model}')
                             df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{st}_{cycle}.csv")
@@ -771,7 +771,7 @@ class FISH:
                                     return
                             else:
                                 flag +=1
-                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                         if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                             mkdir(f'{self.out_dir}/{evt_name}_{model}')
                         df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}_{cycle}.csv")
@@ -793,7 +793,7 @@ class FISH:
                                     return
                             else:
                                 flag +=1
-                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
                         if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                             mkdir(f'{self.out_dir}/{evt_name}_{model}')  
                         df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{st}.csv")
