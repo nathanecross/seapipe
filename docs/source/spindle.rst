@@ -7,6 +7,29 @@ Overview
 ------------
 You can extract the different markers of macro-architecture (see definitions in section :ref:`Output`) whole night or per cycle
 
+    **adap_bands**
+        * Precise whether you performed a detection using adapted frequency range (i.e., tailored to the individual's peak frequency of a specific frequency band) 
+        for *detect_slow_oscillations*
+
+        * *Acceptable options:*
+
+            * Default is ``False`` which infer a traditional detection of events based on fixed frequency range which will point to frequency 
+            input - *recommended for SO detection*
+
+            * If you put ``Auto``, it will point to the ``root_dir/OUT/fooof`` folder, which comprises the band of interest's peak frequency for each subject, session and channel
+
+            * If you put ``Manual``, it will point to the *chanset_peaks* column in *tracking* file
+
+    **adap_bw**
+        * Bandwidth for frequency range (Hz) - only relevant if you passed ``adap_bands=Auto`` or ``adap_bands=Manual``
+
+        * *Acceptable options:*
+
+            * Default is ``4`` which infers 2hz before and after the individual's peak frequency (fooof) for each channel
+
+            * You can put another even number to expand the bandwidth for frequency range
+
+
 *You will need to run two functions:*
 
 1. Extract macro sleep characteristics for each subject.
