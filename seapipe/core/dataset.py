@@ -897,7 +897,7 @@ class pipeline:
     
     
     def event_dataset(self, chan, xml_dir = None, out_dir = None, subs = 'all', 
-                            sessions = 'all', ref_chan = None, 
+                            sessions = 'all',
                             stage = None, concat_stage = False, 
                             concat_cycle = True, cycle_idx = None, grp_name = 'eeg', 
                             adap_bands = 'Fixed', evt_name = 'spindle', 
@@ -935,11 +935,15 @@ class pipeline:
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
+        # Format chan
+        if isinstance(chan, str):
+            chan = [chan]
+        
         # Default stage
         if stage == None:
             stage = ['NREM2','NREM3']
             
-        fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
+        fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
                           stage, subs = subs, sessions = sessions) 
         fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
         

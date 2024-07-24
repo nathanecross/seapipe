@@ -277,8 +277,10 @@ class seasnakes:
                         
         ### 3. Check completion status and print
         if flag == 0:
+            logger.info('')
             logger.debug('Slow oscillation detection finished without ERROR.')  
         else:
+            logger.info('')
             logger.warning('Slow oscillation finished with WARNINGS. See log for details.')
         
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING

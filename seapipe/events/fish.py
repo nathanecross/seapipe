@@ -391,17 +391,12 @@ class FISH:
                                                 logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
                                                 logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                                 logger.info('')
-        
-                                                # Set n_fft
-                                                n_fft = None
-                                                if segments and n_fft_sec is not None:
-                                                    s_freq = segments[0]['data'].s_freq
-                                                    n_fft = int(n_fft_sec * s_freq)
+
                                                 
                                                 # Export event parameters 
                                                 lg = create_logger_empty()
                                                 data = event_params(segments, params=params, 
-                                                                    band=freq, n_fft=n_fft)
+                                                                    band=freq, n_fft=None)
                                                 if not path.exists(self.out_dir + '/' + sub):
                                                     mkdir(self.out_dir + '/' + sub)
                                                 if not path.exists(self.out_dir + '/' + sub + '/' + ses):
@@ -444,16 +439,10 @@ class FISH:
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
         
-                                            # Set n_fft
-                                            n_fft = None
-                                            if segments and n_fft_sec is not None:
-                                                s_freq = segments[0]['data'].s_freq
-                                                n_fft = int(n_fft_sec * s_freq)
-                                            
                                             # Export event parameters 
                                             lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
-                                                                band=freq, n_fft=n_fft)
+                                                                band=freq, n_fft=None)
                                             if not data:
                                                 data = [x for x in segments]
                                             else:
@@ -518,16 +507,11 @@ class FISH:
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
     
-                                            # Set n_fft
-                                            n_fft = None
-                                            if segments and n_fft_sec is not None:
-                                                s_freq = segments[0]['data'].s_freq
-                                                n_fft = int(n_fft_sec * s_freq)
                                             
                                             # Export event parameters 
                                             lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
-                                                                band=freq, n_fft=n_fft)
+                                                                band=freq, n_fft=None)
                                             if not path.exists(self.out_dir + '/' + sub):
                                                 mkdir(self.out_dir + '/' + sub)
                                             if not path.exists(self.out_dir + '/' + sub + '/' + ses):
@@ -571,15 +555,9 @@ class FISH:
                                         logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                         logger.info('')
                                         
-                                        # Set n_fft
-                                        n_fft = None
-                                        if segments and n_fft_sec is not None:
-                                            s_freq = segments[0]['data'].s_freq
-                                            n_fft = int(n_fft_sec * s_freq)
-                                        
                                         # Export event parameters
                                         data = event_params(segments, params=params, 
-                                                            band=freq, n_fft=n_fft)
+                                                            band=freq, n_fft=None)
                                         if data:
                                                 data = sorted(data, key=lambda x: x['start'])
                                                 outputfile = f'{self.out_dir}/{sub}/{ses}/{sub}_{ses}_{fnamechan}_{segnames[s]}_{event}.csv'
@@ -612,7 +590,7 @@ class FISH:
             #         logger.info(tbinfo)
                         
     def net(self, chan, evt_name, adap_bands, params = 'all', cat = (1,1,1,1), 
-            cycle_idx = None, outfile = True):
+                  cycle_idx = None, outfile = True):
         
         '''
             aNnotated Event Tabulation (NET)
@@ -639,7 +617,7 @@ class FISH:
             logger = create_logger('Event dataset')
         
         logger.info('')
-        logger.debug(r""" aNnotated Events Tabulation (N.E.T) 
+        logger.debug(r""" Commencing Event Dataset Creation
 
                      
                               ∆       ∆       ∆    ∆     ∆       ∆    ∆         ∆
@@ -654,6 +632,11 @@ class FISH:
                                   .•....;...;...;...;...;...;...;...;...;...;..•.
                                    •.   ;  ;    ;   ;   ;   ;   ;  ;   ;    ;   ;
                                    .•..•..;.•...•...•...•..•..;•..•...•....•.;.•
+                                
+                                
+                                
+                                aNnotated Events Tabulation 
+                                (N.E.T) 
                                 
                                                     """,)
         
@@ -819,10 +802,10 @@ class FISH:
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
-            logger.debug('Create dataset finished without ERROR.')  
+            logger.debug('Create event dataset finished without ERROR.')  
         else:
             logger.info('')
-            logger.warning('Create dataset finished with WARNINGS. See log for details.')
+            logger.warning('Create event dataset finished with WARNINGS. See log for details.')
         return 
  
     

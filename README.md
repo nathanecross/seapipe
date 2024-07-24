@@ -18,4 +18,7 @@ diverse datasets that might require flexibility in certain parameters
 (e.g. electrode names, polarity of recordings, individualised frequency bands etc). 
 The only requirement is that the data should be structured in BIDS.
 
+For more information, check out the documentation at: https://seapipe.readthedocs.io/en/latest/index.html
+
+
 
