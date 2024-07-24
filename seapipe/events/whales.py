@@ -333,7 +333,7 @@ class whales:
             logger = create_logger('Detect spindles (WHALES)')
         
         logger.info('')
-        logger.debug(r""" Whaling it... 
+        logger.debug(rf""" Whaling it... 
                      
                                    
                                  'spindles'                 

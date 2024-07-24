@@ -846,7 +846,7 @@ class pipeline:
                                  concat_cycle = True, concat_stage = False, 
                                  keyword = None, segs = None, 
                                  evt_name = 'spindle', frequency = None,  
-                                 adap_bands = 'Fixed', peaks = None,  
+                                 adap_bands = 'Fixed',  
                                  adap_bw = 4, param_keys = 'all', epoch_dur = 30, 
                                  n_fft_sec = 4, 
                                  Ngo = {'run':False}, outfile = True):
@@ -876,6 +876,8 @@ class pipeline:
             evt_name = f'{evt_name}_adap'
             self.track(step='fooof', show = False, log = False)
             peaks = check_chans(self.rootpath, None, False, logger)
+        else:
+            peaks = None
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)

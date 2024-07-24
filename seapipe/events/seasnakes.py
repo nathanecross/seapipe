@@ -94,14 +94,14 @@ class seasnakes:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
             logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect slow osc.')
+            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect  slow osc.')
+            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
         else:
-            logger = create_logger('Detect slow osc.')
+            logger = create_logger('Detect slow oscillations')
         
         logger.info('')
         logger.debug(r"""Commencing slow oscillation detection... 
