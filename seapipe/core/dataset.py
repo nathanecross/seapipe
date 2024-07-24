@@ -584,7 +584,7 @@ class pipeline:
                      merge_type = 'consensus', chan = None, 
                      ref_chan = None, rater = None, 
                      stage = ['NREM2','NREM3'], grp_name = 'eeg', 
-                     cycle_idx = None, cs_thresh = 0.6,
+                     cycle_idx = None,
                      s_freq = None, keyword = None, min_duration = 0.3,
                      frequency = None, adap_bands = 'Fixed', 
                      adap_bw = 4, peaks = None, duration =( 0.5, 3),
@@ -604,9 +604,15 @@ class pipeline:
             mkdir(log_dir)
             
         xml_dir = select_input_dirs(self.outpath, xml_dir, 'spindle')  
-        out_dir = select_ouput_dirs(self.outpath, out_dir, 'spindle')  
+        if not out_dir:
+            out_dir = xml_dir  
         if not path.exists(out_dir):
             mkdir(out_dir)
+        
+        if merge_type == 'consensus':
+            cs_thresh = 0.5
+        elif merge_type == 'addition':
+            cs_thresh = 0.01
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
@@ -615,7 +621,7 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
-        spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+        spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                          grp_name, stage, frequency, rater, subs, sessions, 
                          reject_artf, self.tracking) 
         spindle.whales(method, merge_type, chan, rater, stage, ref_chan, grp_name, 
