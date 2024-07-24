@@ -314,7 +314,7 @@ class whales:
     def whales(self, method, merge_type, chan, rater, stage, ref_chan, grp_name, keyword,
                      cs_thresh, min_duration, s_freq=None, frequency=(11, 16), 
                      duration= (0.5, 3), evt_out = 'spindle', weights=None, 
-                     outfile='export_params_log.txt', filetype = '.edf'):
+                     outfile='spindle_optimisation_log.txt', filetype = '.edf'):
         
         ### 0.a Set up logging
         flag = 0
@@ -347,8 +347,11 @@ class whales:
                         Wonambi Heuristic Approach to Locating Elementary Spindles
                         (W.H.A.L.E.S)
                         
+                        
+                        Combining events using method: {merge_type}
+                        
                         """,)
-        
+
 
         ### 1. First we check the directories
         # a. Check for output folder, if doesn't exist, create
@@ -438,20 +441,23 @@ class whales:
                                      min_duration = min_duration,
                                      weights = weights)
                     
-                    if merge_type == 'consensus':
-                        logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')
-                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})') # save consensus event
-                    elif merge_type == 'addition':
-                        logger.debug(f'Adding spindle events for {sub}, {ses}, {ch}')
-                        ac_events = deepcopy(cons.events)
-                        all_events = [x for y in all_events for x in y]
+                    logger.debug(f'Combining events for {sub}, {ses}, {ch}')
+                    cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+                    
+                    # if merge_type == 'consensus':
+                    #     logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')
+                    #     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})') # save consensus event
+                    # elif merge_type == 'addition':
+                    #     logger.debug(f'Adding spindle events for {sub}, {ses}, {ch}')
+                    #     ac_events = deepcopy(cons.events)
+                    #     all_events = [x for y in all_events for x in y]
                         
-                        for pair in product(all_events, ac_events):
-                            st = pair[1]['start'] < pair[0]['start'] < pair[1]['end']
-                            fin = pair[1]['start'] < pair[0]['end'] < pair[1]['end']
-                            if st or fin:
-                                cons.events.remove(pair[0])
-                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+                    #     for pair in product(all_events, ac_events):
+                    #         st = pair[1]['start'] < pair[0]['start'] < pair[1]['end']
+                    #         fin = pair[1]['start'] < pair[0]['end'] < pair[1]['end']
+                    #         if st or fin:
+                    #             cons.events.remove(pair[0])
+                    #     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
 
         return 
     
