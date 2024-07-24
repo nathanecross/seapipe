@@ -9,16 +9,14 @@ Different markers of macro-architecture (see definitions in section :ref:`Output
 
 **You will need to run two functions:**
 
-1) Extract macro sleep characteristics 
-   * It will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
+1) Extract macro sleep characteristics: it will extract a .csv file including macro-architecture variables wholenight and per cycle for each subject and each session in ``root_dir/OUT/staging/``
 
 .. code-block:: python
 
    project_name.export_macro_stats()
 
 
-2) Create datasets combining all the subjects
-   * It will combine all .csv into a single dataset per session (one row per subject) in ``root_dir/OUT/datasets/``
+2) Create datasets combining all the subjects: it will combine all .csv into a single dataset per session (one row per subject) in ``root_dir/OUT/datasets/``
 
 .. code-block:: python
 
@@ -124,7 +122,7 @@ Create datasets
     **out_dir**
         * Output path for the created datasets
 
-        * Default is ``None`` which will point to ``root_dir/OUT/datasets/macro/``
+        * Default is ``None`` which will point to ``root_dir/OUT/macro/``
 
     **subs**
         * Subject to export in the datasets
@@ -155,8 +153,9 @@ Create datasets
 
             * Default is ``None`` which will create a .csv extracting macro-architecture for whole-night only (from light off to light on)
     
-            * If you put a list of cycle number (e.g., [1,2,3]), it will extract macro-architecture per cycle *!!! Make sure you marked the cycles on the .xml 
-            in staging (see wonambi)!!!*
+            * If you put a list of cycle number (e.g., [1,2,3]), it will extract macro-architecture per cycle *
+            .. note::
+            Make sure you marked the cycles on the .xml in ``root_dir/OUT/staging/``!!!
 
     **outfile**
         * Extraction of output file
