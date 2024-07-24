@@ -126,12 +126,13 @@ Extract slow oscillations
             * The pipeline can also read .eeg, .set formats
 
     **method**
-        * Method of SOs detection (i.e., Staresina2015, Ngo2015, Massimini2004) 
+        * Method of SOs detection (i.e., Staresina2015, Ngo2015, Massimini2004,AASM/Massimini2004) 
 
-        * Default is ``['Staresina2015']`` method  
+        * *Acceptable options:*
 
-     .. note::
-    Only ``['Staresina2015', 'Massimini2004', 'AASM/Massimini2004']`` methods can be run simultaneously. ``['Ngo2015']`` can only be runned separately with ``average_channels = True``
+            * Default is ``['Staresina2015']`` method  
+            
+            * Only ``['Staresina2015', 'Massimini2004', 'AASM/Massimini2004']`` methods can be run simultaneously. ``['Ngo2015']`` can only be runned separately with ``average_channels = True``
 
     **chan**
         * Channel(s) of interest
@@ -433,14 +434,14 @@ To run per method if usin multiple detection methods
 
 
      .. note::
-    By default:
-    * - *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
+        By default
+        * - *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
 
-    * - it will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* 
-    with ``concat_stage = True``.
+        * - it will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* 
+        with ``concat_stage = True``.
 
-    * - it will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* 
-    with ``concat_cycle = False`` and ``concat_stage = False``.
+        * - it will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* 
+        with ``concat_cycle = False`` and ``concat_stage = False``.
 
 
 
@@ -581,7 +582,7 @@ Create datasets
             * If put ``False``, it won't extract .csv file 
 
 
-.. note::
+.. hint::
     To combine datasets, use the *trawl* function (see XXXX)
 
 
