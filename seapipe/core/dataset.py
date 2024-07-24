@@ -452,8 +452,8 @@ class pipeline:
             logger.critical('SO detection finished with ERRORS. See log for details.')
         else:   
            SO = seasnakes(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                            grp_name, stage, rater, subs, sessions, reject_artf,
-                            self.tracking) 
+                            grp_name, stage, rater, subs, sessions, 
+                            self.tracking, reject_artf) 
            SO.detect_slowosc(method, cat, cycle_idx, duration, 
                                   average_channels, invert, filetype, outfile)
            try:
