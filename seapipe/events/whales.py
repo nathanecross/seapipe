@@ -218,7 +218,7 @@ class whales:
                     if adap_bands == 'Fixed':
                         freq = self.frequency
                     elif adap_bands == 'Manual':
-                        freq = read_manual_peaks(sub, ses, ch, 
+                        freq = read_manual_peaks(self.rootpath, sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands == 'Auto':
                         stagename = '-'.join(self.stage)

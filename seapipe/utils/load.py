@@ -260,10 +260,10 @@ def rename_channels(sub, ses, chan, logger):
     return newchans
 
 
-def check_adap_bands(self, subs, sessions, chan, logger):
+def check_adap_bands(rootpath, subs, sessions, chan, logger):
     
     try:
-        track = read_tracking_sheet(f'{self.rootpath}', logger)
+        track = read_tracking_sheet(rootpath, logger)
     except:
         logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
@@ -315,10 +315,10 @@ def check_adap_bands(self, subs, sessions, chan, logger):
     return flag
     
 
-def read_manual_peaks(self, sub, ses, chan, adap_bw, logger):
+def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
     
     try:
-        track = read_tracking_sheet(f'{self.rootpath}', logger)
+        track = read_tracking_sheet(rootpath, logger)
     except:
         logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")

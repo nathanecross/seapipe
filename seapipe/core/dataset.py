@@ -515,7 +515,7 @@ class pipeline:
         elif adap_bands == 'Manual':
             logger.debug('Detection using ADAPTED (user-provided) frequency bands has been selected (adap_bands = Manual)')
             logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
-            flag = check_adap_bands(self, subs, sessions, chan, logger)
+            flag = check_adap_bands(self.rootpath, subs, sessions, chan, logger)
             if flag == 'error':
                 logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
