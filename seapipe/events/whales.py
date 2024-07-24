@@ -61,7 +61,7 @@ class whales:
         self.tracking = tracking
 
     def whale_it(self, method, cat, cycle_idx = None, adap_bands = False, 
-                       peaks = None, adap_bw = 4, duration = (0.5, 3), 
+                       adap_bw = 4, duration = (0.5, 3), 
                        filetype = '.edf', outfile = 'detect_spindles_log.txt'):
         
         '''
@@ -218,7 +218,7 @@ class whales:
                     if adap_bands == 'Fixed':
                         freq = self.frequency
                     elif adap_bands == 'Manual':
-                        freq = read_manual_peaks(sub, ses, peaks, ch, 
+                        freq = read_manual_peaks(sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands == 'Auto':
                         stagename = '-'.join(self.stage)

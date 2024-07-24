@@ -315,48 +315,52 @@ def check_adap_bands(self, subs, sessions, chan, logger):
     return flag
     
 
-def read_manual_peaks(sub, ses, frequency, chan, adap_bw, logger):
+def read_manual_peaks(self, sub, ses, chan, adap_bw, logger):
+    
+    try:
+        track = read_tracking_sheet(f'{self.rootpath}', logger)
+    except:
+        logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
+        logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.info('-' * 10)
+        return 'error'
 
-    if type(frequency) == type(DataFrame()):
-        # Search participant
-        chans = frequency[frequency['sub']==sub]
-        if len(chans.columns) == 0:
-            logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
-            return None
-        # Search session
-        chans = chans[chans['ses']==ses]
-        if len(chans.columns) == 0:
-            logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
-            return None
-        
-        # Search channel
-        chans = chans.filter(regex='chanset')
-        chans = chans.filter(regex='^((?!rename).)*$')
-        chans = chans.filter(regex='^((?!peaks).)*$')
-        chans = chans.filter(regex='^((?!invert).)*$')
-        chans = chans.dropna(axis=1, how='all')
-        peaks = chans.filter(regex='peaks')
-        peaks = peaks.dropna(axis=1, how='all')
-        
-        if len(peaks.columns) == 0:
-            logger.warning(f"No spectral peaks found in tracking file for {sub}, {ses}.")
-            return None
+    track = track[track['sub']==sub]
+    if len(track.columns) == 0:
+        logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+        return None
+    # Search session
+    track = track[track['ses']==ses]
+    if len(track.columns) == 0:
+        logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+        return None
+    
+    # Search channel
+    chans = track.filter(regex='chanset')
+    chans = chans.filter(regex='^((?!rename).)*$')
+    chans = chans.filter(regex='^((?!peaks).)*$')
+    chans = chans.filter(regex='^((?!invert).)*$')
+    chans = chans.dropna(axis=1, how='all')
+    peaks = track.filter(regex='peaks')
+    peaks = peaks.dropna(axis=1, how='all')
+    
+    if len(peaks.columns) == 0:
+        logger.warning(f"No spectral peaks found in tracking file for {sub}, {ses}.")
+        return None
 
-        chans = chans.to_numpy()[0]
-        chans = chans.astype(str)
-        chans = char.split(chans, sep=', ')
-        chans = [x for y in chans for x in y]
-        
-        peaks = peaks.to_numpy()[0]
-        peaks = peaks.astype(str)
-        peaks = char.split(peaks, sep=', ')
-        peaks = [float(x) for y in peaks for x in y]
-        
-        freq = (peaks[chans.index(chan)] - adap_bw/2, 
-                peaks[chans.index(chan)] + adap_bw/2)
-        
-    else:
-        freq = None
+    chans = chans.to_numpy()[0]
+    chans = chans.astype(str)
+    chans = char.split(chans, sep=', ')
+    chans = [x for y in chans for x in y]
+    
+    peaks = peaks.to_numpy()[0]
+    peaks = peaks.astype(str)
+    peaks = char.split(peaks, sep=', ')
+    peaks = [float(x) for y in peaks for x in y]
+    
+    freq = (peaks[chans.index(chan)] - adap_bw/2, 
+            peaks[chans.index(chan)] + adap_bw/2)
+
     
     return freq
 

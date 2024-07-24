@@ -523,7 +523,6 @@ class pipeline:
                 logger.info('')
                 logger.warning(f"Some spectral peak entries in 'tracking.tsv' are inconsistent or missing. In these cases, detection will revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
                 logger.info('')
-            peaks = check_chans(self.rootpath, None, False, logger)
         elif adap_bands == 'Auto': 
             if not frequency:
                 frequency = (9,16)           
@@ -570,7 +569,7 @@ class pipeline:
            spindle = whales(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                             grp_name, stage, frequency, rater, subs, sessions, 
                             reject_artf, self.tracking) 
-           spindle.whale_it(method, cat, cycle_idx, adap_bands, peaks, adap_bw, 
+           spindle.whale_it(method, cat, cycle_idx, adap_bands, adap_bw, 
                             duration, filetype, outfile)
            try:
                self.tracking = self.tracking | spindle.tracking
