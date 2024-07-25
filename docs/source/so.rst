@@ -13,9 +13,12 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
 
     * `Staresina et al. (2015) <https://doi.org/10.1038/nn.4119>`_: SO detection (<1.25Hz) with an adapted amplitude criteria per individual and channel
     
-        Method in brief: `Link text <link URL>`_
+       Method in brief:
+
         1. Filter the signal (FIR bandpass filter, 0.5–1.25 Hz, order = 3); 
-        2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.8-2 sec; 
+
+        2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.8-2 sec;
+         
         3. Keep the top 25% of events with the largest trough-to-peak amplitudes. 
 
     * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels 
