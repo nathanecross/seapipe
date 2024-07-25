@@ -44,6 +44,7 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
 .. admonition:: polarity of recordings
     
     The shape and orientation of slow oscillations depends on the manner of recording, specifically whether they are detected from inside (intracranial EEG, iEEG) or from outside (scalp EEG) the brain.
+    
     .. image:: images/polarity.tiff
         :width: 600
     
