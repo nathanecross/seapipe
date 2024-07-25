@@ -18,7 +18,7 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
         1. Filter the signal (FIR bandpass filter, 0.5–1.25 Hz, order = 3); 
 
         2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.8-2 sec;
-         
+
         3. Keep the top 25% of events with the largest trough-to-peak amplitudes. 
 
     * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels 
@@ -42,6 +42,7 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
         1. Same as Massimini et al. 2004, except to keep the events with a negative-to-positive peak-to-peak amplitude >75 uV.
 
 .. admonition:: polarity of recordings
+    
     The shape and orientation of slow oscillations depends on the manner of recording, specifically whether they are detected from inside (intracranial EEG, iEEG) or from outside (scalp EEG) the brain.
     .. image:: images/polarity.tiff
         :width: 600
