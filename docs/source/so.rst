@@ -5,37 +5,52 @@ Slow Oscillations
 
 Overview
 ------------
-Slow oscillations (SOs) are biphasic waves corresponding to the alternation between two stable membranes potential levels (UP states = depolarization and DOWN states = hyperpolarization).Oscillating below 1.25 Hz, SOs are generated during NREM2 and NREM3.
+Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
 
-| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output`) can be extracted across NREM (N2+N3), per stage and/or per cycle.
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output<Outputs of Slow Oscillations>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
-| We propose 4 standardized published methods to automatically detect SOs :
+| Seapipe provides 4 published methods to automatically detect SOs:
 
-    * *Staresina et al. (2015)*: recommended for event detection (<1.25Hz) with amplitude adapted per individual per channel
+    * `Staresina et al. (2015) <https://doi.org/10.1038/nn.4119>`_: SO detection (<1.25Hz) with an adapted amplitude criteria per individual and channel
     
-        Method in brief: 1. Filter the signal (two-pass FIR bandpass filter, 0.5–1.25 Hz, order = 3); 2. A positive-to-negative zero crossing and a subsequent 
-        negative-to-positive zero crossing separated by 0.8-2 sec; 3. Top 25% of events with the largest amplitudes for trough-to-peak amplitude between two 
-        positive-to-negative zero crossings. `see reference`_.
-.. _see reference: https://doi.org/10.1038/nn.4119
+        Method in brief: `Link text <link URL>`_
+        1. Filter the signal (FIR bandpass filter, 0.5–1.25 Hz, order = 3); 
+        2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.8-2 sec; 
+        3. Keep the top 25% of events with the largest trough-to-peak amplitudes. 
 
-    * *Ngo et al. (2015)*: recommended for event detection (<3.5Hz) with amplitude adapted per individual across several channels (average)
-    Method in brief: 1. Filter the signal (lowpass filter, 3.5 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
-    separated by 0.833-2 sec ; 3. A negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject. `see reference`_.
-.. _see reference: https://doi.org/10.1016/j.neuron.2013.03.006
-
-    * *Massimini et al. (2004)*: recommended for detection of SOs with rigid criteria
+    * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels 
     
-    Method in brief: 1. Filter the signal (bandpass, 0.1-4 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
-    separated by 0.3-1 sec; 3. A negative peak between the two zero crossings with voltage less than -80 uV,; 4. A negative-to-positive peak-to-peak 
-    amplitude >140 uV. `see reference`_.
-.. _see reference: https://doi.org/10.1523/JNEUROSCI.1318-04.2004
+        Method in brief: 
+        1. Filter the signal (FIR lowpass filter, 3.5 Hz); 
+        2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.833-2 sec; 
+        3. Keep the events with a negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject.
 
-    * *Adapted Massimini et al*: recommended for detection of SOs with rigid criteria (based on AASM)
+    * `Massimini et al. (2004) <https://doi.org/10.1523/JNEUROSCI.1318-04.2004>`_: SO detection with a rigid amplitude criteria
+    
+        Method in brief: 
+        1. Filter the signal (FIR bandpass filter, 0.1-4 Hz); 
+        2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.3-1 sec; 
+        3. Keep the events with a negative peak less than -80 uV,; 
+        4. Keep the events with a negative-to-positive peak-to-peak amplitude >140 uV.
+
+    * *Adapted Massimini et al*: adapted SO detection with rigid amplitude criteria (lowered based on `AASM criteria for slow wave activity <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5406946/>`_)
    
-    Method in brief: 1. Filter the signal (bandpass, 0.1-4 Hz); 2. A positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing 
-    separated by 0.25-1 sec; 3. A negative peak between the two zero crossings with voltage less than -40 uV,; 4. A negative-to-positive peak-to-peak 
-    amplitude >75 uV.
+        Method in brief: 
+        1. Same as Massimini et al. 2004, except to keep the events with a negative-to-positive peak-to-peak amplitude >75 uV.
 
+.. admonition:: polarity of recordings
+    The shape and orientation of slow oscillations depends on the manner of recording, specifically whether they are detected from inside (intracranial EEG, iEEG) or from outside (scalp EEG) the brain.
+    .. image:: images/polarity.tiff
+        :width: 600
+    
+    When working with scalp EEG, it is also common that recordings are 'inverted' before they are exported.
+    The importance of keeping track of the polarity of the EEG data is related to which direction corresponds to the (‘UP’ or 'DOWN'), 
+    as this will determine the underlying physiological and biological interpretation! This is especially relevant when running Phase-Amplitude Coupling. 
+    Therefore it is recommended that you confirm the polarity of your recordings prior to commencing any analyses.
+
+.. _Functions:
+Functions
+----------------
 | **You will need to run three functions:**
 
 1) Detect SOs events: it will copy the .xml from ``root_dir/OUT/staging/`` to ``root_dir/OUT/slowwave/`` and write events detected 
@@ -58,8 +73,8 @@ Slow oscillations (SOs) are biphasic waves corresponding to the alternation betw
    project_name.event_dataset()
  
 
-.. _extraction_SO:
-Extract slow oscillations
+.. _detection_SO:
+Detect slow oscillations
 ----------------
 *Command line argument:*
 
@@ -588,10 +603,10 @@ Create datasets
 
 
 .. _output:
-Output
+Outputs of Slow Oscillations
 ----------------
 
-*Markers of SOs characteristics:*
+*Parameters of SOs characteristics:*
 
     **Count** : Number of SOs detected 
 
