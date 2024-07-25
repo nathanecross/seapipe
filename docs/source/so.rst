@@ -47,7 +47,7 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
     
     .. image:: images/polarity.png
         :width: 600
-|    
+    |    
     When working with scalp EEG, it is also common that recordings are 'inverted' before they are exported.
     The importance of keeping track of the polarity of the EEG data is related to which direction corresponds to the (‘UP’ or 'DOWN'), 
     as this will determine the underlying physiological and biological interpretation! This is especially relevant when running Phase-Amplitude Coupling. 
