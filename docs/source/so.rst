@@ -7,7 +7,7 @@ Overview
 ------------
 Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
 
-| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output<Outputs of Slow Oscillations>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output <Outputs of Slow Oscillations>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
 | Seapipe provides 4 published methods to automatically detect SOs:
 
