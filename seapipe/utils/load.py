@@ -274,6 +274,7 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
     try:
         track = read_tracking_sheet(rootpath, logger)
     except:
+        logger.error("Error reading tracking sheet. Check that it isn't open.")
         logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
@@ -329,6 +330,7 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
     try:
         track = read_tracking_sheet(rootpath, logger)
     except:
+        logger.error("Error reading tracking sheet. Check that it isn't open.")
         logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
