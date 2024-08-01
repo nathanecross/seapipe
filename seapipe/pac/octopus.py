@@ -71,11 +71,12 @@ def pac_method(method, surrogate, correction, list_methods=False):
 
 class octopus:
 
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs = 'all', 
                  sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                  tracking = None):
         
+        self.rootpath = rootpath
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
@@ -343,7 +344,7 @@ class octopus:
                     if adap_bands_phase == 'Fixed':
                         f_pha = frequency_phase   
                     elif adap_bands_phase == 'Manual':
-                        f_pha = read_manual_peaks(sub, ses, peaks, ch, 
+                        f_pha = read_manual_peaks(self.roothpath, sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands_phase == 'Auto':
                         stagename = '-'.join(self.stage)
@@ -364,7 +365,7 @@ class octopus:
                     if adap_bands_amplitude == 'Fixed':
                         f_amp = frequency_amplitude   
                     elif adap_bands_amplitude == 'Manual':
-                        f_amp = read_manual_peaks(sub, ses, peaks, ch, 
+                        f_amp = read_manual_peaks(self.roothpath, sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands_amplitude == 'Auto':
                         stagename = '-'.join(self.stage)

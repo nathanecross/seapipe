@@ -27,10 +27,11 @@ class FISH:
     '''
     
     
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, rater = None,
                  subs = 'all', sessions = 'all', tracking = None):
         
+        self.rootpath = rootpath
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
@@ -264,7 +265,7 @@ class FISH:
                                         return
                                 elif adap_bands == 'Manual':
                                     logger.debug("Adapted bands has been set as 'Manual'. Will search for peaks within the tracking sheet")
-                                    freq = read_manual_peaks(sub, ses, peaks, channel, 
+                                    freq = read_manual_peaks(self.rootpath, sub, ses, channel, 
                                                              adap_bw, logger)
                                 elif adap_bands == 'Auto':
                                     stagename = '-'.join(self.stage)
@@ -302,17 +303,24 @@ class FISH:
                                 
                                 if len(evts) == 0:
                                     logger.info('')
-                                    logger.warning(f"Events haven't been detected for {sub}, {ses} on channel {channel}, skipping...")
+                                    logger.warning(f"Events: '{event}' haven't been detected for {sub}, {ses} on channel {channel}, skipping...")
                                 
                                 ### WHOLE NIGHT ###
                                 elif model == 'whole_night':
-                                    segments = fetch(dataset, annot, cat=cat, 
-                                                     evt_type=[event], 
-                                                     cycle=cycle, chan_full=chan_ful, 
-                                                     reject_epoch=True, 
-                                                     reject_artf = ['Artefact', 'Arou', 'Arousal'],)
-                                    segments.read_data([channel], chanset[channel], 
-                                                       grp_name=self.grp_name)
+                                    try:
+                                        segments = fetch(dataset, annot, cat=cat, 
+                                                         evt_type=[event], 
+                                                         cycle=cycle, chan_full=chan_ful, 
+                                                         reject_epoch=True, 
+                                                         reject_artf = ['Artefact', 'Arou', 'Arousal'],)
+                                        segments.read_data([channel], chanset[channel], 
+                                                           grp_name=self.grp_name)
+                                    except Exception as e:
+                                        logger.error(e)
+                                        logger.warning(f'No valid data found for {sub}, {ses}.')
+                                        flag +=1
+                                        break
+                                        # Get times
                                     poi = get_times(annot, stage=self.stage, 
                                                     cycle=cycle, 
                                                     chan=[channel], 
@@ -324,8 +332,6 @@ class FISH:
                                     logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
                                     logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                     logger.info('')
-                                    
-                                    
                                     # Export event parameters 
                                     lg = create_logger_empty()
                                     try:
@@ -367,7 +373,12 @@ class FISH:
                                                                  min_dur=0.5)
                                                 segments.read_data([channel], chanset[channel], 
                                                                    grp_name=self.grp_name)
-                                                
+                                            except Exception as e:
+                                                logger.error(e)
+                                                logger.warning(f'No valid data found for {sub}, {ses}, STAGE {st} in CYCLE {cy+1}.')
+                                                flag +=1
+                                                break
+                                                # Get times
                                                 if isinstance(chan_ful, ndarray):
                                                     if len(chan_ful) > 1:
                                                         chan_ful = chan_ful[0]
@@ -407,9 +418,7 @@ class FISH:
                                                 export_event_params(outputfile, data, 
                                                                     count=len(evts), 
                                                                     density=density)
-                                                logger.debug('Writing to ' + outputfile) 
-                                            except:
-                                                logger.warning(f'No STAGE {st} in CYCLE {cy+1}')   
+                                                logger.debug('Writing to ' + outputfile)   
                                         continue 
                                 
                                 ### PER STAGE ###
@@ -425,6 +434,12 @@ class FISH:
                                                          min_dur=0.5)
                                             segments.read_data([channel], chanset[channel], 
                                                                grp_name=self.grp_name)
+                                        except Exception as e:
+                                            logger.error(e)
+                                            logger.warning(f'No valid data found for {sub}, {ses}, {st}.')
+                                            flag +=1
+                                            break
+                                            # Get times
                                             poi = get_times(annot, stage=[st], cycle=cycle, 
                                                             chan=[channel], exclude=True)
                                             total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
@@ -438,7 +453,6 @@ class FISH:
                                             logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
-        
                                             # Export event parameters 
                                             lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
@@ -459,10 +473,7 @@ class FISH:
                                                                 count=len(evts), 
                                                                 density=density)
                                             logger.debug('Writing to ' + outputfile) 
-                                        except:
-                                            logger.warning(f'No valid data found for {sub}, {ses}, {st}.')
-                                            flag +=1
-                                            break
+                                        
           
                                 ### PER CYCLE ###
                                 elif model == 'per_cycle': 
@@ -482,7 +493,12 @@ class FISH:
                                                              min_dur=0.5)
                                             segments.read_data([channel], chanset[channel], 
                                                                grp_name=self.grp_name)
-                                            
+                                        except Exception as e:
+                                            logger.error(e)
+                                            logger.warning(f'No valid data found for {sub}, {ses}, {cy}.')
+                                            flag +=1
+                                            break
+                                            # Get times
                                             if isinstance(chan_ful, ndarray):
                                                 if len(chan_ful) > 1:
                                                     chan_ful = chan_ful[0]
@@ -506,8 +522,6 @@ class FISH:
                                             logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
-    
-                                            
                                             # Export event parameters 
                                             lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
@@ -524,8 +538,6 @@ class FISH:
                                                                 count=len(evts), 
                                                                 density=density)
                                             logger.debug('Writing to ' + outputfile)
-                                        except:
-                                            logger.warning(f'No data in CYCLE {cy+1}')    
                                         continue 
                                     
                                 ### PER SEGMENT ###

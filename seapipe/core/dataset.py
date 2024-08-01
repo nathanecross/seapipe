@@ -766,7 +766,7 @@ class pipeline:
             logger.critical('Phase amplitude coupling finished with ERRORS. See log for details.')
             return
 
-        Octopus = octopus(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+        Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                           grp_name, stage, rater, subs, sessions, reject_artf,
                           self.tracking)
         
@@ -889,7 +889,7 @@ class pipeline:
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
         # Run line
-        fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
+        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
                           stage, rater, subs, sessions, self.tracking) 
         fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
                   peaks, adap_bw, params, epoch_dur, Ngo, outfile)
