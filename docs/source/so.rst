@@ -67,26 +67,30 @@ Functions to detect Slow Oscillations
 ----------------
 | **Detecting Slow Oscillations and extracting their parameters will involve three functions:**
 
-1) Detect SOs events:  
+1) Detect slow oscillation events:  
 
 .. code-block:: python
 
    project.detect_slow_oscillations()
 |
-    This will copy the :doc:`Annotations file <_Annotations file>` from 'root_dir/OUT/staging/' to '<root_dir>/OUT/slowwave/' and write events detected
+    This will copy the :doc:`Annotations file <_Annotations file>` from ``<xml_dir>`` to ``<root_dir>/OUT/slowwave/`` and write in the detected events. 
 |
-2) Export event characteristics per method: it will extract a .csv file per channel and/or stage in the subject and session folders in ``root_dir/OUT/slowwave/`` 
+2) Export event characteristics: 
 
 .. code-block:: python
 
    project_name.export_eventparams()
- 
-3) Create datasets combining all the subjects: it will combine all .csv into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+|   
+    This will extract a ``.csv`` file per channel and/or stage and/or cycle into the ``<sub>`` and ``<ses>`` folders in ``<root_dir>/OUT/slowwave/`` 
+|
+3) Create datasets combining all the subjects: 
 
 .. code-block:: python
 
    project_name.event_dataset()
- 
+|
+    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+|
 
 .. _detection_SO:
 Detect slow oscillations
@@ -95,22 +99,22 @@ Detect slow oscillations
 
 .. code-block:: python
 
-    project.detect_slow_oscillations(xml_dir=None, 
-                                    out_dir=None, 
-                                    subs='all', 
-                                    sessions='all', 
-                                    filetype='.edf', 
+    project.detect_slow_oscillations(xml_dir = None, 
+                                    out_dir = None, 
+                                    subs = 'all', 
+                                    sessions = 'all', 
+                                    filetype = '.edf', 
                                     method = ['Staresina2015'], 
-                                    chan=None,
-                                    ref_chan=None, 
-                                    rater=None, 
-                                    grp_name='eeg', 
+                                    chan = None,
+                                    ref_chan = None, 
+                                    rater = None, 
+                                    grp_name = 'eeg', 
                                     stage = ['NREM2','NREM3'], 
-                                    cycle_idx=None, 
-                                    duration=(0.2, 2), 
+                                    cycle_idx = None, 
+                                    duration = (0.2, 2), 
                                     invert = None,
                                     average_channels = False, 
-                                    outfile=True)
+                                    outfile = True)
 
 
 *Positional arguments:*
