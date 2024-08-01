@@ -75,8 +75,8 @@ Functions to detect Slow Oscillations
 .. code-block:: python
 
    project.detect_slow_oscillations()
-
-    This will copy the :doc: `_Annotations file`_ from ``<root_dir>/OUT/staging/`` to ``<root_dir>/OUT/slowwave/`` and write events detected
+|
+    This will copy the :ref:`Annotations file <_Annotations file>` from 'root_dir/OUT/staging/' to '<root_dir>/OUT/slowwave/' and write events detected
 |
 2) Export event characteristics per method: it will extract a .csv file per channel and/or stage in the subject and session folders in ``root_dir/OUT/slowwave/`` 
 
