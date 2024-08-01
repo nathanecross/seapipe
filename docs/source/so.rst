@@ -5,13 +5,14 @@ Slow Oscillations
 
 Overview
 ------------
-Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
+Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization 
+and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
 
 | Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output <_output_so>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
 | Seapipe provides 4 published methods to automatically detect SOs:
 
-    * `Staresina et al. (2015) <https://doi.org/10.1038/nn.4119>`_: SO detection (<1.25Hz) with an adapted amplitude criteria per individual and channel
+    * `Staresina et al. (2015) <https://doi.org/10.1038/nn.4119>`_: SO detection (<1.25Hz) with an adapted amplitude criteria per individual and channel.
     
        Method in brief:
 
@@ -21,24 +22,32 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
 
         3. Keep the top 25% of events with the largest trough-to-peak amplitudes. 
 
-    * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels 
+    * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels. 
     
         Method in brief: 
+
         1. Filter the signal (FIR lowpass filter, 3.5 Hz); 
+
         2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.833-2 sec; 
+
         3. Keep the events with a negative peak amplitude lower than 1.25 times the mean negative peak amplitude per subject.
 
-    * `Massimini et al. (2004) <https://doi.org/10.1523/JNEUROSCI.1318-04.2004>`_: SO detection with a rigid amplitude criteria
+    * `Massimini et al. (2004) <https://doi.org/10.1523/JNEUROSCI.1318-04.2004>`_: SO detection with a rigid amplitude criteria.
     
         Method in brief: 
+
         1. Filter the signal (FIR bandpass filter, 0.1-4 Hz); 
+
         2. Identify events with a positive-to-negative zero crossing and a subsequent negative-to-positive zero crossing separated by 0.3-1 sec; 
+
         3. Keep the events with a negative peak less than -80 uV,; 
+
         4. Keep the events with a negative-to-positive peak-to-peak amplitude >140 uV.
 
-    * *Adapted Massimini et al*: adapted SO detection with rigid amplitude criteria (lowered based on `AASM criteria for slow wave activity <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5406946/>`_)
+    * *Adapted Massimini et al*: adapted SO detection with rigid amplitude criteria (lowered based on  `AASM criteria for slow wave activity <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5406946/>`_).
    
-        Method in brief: 
+        Method in brief:
+
         1. Same as Massimini et al. 2004, except to keep the events with a negative-to-positive peak-to-peak amplitude >75 uV.
 
 .. admonition:: polarity of recordings
@@ -46,7 +55,7 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
     The shape and orientation of slow oscillations depends on the manner of recording, specifically whether they are detected from inside (intracranial EEG, iEEG) or from outside (scalp EEG) the brain.
     
     .. image:: images/polarity.png
-        :width: 600
+        :width: 700
     |    
     When working with scalp EEG, it is also common that recordings are 'inverted' before they are exported.
     The importance of keeping track of the polarity of the EEG data is related to which direction corresponds to the (‘UP’ or 'DOWN'), 
@@ -54,29 +63,34 @@ Slow oscillations (SOs) are coherent waves corresponding to the alternation betw
     Therefore it is recommended that you confirm the polarity of your recordings prior to commencing any analyses.
 
 .. _Functions:
-Functions
+Functions to detect Slow Oscillations
 ----------------
-| **You will need to run three functions:**
+| **Detecting Slow Oscillations and extracting their parameters will involve three functions:**
 
-1) Detect SOs events: it will copy the .xml from ``root_dir/OUT/staging/`` to ``root_dir/OUT/slowwave/`` and write events detected 
+1) Detect slow oscillation events:  
 
 .. code-block:: python
 
    project.detect_slow_oscillations()
-
-
-2) Export event characteristics per method: it will extract a .csv file per channel and/or stage in the subject and session folders in ``root_dir/OUT/slowwave/`` 
+|
+    This will copy the :doc:`Annotations file <_Annotations file>` from ``<xml_dir>`` to ``<root_dir>/OUT/slowwave/`` and write in the detected events. 
+|
+2) Export event characteristics: 
 
 .. code-block:: python
 
    project_name.export_eventparams()
- 
-3) Create datasets combining all the subjects: it will combine all .csv into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+|   
+    This will extract a ``.csv`` file per channel and/or stage and/or cycle into the ``<sub>`` and ``<ses>`` folders in ``<root_dir>/OUT/slowwave/`` 
+|
+3) Create datasets combining all the subjects: 
 
 .. code-block:: python
 
    project_name.event_dataset()
- 
+|
+    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+|
 
 .. _detection_SO:
 Detect slow oscillations
@@ -85,22 +99,22 @@ Detect slow oscillations
 
 .. code-block:: python
 
-    project.detect_slow_oscillations(xml_dir=None, 
-                                    out_dir=None, 
-                                    subs='all', 
-                                    sessions='all', 
-                                    filetype='.edf', 
+    project.detect_slow_oscillations(xml_dir = None, 
+                                    out_dir = None, 
+                                    subs = 'all', 
+                                    sessions = 'all', 
+                                    filetype = '.edf', 
                                     method = ['Staresina2015'], 
-                                    chan=None,
-                                    ref_chan=None, 
-                                    rater=None, 
-                                    grp_name='eeg', 
+                                    chan = None,
+                                    ref_chan = None, 
+                                    rater = None, 
+                                    grp_name = 'eeg', 
                                     stage = ['NREM2','NREM3'], 
-                                    cycle_idx=None, 
-                                    duration=(0.2, 2), 
+                                    cycle_idx = None, 
+                                    duration = (0.2, 2), 
                                     invert = None,
                                     average_channels = False, 
-                                    outfile=True)
+                                    outfile = True)
 
 
 *Positional arguments:*
