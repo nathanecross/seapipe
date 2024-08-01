@@ -27,7 +27,7 @@ Then you can load a recording by specifying the path to your data.
 
 >>> data = Dataset('/home/username/project/participant/session/eeg/sub-001_ses-01_eeg.edf') 
 
-.. _Annotations file:
+.. _Annotations_file:
 Annotations file
 ----------------
 
