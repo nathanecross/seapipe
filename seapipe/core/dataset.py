@@ -942,7 +942,7 @@ class pipeline:
         if stage == None:
             stage = ['NREM2','NREM3']
             
-        fish = FISH(in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
+        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
                           stage, subs = subs, sessions = sessions) 
         fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
         
