@@ -51,7 +51,7 @@ def select_input_dirs(outpath, xml_dir, evt_name=None):
         
     return xml_dir
 
-def select_ouput_dirs(outpath, out_dir, evt_name=None):
+def select_output_dirs(outpath, out_dir, evt_name=None):
             
     if not out_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 

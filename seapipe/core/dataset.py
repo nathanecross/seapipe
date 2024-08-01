@@ -20,7 +20,7 @@ from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, m
                         track_processing)
 from seapipe.utils.logs import create_logger, create_logger_outfile
 from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs,
-                        select_ouput_dirs)
+                        select_output_dirs)
 
 
 ## TO DO:
@@ -490,7 +490,7 @@ class pipeline:
             xml_dir = f'{self.outpath}/staging'   
         if not out_dir:
             for met in method:
-                out_dir = select_ouput_dirs(self.outpath, out_dir, met)  
+                out_dir = select_output_dirs(self.outpath, out_dir, met)  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -727,7 +727,7 @@ class pipeline:
         if not xml_dir:
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name) 
         if not out_dir:
-            out_dir = select_ouput_dirs(self.outpath, out_dir, 'pac')  
+            out_dir = select_output_dirs(self.outpath, out_dir, 'pac')  
         if not path.exists(out_dir):
             mkdir(out_dir)
         
@@ -808,7 +808,7 @@ class pipeline:
         if not path.exists(log_dir):
             mkdir(log_dir)
         xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
-        out_dir = select_ouput_dirs(self.outpath, out_dir, 'macro')
+        out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
         
         # Set channels
         times, ref_chan = check_chans(self.rootpath, None, True, logger)
@@ -833,7 +833,7 @@ class pipeline:
          out_dir = self.outpath + '/datasets/macro/'
          
          xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
-         out_dir = select_ouput_dirs(self.outpath, out_dir, 'macro')
+         out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
          
          sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
                                  subs, sessions, log_dir, outfile)
@@ -858,7 +858,7 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        out_dir = select_ouput_dirs(self.outpath, out_dir, evt_name)
+        out_dir = select_output_dirs(self.outpath, out_dir, evt_name)
         xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
         
         
@@ -950,15 +950,14 @@ class pipeline:
     
 
     def powerspec_dataset(self, chan, xml_dir = None, out_dir = None, 
-                                subs = 'all', sessions = 'all', stage = None, 
+                                subs = 'all', sessions = 'all', 
+                                stage = ['NREM1','NREM2','NREM3', 'REM'], 
                                 concat_stage = False, concat_cycle = True, 
                                 cycle_idx = None, grp_name = 'eeg', 
-                                rater = None,
-                                adap_bands = 'Fixed', params = 'all', 
-                                general_opts = None, 
-                                frequency_opts = None, filter_opts = None, 
-                                epoch_opts = None, event_opts = None,
-                                outfile=True):
+                                rater = None, params = 'all', 
+                                general_opts = None, frequency_opts = None, 
+                                filter_opts = None, epoch_opts = None, 
+                                event_opts = None, outfile=True):
         
         # Set up logging
         logger = create_logger('Power spectrum dataset')
@@ -971,11 +970,8 @@ class pipeline:
         if not path.exists(self.outpath + '/datasets/'):
             mkdir(self.outpath + '/datasets/')
         
-        if adap_bands in ['Auto','Manual']:
-            out_dir = self.outpath + '/datasets/powerspec_adap'
-            self.track(step='fooof', show = False, log = False)
-        else:
-            out_dir = self.outpath + '/datasets/powerspec'
+        if not out_dir:
+            out_dir = select_output_dirs(self.outpath, out_dir, 'powerspec')
         
         xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name='spectrum')
         if not path.exists(xml_dir):
@@ -1010,10 +1006,6 @@ class pipeline:
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
-        
-        # Default stage
-        if stage == None:
-            stage = ['NREM2','NREM3']
 
         spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
                             ref_chan = None, grp_name = grp_name, stage = stage, 

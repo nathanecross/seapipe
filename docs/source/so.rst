@@ -100,21 +100,21 @@ Detect slow oscillations
 .. code-block:: python
 
     project.detect_slow_oscillations(xml_dir = None, 
-                                    out_dir = None, 
-                                    subs = 'all', 
-                                    sessions = 'all', 
-                                    filetype = '.edf', 
-                                    method = ['Staresina2015'], 
-                                    chan = None,
-                                    ref_chan = None, 
-                                    rater = None, 
-                                    grp_name = 'eeg', 
-                                    stage = ['NREM2','NREM3'], 
-                                    cycle_idx = None, 
-                                    duration = (0.2, 2), 
-                                    invert = None,
-                                    average_channels = False, 
-                                    outfile = True)
+                                     out_dir = None, 
+                                     subs = 'all', 
+                                     sessions = 'all', 
+                                     filetype = '.edf', 
+                                     method = ['Staresina2015'], 
+                                     chan = None,
+                                     ref_chan = None, 
+                                     rater = None, 
+                                     grp_name = 'eeg', 
+                                     stage = ['NREM2','NREM3'], 
+                                     cycle_idx = None, 
+                                     duration = (0.2, 2), 
+                                     invert = None,
+                                     average_channels = False, 
+                                     outfile = True)
 
 
 *Positional arguments:*
