@@ -8,8 +8,7 @@ Overview
 Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization 
 and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
 
-| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output <_output_so>`) can be extracted 
-across NREM (NREM2+NREM3), per stage and/or per cycle.
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output <_output_so>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
 | Seapipe provides 4 published methods to automatically detect SOs:
 
@@ -23,8 +22,7 @@ across NREM (NREM2+NREM3), per stage and/or per cycle.
 
         3. Keep the top 25% of events with the largest trough-to-peak amplitudes. 
 
-    * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual 
-    averaged across several channels. 
+    * `Ngo et al. (2015) <https://doi.org/10.1016/j.neuron.2013.03.006>`_: Slow wave detection (<3.5Hz) with an adapted amplitude criteria per individual averaged across several channels. 
     
         Method in brief: 
 
@@ -46,8 +44,7 @@ across NREM (NREM2+NREM3), per stage and/or per cycle.
 
         4. Keep the events with a negative-to-positive peak-to-peak amplitude >140 uV.
 
-    * *Adapted Massimini et al*: adapted SO detection with rigid amplitude criteria (lowered based on 
-    `AASM criteria for slow wave activity <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5406946/>`_).
+    * *Adapted Massimini et al*: adapted SO detection with rigid amplitude criteria (lowered based on  `AASM criteria for slow wave activity <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5406946/>`_).
    
         Method in brief:
 
@@ -76,7 +73,7 @@ Functions to detect Slow Oscillations
 
    project.detect_slow_oscillations()
 |
-    This will copy the :ref:`Annotations file <_Annotations file>` from 'root_dir/OUT/staging/' to '<root_dir>/OUT/slowwave/' and write events detected
+    This will copy the :doc:`Annotations file <_Annotations file>` from 'root_dir/OUT/staging/' to '<root_dir>/OUT/slowwave/' and write events detected
 |
 2) Export event characteristics per method: it will extract a .csv file per channel and/or stage in the subject and session folders in ``root_dir/OUT/slowwave/`` 
 
