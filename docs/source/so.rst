@@ -119,17 +119,17 @@ Detect slow oscillations
 
 *Positional arguments:*
 
-    **xml_dir**
+    **xml_dir** *(str)*
         * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input Annotations files. 
 
         * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
-    **out_dir**
-        * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., Staresina2015)
+    **out_dir** *(str)*
+        * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., ``Staresina2015``)
 
         * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
 
-    **subs**
+    **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
 
         * *Acceptable options:*
@@ -140,7 +140,7 @@ Detect slow oscillations
 
             * Entering a string of sub IDs (e.g., ``['sub-01', 'sub-02']``) will result in detections for those subjects only
 
-    **sessions**
+    **sessions** *(str, NoneType or list)*
         * Session IDs to analyse per subject
 
         * *Acceptable options:*
@@ -151,7 +151,7 @@ Detect slow oscillations
 
             * Entering a string of ses visits (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
 
-    **filetype**
+    **filetype** *(str)*
         * Format of files containing EEG signal
 
         * *Acceptable options:*
@@ -160,8 +160,8 @@ Detect slow oscillations
 
             * The pipeline can also read ``.eeg``, ``.set`` formats
 
-    **method**
-        * Method for SO detection (i.e., Staresina2015, Ngo2015, Massimini2004,AASM/Massimini2004) 
+    **method** *(list)*
+        * Method for SO detection
 
         * *Acceptable options:*
 
@@ -169,16 +169,16 @@ Detect slow oscillations
             
             * Only ``['Staresina2015', 'Massimini2004', 'AASM/Massimini2004']`` methods can be run simultaneously. ``['Ngo2015']`` can only be runned separately with ``average_channels = True``
 
-    **chan**
+    **chan** *(NoneType or list)*
         * Channel(s) of interest
 
         * *Acceptable options:*
 
             * Default is ``None`` which will point to the *chanset* columns in *tracking* file
 
-            * If you put string of channels' names (e.g., *['Cz']*), it will only detect the selected channels  
+            * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only detect the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
-    **ref_chan**
+    **ref_chan** *(NoneType or list)*
         * Reference channel(s) for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
 
         * *Acceptable options:*

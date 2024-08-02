@@ -51,9 +51,23 @@ First load in the function Annotations
 
 Then,
 
+.. _Channel Names:
+Channel Names
+----------------
 
+*[to be edited]*
+
+.. admonition:: inconsistencies in EEG channel names !!
+
+   When working with EEG studies across several different datasets, you may run into the situation when studies might have been collected 
+   with different recording devices or software, each with their own convention for naming electrodes. This causes serious headaches when
+   trying to automate analyses in mixed datasets.
+   To learn more about how to set up a tracking sheet, and what column names are required for seapipe, see :ref:`Tracking Sheet`
+
+|
 .. _Converting between Formats:
-
+Converting between Formats
+----------------
 
 .. Before running any analyses, it is important to check your data.
 .. For seapipe to run properly, the data needs to be organised in the **Brain Imaging Data Structure (BIDS)**.
