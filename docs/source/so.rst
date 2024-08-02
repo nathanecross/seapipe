@@ -120,7 +120,7 @@ Detect slow oscillations
 *Positional arguments:*
 
     **xml_dir** *(str)*
-        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input Annotations files. 
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input :ref:`Annotations files<Annotations file>`. 
 
         * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
@@ -187,78 +187,86 @@ Detect slow oscillations
 
             * If you put string of channels' names (e.g., *['A1', 'A2']*), it will only re-reference to the channels written 
 
-    **rater**
-        * Name of the rater to analyze
+    **rater** *(NoneType or list)*
+        * Name of the rater in the :ref:`Annotations file` to save the detections under
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
+            * Default is ``None`` which will discard the name of the rater. 
+
+.. admonition:: NOTE
+    This assumes there is only one rater per Annotations file (``.xml``) 
+    !! make sure you don't have multiple raters!!
     
-            * If put string of rater's name (e.g., *[Rater1]*), it will only detects events from this rater per .xml (and create an empty extraction file if the 
+            * If put string of rater's name (e.g., ``[<Rater1>, <Rater2>]``), it will only detects events from this rater per .xml (and create an empty extraction file if the 
             rater is absent)
 
-    **grp_name**
-        * Name of the tab in the montage which includes the channels of interest !! It is for visualization in Wonambi only !!
+    **grp_name** *(str)*
+        * Name of the tab in the the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
 
         * *Acceptable options:*
 
-            * Default is ``eeg`` which is the name we recommend
+            * Default is ``eeg`` which is the recommended naming convention
            
-            * If you put string of channels' names (e.g., *['eeg_hemiR']*), events can only be seen in Wonambi with a montage that includes a tab with this name
+            * If you put string of channels' names (e.g., ``['eeg_hemiR']``), events can only be visualised in :ref:`Wonambi` with a montage that includes a tab with this name
 
-    **stage**
+    **stage** *(list)*
         * Stages of interest
 
         * *Acceptable options:*
 
             * Default is ``['NREM2', 'NREM3']`` 
 
-            * If you put string of stage (e.g., *['NREM3']*), it will only detect the events for this specific stage
+            * Entering a list of stages (e.g., ``['NREM3']``), it will only detect the events for this specific stage. **It is recommended that you leave the default option**
 
-    **cycle_idx**
+    **cycle_idx** *(NoneType or tuple)*
         * Sleep cycle numbers
 
         * *Acceptable options:*
 
             * Default is ``None`` which will infer no cycles 
 
-            * If you put a list of indices corresponding to sleep cycle numbers (e.g., *(1,2,3,4,5,6,7)*), it will only detect the events for these specific 
-            cycles' numbers
+            * If you put a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``), it will only detect the events for these specific 
+            cycles' numbers. If a ``sub`` has less than the number of cycles entered, then the maximum number of cycles possible will be used for that subject.
 
-    **duration**
-        * Minimum and maximum duration of events
+    **duration** *(tuple)*
+        * Minimum and maximum duration of events that will be detected. Any events with durations that are outside these limits will be discarded
 
         * *Acceptable options:*
 
             * Default is ``(0.2, 2)`` 
 
-            * If you put a list of 2 indices (e.g., *(0.2,1)*), it will only detect the events with a duration within this range
+            * Entering a tuple of float with length 2 (e.g., ``(0.5, 1)``)  will limit the detection to events with a duration within this range
 
-    **invert**
+    **invert** *(NoneType or Logical)*
         * Option to invert polarity
 
         * *Acceptable options:*
 
             * Default is ``None`` which will point to the *chanset_invert* columns in *tracking* file. However, if the *tracking* file does not specify *chanset_invert* 
-            columns, it will keep the polarity of the recording as it is 
+            columns, the detection will default to ``False``
 
-            * If you put ``False``, it will keep the polarity of the recording as it is
+            * Entering ``False`` will keep the polarity of the recording as it is
 
-            * If you put ``True``, it will reverse the polarity of the recording 
+            * Entering ``True`` will reverse (flip) the polarity of the recording 
 
-    **average_channels**
-        * Options to average channels before the detection 
+    **average_channels** *(Logical)*
+        * Options to average multiple channels before the detection 
 
-        * Default is ``False``: only pass ``True`` if using the ['Ngo2015'] method
+        * Default is ``False``
+        
+        * Only pass ``True`` if using the ``['Ngo2015']`` method
 
-    **outfile**
-        * Extraction of output file
+    **outfile** *(str or Logical)*
+        * Logging of detection
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a .xml file per subject and per session in ``root_dir/OUT/slowwave/``
+            * Default is ``True`` which will create a logfile *detect_slowosc_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+
+            * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             
-            * If put ``False``, it won't extract the .xml file with the events detection
+            * Entering ``False`` won't save a logfile
 
 
 .. _export_SO:
@@ -269,27 +277,35 @@ To run per method if usin multiple detection methods
 
 .. code-block:: python
 
-    project.export_eventparams(xml_dir = None, 
-                        out_dir = None, 
-                        subs = 'all', 
-                        sessions = 'all', 
-                        chan = None, 
-                        ref_chan = None, 
-                        stage = ['NREM2','NREM3'], 
-                        grp_name = 'eeg',
-                        rater=None, 
-                        cycle_idx = None, 
-                        concat_cycle = True, 
-                        concat_stage = False, 
-                        keyword = None, 
-                        segs = None,
-                        evt_name = 'spindle', #input required
-                        frequency = None,  #input required
-                        params = 'all',  
-                        epoch_dur = 30, 
-                        average_channels = False,
-                        outfile = True)
+    project.export_eventparams(evt_name,
+                               xml_dir = None, 
+                               out_dir = None, 
+                               subs = 'all', 
+                               sessions = 'all', 
+                               chan = None, 
+                               ref_chan = None, 
+                               stage = ['NREM2','NREM3'], 
+                               grp_name = 'eeg',
+                               rater = None, 
+                               cycle_idx = None, 
+                               concat_cycle = True, 
+                               concat_stage = False, 
+                               keyword = None, 
+                               segs = None,
+                               frequency = None,  #input required
+                               params = 'all',  
+                               epoch_dur = 30, 
+                               average_channels = False,
+                               outfile = True)
 
+*Required arguments:*
+
+    **evt_name** *(list or str)*
+        * Name of the event of interest to export from the :ref:`Annotations file` 
+
+        * Entering a string (e.g ``Staresina2015``) which refer to the Whale spindle detection (will lead to an ERROR argument)
+
+        * Put the name of the method used for *detect_slow_oscillations* (e.g., ``['Staresina2015']``) !! One method per extraction !!
 
 *Positional arguments:*
 
@@ -416,15 +432,6 @@ To run per method if usin multiple detection methods
             * Default is ``None`` which will infer no segmentation
 
             * If you put a list of tuples, with both tags named (e.g. *[('N2_ON','N2_OFF'), ('N3_ON','N3_OFF')]*), it will only export the event's characteristics within the events markers (segments)
-
-    **evt_name**
-        * Name of the event of interest to export from the .xml 
-
-        * *Input Required for SO extraction:*
-
-            * Default is ``spindle`` which refer to the Whale spindle detection (will lead to an ERROR argument)
-
-            * Put the name of the method used for *detect_slow_oscillations* (e.g., ``['Staresina2015']``) !! One method per extraction !!
 
     **frequency**
         * Frequency range of interest

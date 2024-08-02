@@ -833,13 +833,14 @@ class pipeline:
                                  subs, sessions, log_dir, outfile)
          return
     
-    def export_eventparams(self, xml_dir = None, out_dir = None, subs = 'all', 
+    def export_eventparams(self, evt_name, 
+                                 xml_dir = None, out_dir = None, subs = 'all', 
                                  sessions = 'all', chan = None, ref_chan = None, 
                                  stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                                  rater = None, cycle_idx = None, 
                                  concat_cycle = True, concat_stage = False, 
                                  keyword = None, segs = None, 
-                                 evt_name = 'spindle', frequency = None,  
+                                 frequency = None,  
                                  adap_bands = 'Fixed',  
                                  adap_bw = 4, params = 'all', epoch_dur = 30, 
                                  average_channels = False, outfile = True):
@@ -852,41 +853,51 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        out_dir = select_output_dirs(self.outpath, out_dir, evt_name)
-        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
         
-        
-        # Check annotations directory exists
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
-            logger.info('Check documentation for how to run a pipeline:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
+        # Force evt_name into list, and loop through events    
+        if isinstance(evt_name, str):
+            evts = [evt_name]
+        elif isinstance(evt_name, list):
+            evts = evt_name
+        else:
+            logger.error(TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed."))
             return
-
-        if adap_bands in ['Auto','Manual']:
-            evt_name = f'{evt_name}_adap'
-            self.track(step='fooof', show = False, log = False)
-            peaks = check_chans(self.rootpath, None, False, logger)
-        else:
-            peaks = None
-        
-        # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
-        if average_channels:
-            Ngo = {'run':True}
-        else:
-            Ngo = {'run':False}
-        
-        # Format concatenation
-        cat = (int(concat_cycle),int(concat_stage),1,1)
-        
-        # Run line
-        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
-                          stage, rater, subs, sessions, self.tracking) 
-        fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
-                  peaks, adap_bw, params, epoch_dur, Ngo, outfile)
+        for evt_name in evts:
+            out_dir = select_output_dirs(self.outpath, out_dir, evt_name)
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
+            
+            
+            # Check annotations directory exists
+            if not path.exists(xml_dir):
+                logger.info('')
+                logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+                logger.info('Check documentation for how to run a pipeline:')
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
+                return
+    
+            if adap_bands in ['Auto','Manual']:
+                evt_name = f'{evt_name}_adap'
+                self.track(step='fooof', show = False, log = False)
+                peaks = check_chans(self.rootpath, None, False, logger)
+            else:
+                peaks = None
+            
+            # Set channels
+            chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+            if average_channels:
+                Ngo = {'run':True}
+            else:
+                Ngo = {'run':False}
+            
+            # Format concatenation
+            cat = (int(concat_cycle),int(concat_stage),1,1)
+            
+            # Run line
+            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
+                              stage, rater, subs, sessions, self.tracking) 
+            fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
+                      peaks, adap_bw, params, epoch_dur, Ngo, outfile)
         return
     
     
