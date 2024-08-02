@@ -454,10 +454,9 @@ To run per method if usin multiple detection methods
 
         * *Acceptable options:*
 
-            * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended*
+            * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended* 
 
-            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_ with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
-                         'energy':False, 'peakef':False]``)
+            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_ with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 'energy':False, 'peakef':False]``)
 
     **epoch_dur** *(int)*
         * Options to change the denominator (duration) for the *SO density* index 
@@ -506,90 +505,120 @@ Create datasets
 
 .. code-block:: python
 
-   project.event_dataset(chan, #input required
-                        xml_dir = None, 
-                        out_dir = None, 
-                        subs = 'all', 
-                        sessions = 'all',  
-                        stage = None, 
-                        concat_stage = False, 
-                        concat_cycle = True, 
-                        cycle_idx = None, 
-                        grp_name = 'eeg', 
-                        evt_name = 'spindle', #input required 
-                        params = 'all', 
-                        outfile=True)
+   project.event_dataset(chan, 
+                         evt_name, 
+                         xml_dir = None, 
+                         out_dir = None, 
+                         subs = 'all', 
+                         sessions = 'all', 
+                         stage = None,
+                         concat_stage = False, 
+                         concat_cycle = True,
+                         cycle_idx = None, 
+                         grp_name = 'eeg',
+                         adap_bands = 'Fixed',
+                         params = 'all', 
+                         outfile=True))
 
 
 *Required arguments:*
-    **chan**
+    **chan** *(str or list)*
         * Channel(s) of interest
 
-        * *Input Required:*
+        * *Acceptable options:*
+
+            * Entering a string (e.g ``Fz``) will create separate datasets for that channel only.
+
+            * Entering a list of channels' names (e.g., ``['Fz', 'Cz', 'Pz']``) will create separate datasets for each channel. The the names will be taken from the *chanset_rename* columns in the :ref:`tracking file<Tracking File>`
+
+    **evt_name** *(str or list)*
+        * Name of the events of interest 
+
+        * *Acceptable options:*
         
-            * Write a string of channels' names (e.g., *['Fz','Cz', 'Pz']*). Use the names written in the *chanset_rename* columns in the :ref:`tracking file<Tracking File>`
+            * Enter a string (e.g ``Staresina2015``) which refers to the event as it was used in the :ref:`export event parameters step<Export slow oscillations characteristics>`
+
+            * Entering a list of event names (e.g ``['Staresina2015', 'Massimini2004']``) will create a dataset for each event *separately*
 
 *Positional arguments:*
-    **xml_dir**
-        * Path to folder containing the .csv extracted with the *export_eventparams* function
+    **xml_dir** *(str)*
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the ``.csv`` files from the :ref:`export event parameters step<Export slow oscillations characteristics>`
 
-        * Default is ``None`` which will point to ``root_dir/OUT/slowwave/``
+        * *Acceptable options:*
 
-    **out_dir**
+            * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
+
+    **out_dir** *(str)*
         * Output path for the created datasets
 
-        * Default is ``None`` which will point to ``root_dir/OUT/datasets/``
+        * *Acceptable options:*
 
-    **subs**
-        * Subject to export in the datasets
+            * Default is ``None`` which will point to ``<root_dir>/OUT/datasets/``
 
-        * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/OUT/staging``
+    **subs** *(str, NoneType or list)*
+        * Subject IDs to export into the dataset
 
-            * If put ``None``, it will point to the *sub* column in the :ref:`tracking file<Tracking File>`
+        * *Acceptable options:*
 
-            * If put list of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<xml_dir>/``
 
-    **sessions**
-        * Sessions/Visits to extract per subject
+            * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
-        * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/OUT/staging``
+            * Entering a list of sub IDs (e.g., ``['sub-01', 'sub-02']``) will export those subjects only into the dataset 
 
-            * If put ``None``, it will point to the *ses* column in the :ref:`tracking file<Tracking File>`
+    **sessions** *(str, NoneType or list)*
+        * Session IDs to export into the dataset
 
-            * If put string of ses visit (e.g., *['ses-V1']*), it will only detect that/these session(s) within each subject
+        * *Acceptable options:*
 
-    **stage**
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<xml_dir>/``
+
+            * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
+
+            * Entering a list of session IDs (e.g., ``['ses-V1', 'ses-V2']``) will export those sessions only into the dataset
+    
+    **stage** *(list)*
         * Stages of interest
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will create datasets for all stages extracted with the *export_eventparams* function
+            * Default is ``None`` which will create datasets for all stages extracted in the :ref:`export event parameters step<Export slow oscillations characteristics>`
 
-            * If you put string of stage (e.g., *['NREM3']*), it will only export the SOs' characteristics from this specific stage (if you 
-            runmed *export_eventparams* with ``concat_stage = False``)
+            * Entering a list of stages (e.g., ``['NREM3']``) will only export parameters for the events in this specific stage
 
-    **concat_stage**
+                .. admonition:: NOTE3
+
+                    This will only work if the :ref:`export event parameters step<Export slow oscillations characteristics>` was run with ``concat_stage = False``
+
+    **concat_stage** *(logical)*
         * Concatenation options for stages
 
         * *Acceptable options:*
 
-            * Default is ``False`` which means that it will create datasets per stage (NREM2 vs NREM3). It requires that you have runned *export_eventparams* 
-            with ``concat_stage = False``.
+            * Default is ``False`` which will create datasets per stage (NREM2 vs NREM3) *separately* (saving each stage as a separate ``.csv`` output file)
 
-            * If you put ``True``, it will create datasets "whole_night" combining NREM2+NREM3. It requires that you have runned *export_eventparams* 
-            with ``concat_stage = True``.
+            * Entering ``True`` will concatenate (i.e., merge) all stages before exporting the parameters of the SO events
 
-    **concat_cycle**
-        * Concatenation options for sleep cycle
+            .. admonition:: NOTE4
+
+                Pay caution to how the argument ``concat_stage`` was defined in the :ref:`export event parameters step<Export slow oscillations characteristics>` .
+                If in this step (**Create datasets**) the argument is set to: ``concat_stage = False``, but in the :ref:`export event parameters step<Export slow oscillations characteristics>` this was set to ``concat_stage = True`` , then this will fail as the SO events have not been exported for stages combined. The previous step will need to be re-run with ``concat_stage = False``
+
+    **concat_cycle** *(logical)*
+        * Concatenation options for sleep cycles
 
         * *Acceptable options:*
 
-            * Default is ``True`` which means  that it will create datasets "whole_night" combining all cycles. It requires that you have runned *export_eventparams* 
-            with ``concat_cycle = True``.
+            * Default is ``True`` will create datasets for all cycles concatenated (i.e., merged) in one ``.csv`` dataset file.
 
-            * If you put ``False``, it will create datasets per cycle. It requires that you have runned *export_eventparams* with ``concat_cycle = False``.
+            * Entering ``False`` create datasets per sleep cycle *separately* (saving each cycle as a separate ``.csv`` output file)
 
-    **cycle_idx**
+            .. admonition:: NOTE5
+
+                Similar to ``concat_stage`` - pay caution to how the argument ``concat_cycle`` was defined in the :ref:`export event parameters step<Export slow oscillations characteristics>` .
+                If in this step (**Create datasets**) the argument is set to: ``concat_cycle = False``, but in the :ref:`export event parameters step<Export slow oscillations characteristics>` this was set to ``concat_cycle = True`` , then this will fail as the SO events have not been exported for stages combined. The previous step will need to be re-run with ``concat_cycle = False``
+
+    **cycle_idx** *(NoneType or tuple)*
         * Cycles of interest
 
         * *Acceptable options:*
@@ -597,44 +626,37 @@ Create datasets
             * Default is ``None`` which will infer to not take into consideration the cycle and either extract cycle for the whole night if ``concat_cycle = True`` 
             or for all the cycles if ``concat_cycle = False``
 
-            * If put a list of cycle number (e.g., [1,2,3]), it will extract the SOs' characteristics for those cycles only. It requires that you have 
-            define ``cycle_idx`` during *export_eventparams* and have also set up ``concat_cycle = False``.
+            * Entering list of cycle numbers (e.g., ``[1,2,3]``) will extract the SO parameters for those cycles only. It requires that you have 
+            defined ``cycle_idx`` during :ref:`export event parameters<Export slow oscillations characteristics>` and have also set up ``concat_cycle = False``.
 
-    **grp_name**
-        * Name of the tab in the montage which includes the channels of interest. 
+    **grp_name** *(str)*
+        * Name of the tab in the :ref:`Annotations file` where the detected events are saved 
 
         * *Acceptable options:*
 
-            * Default is ``eeg`` which is the name we recommend
+            * Default is ``eeg`` which is the recommended naming convention
            
-            * Need to match whatever was written in *detect_slowocillation* and *export_eventparams*
+            * If entering a list of group names (e.g., ``['eeg_hemiR']``), ensure that this matches ``grp_name`` used in the :ref:`export event parameters step<Export slow oscillations characteristics>`
 
-    **evt_name**
-        * Name of the events of interest 
-
-        * *Input Required for SO extraction:*
-
-            * Default is ``spindle`` which refer to the Whale spindle detection (will lead to an ERROR argument)
-
-            * Put the name of the method used for *detect_slow_oscillations* and *export_eventparams* (e.g., ``['Staresina2015']``) !! One method per extraction !!
-
-    **params**
-        * Options to create dataset with specific characteristics only
+    **params** *(str or dict)*
+        * The names of specific parameters to export into the dataset 
 
         * *Acceptable options:*
 
-            * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended*
+            * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended* 
 
-            * You can specify characteristics of interest using ``True/False`` arguments (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
-                         'energy':False, 'peakef':False]``)
+            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_ with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 'energy':False, 'peakef':False]``)
 
-    **outfile**
-        * Extraction of output file
+    **outfile** *(str or logical)*
+        * Logging of event parameter export
 
-        * Default is ``True`` which will create a .csv dataset file combining all subjects in ``root_dir/OUT/datasets/evt_name`` per session and per channel
-    
-            * If put ``False``, it won't extract .csv file 
+        * *Acceptable options:*
 
+            * Default is ``True`` which will create a logfile *event_dataset_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+
+            * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
+            
+            * Entering ``False`` won't save a logfile
 
 .. hint::
     To combine datasets, use the *trawl* function (see XXXX)

@@ -900,8 +900,9 @@ class pipeline:
         return
     
     
-    def event_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
-                            subs = 'all', sessions = 'all', stage = None, 
+    def event_dataset(self, chan, evt_name, 
+                            xml_dir = None, out_dir = None, subs = 'all', 
+                            sessions = 'all', stage = None, 
                             concat_stage = False, concat_cycle = True, 
                             cycle_idx = None, grp_name = 'eeg', 
                             adap_bands = 'Fixed',  params = 'all', outfile=True):
@@ -909,46 +910,51 @@ class pipeline:
         # Set up logging
         logger = create_logger('Event dataset')
         
-        if type(evt_name) is not str:
-            logger.critical("'evt_name' MUST be a string only (i.e.) only 1 event at a time.")
+        # Force evt_name into list, and loop through events    
+        if isinstance(evt_name, str):
+            evts = [evt_name]
+        elif isinstance(evt_name, list):
+            evts = evt_name
+        else:
+            logger.error(TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed."))
             return
-        
-        # Set input/output directories
-        in_dir = self.datapath
-        log_dir = self.outpath + '/audit/logs/'
-        if not path.exists(log_dir):
-            mkdir(log_dir)
-        if not path.exists(self.outpath + '/datasets/'):
-            mkdir(self.outpath + '/datasets/')
-        
-        if adap_bands in ['Auto','Manual']:
-            evt_name = f'{evt_name}_adap'
-            self.track(step='fooof', show = False, log = False)
-        out_dir = self.outpath + f'/datasets/{evt_name}'
-        
-        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
-            logger.info('Check documentation for how to run a pipeline:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            return
-        
-        # Format concatenation
-        cat = (int(concat_cycle),int(concat_stage),1,1)
-        
-        # Format chan
-        if isinstance(chan, str):
-            chan = [chan]
-        
-        # Default stage
-        if stage == None:
-            stage = ['NREM2','NREM3']
+        for evt_name in evts:
+            # Set input/output directories
+            in_dir = self.datapath
+            log_dir = self.outpath + '/audit/logs/'
+            if not path.exists(log_dir):
+                mkdir(log_dir)
+            if not path.exists(self.outpath + '/datasets/'):
+                mkdir(self.outpath + '/datasets/')
             
-        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
-                          stage, subs = subs, sessions = sessions) 
-        fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
+            if adap_bands in ['Auto','Manual']:
+                evt_name = f'{evt_name}_adap'
+                self.track(step='fooof', show = False, log = False)
+            out_dir = self.outpath + f'/datasets/{evt_name}'
+            
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
+            if not path.exists(xml_dir):
+                logger.info('')
+                logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+                logger.info('Check documentation for how to run a pipeline:')
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
+                return
+            
+            # Format concatenation
+            cat = (int(concat_cycle),int(concat_stage),1,1)
+            
+            # Format chan
+            if isinstance(chan, str):
+                chan = [chan]
+            
+            # Default stage
+            if stage == None:
+                stage = ['NREM2','NREM3']
+                
+            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
+                              stage, subs = subs, sessions = sessions) 
+            fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
         
         return
     
