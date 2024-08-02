@@ -84,6 +84,13 @@ you can use the ``pipeline.list_dataset()`` function:
    ----------
    etc.
 
+
+.. _tracking file:
+Tracking File
+----------------
+
+*[To be completed]*
+
 .. The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
 .. or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
 .. will raise an exception.

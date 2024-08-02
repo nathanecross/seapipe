@@ -136,7 +136,7 @@ Detect slow oscillations
 
             * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * Entering ``None`` will point seapipe to the *sub* column in the *tracking* file
+            * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of sub IDs (e.g., ``['sub-01', 'sub-02']``) will result in detections for those subjects only
 
@@ -147,7 +147,7 @@ Detect slow oscillations
 
             * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * Entering ``None`` will point seapipe to the *ses* column in *tracking* file
+            * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of ses visits (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
 
@@ -174,7 +174,7 @@ Detect slow oscillations
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in *tracking* file
+            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only detect the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
@@ -183,7 +183,7 @@ Detect slow oscillations
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *refset* columns in *tracking* file. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
+            * Default is ``None`` which will point to the *refset* columns in the :ref:`tracking file<Tracking File>`. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
 
             * Entering a list of channel names (e.g., ``['A1', 'A2']``) will re-reference to these channels  
 
@@ -201,7 +201,7 @@ Detect slow oscillations
     !! make sure you don't have multiple raters!!
     
             * Entering a list of rater names (e.g., ``[<Rater1>, <Rater2>]``) will only save detected events on this rater in the Annotations file
-
+|
     **grp_name** *(str)*
         * Name of the tab in the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
 
@@ -244,7 +244,7 @@ Detect slow oscillations
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset_invert* columns in *tracking* file. However, if the *tracking* file does not specify *chanset_invert* 
+            * Default is ``None`` which will point to the *chanset_invert* columns in the :ref:`tracking file<Tracking File>`. However, if the *tracking* file does not specify *chanset_invert* 
             columns, the detection will default to ``False``
 
             * Entering ``False`` will keep the polarity of the recording as it is
@@ -335,7 +335,7 @@ To run per method if usin multiple detection methods
 
             * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * Entering ``None`` will point seapipe to the *sub* column in the *tracking* file
+            * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of sub IDs (e.g., ``['sub-01', 'sub-02']``) will the parameters of the slow oscillation events for those subjects only
 
@@ -346,7 +346,7 @@ To run per method if usin multiple detection methods
 
             * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * Entering ``None`` will point seapipe to the *ses* column in *tracking* file
+            * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of session IDs (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
 
@@ -355,7 +355,7 @@ To run per method if usin multiple detection methods
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in *tracking* file
+            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only export parameters for the events in the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
@@ -364,7 +364,7 @@ To run per method if usin multiple detection methods
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *refset* columns in *tracking* file. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
+            * Default is ``None`` which will point to the *refset* columns in the :ref:`tracking file<Tracking File>`. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
 
             * Entering a list of channel names (e.g., ``['A1', 'A2']``) will re-reference to these channels  
 
@@ -373,7 +373,7 @@ To run per method if usin multiple detection methods
 .. admonition:: NOTE
     If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
     however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
-
+|
     **stage** *(list)*
         * Stages of interest
 
@@ -525,7 +525,7 @@ Create datasets
 
         * *Input Required:*
         
-            * Write a string of channels' names (e.g., *['Fz','Cz', 'Pz']*). Use the names written in the *chanset_rename* columns in *tracking* file
+            * Write a string of channels' names (e.g., *['Fz','Cz', 'Pz']*). Use the names written in the *chanset_rename* columns in the :ref:`tracking file<Tracking File>`
 
     **xml_dir**
         * Path to folder containing the .csv extracted with the *export_eventparams* function
@@ -542,7 +542,7 @@ Create datasets
 
         * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/OUT/staging``
 
-            * If put ``None``, it will point to the *sub* column in *tracking* file
+            * If put ``None``, it will point to the *sub* column in the :ref:`tracking file<Tracking File>`
 
             * If put list of sub ID (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
 
@@ -551,7 +551,7 @@ Create datasets
 
         * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/OUT/staging``
 
-            * If put ``None``, it will point to the *ses* column in *tracking* file
+            * If put ``None``, it will point to the *ses* column in the :ref:`tracking file<Tracking File>`
 
             * If put string of ses visit (e.g., *['ses-V1']*), it will only detect that/these session(s) within each subject
 
