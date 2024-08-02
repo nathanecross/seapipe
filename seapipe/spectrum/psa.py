@@ -222,6 +222,7 @@ class Spectrum:
         ### 0.a. Set up logging
         logger = create_logger('Specparam')
         logger.info('')
+        tracking = self.tracking
         flag = 0
         
         ### 0.b. Set up organisation of export
@@ -307,7 +308,13 @@ class Spectrum:
             # b. Begin loop through sessions
             sessions = self.sessions
             if sessions == 'all':
-                sessions = listdir(f'{self.rec_dir}/{sub}')
+                try:
+                    sessions = listdir(f'{self.rec_dir}/{sub}')
+                except Exception as e:
+                    logger.error(e)
+                    logger.warning(f'Is {sub} in BOTH <rec_dir> and <xml_dir> ?')
+                    flag+=1
+                    break
                 sessions = [x for x in sessions if not '.' in x] 
 
             for v, ses in enumerate(sessions):
@@ -323,6 +330,7 @@ class Spectrum:
                     dset = Dataset(rdir + edf_file[0])
                 except:
                     logger.warning(f' No input {filetype} file in {rdir}. Skipping...')
+                    flag+=1
                     break
                 
                 xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]            
@@ -352,11 +360,11 @@ class Spectrum:
                 flag, chanset = load_channels(sub, ses, self.chan, 
                                               self.ref_chan, flag, logger)
                 if not chanset:
+                    flag+=1
                     break
-            
                 newchans = rename_channels(sub, ses, self.chan, logger)
 
-                
+                # get segments
                 for c, ch in enumerate(chanset):
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
                     segments = fetch(dset, annot, cat = cat, evt_type = None, 
@@ -379,6 +387,7 @@ class Spectrum:
                     segments.read_data(chan = ch, ref_chan = chanset[ch])
                     if len(segments)==0:
                         logger.warning(f"No valid data found for {ch}:{'/'.join(chanset[ch])}.")
+                        flag+=1
                         continue
                     
                     for sg, seg in enumerate(segments):
@@ -391,9 +400,9 @@ class Spectrum:
                         out['duration'] = len(timeline) / data.s_freq
                         
                         if frequency_opts['fast_fft']:
-                            n_fft = next_fast_len(data.number_of('time')[0])
-                        else:
                             n_fft = frequency_opts['n_fft']
+                        else:
+                            n_fft = None
                     
                         Fooofxx = frequency(data, output=frequency_opts['output'], 
                                         scaling=frequency_opts['scaling'], 
@@ -409,13 +418,10 @@ class Spectrum:
                                         log_trans=False, 
                                         centend=frequency_opts['centend'])
                         
-                        freqs = Fooofxx.axis['freq'][0]
-                              
+                        freqs = Fooofxx.axis['freq'][0]     
                         fooof_powers = zeros((len(bands)))
                         fooof_ap_params = zeros((len(bands), 2))
                         fooof_pk_params = ones((len(bands), 9)) * nan
-                        
-
                         fm.fit(freqs, Fooofxx.data[0][0], fooof_opts['freq_range'])
                         
                         for j, band in enumerate(bands):
@@ -499,8 +505,15 @@ class Spectrum:
                     
                     # Update tracking TO DO
                     #update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.info('')
+            logger.debug('Specparam finished without ERROR.')  
+        else:
+            logger.info('')
+            logger.warning('Specparam finished with WARNINGS. See log for details.')
+        return 
 
-        return
     
     
     def powerspec_it(self, general_opts, frequency_opts, filter_opts, epoch_opts, 

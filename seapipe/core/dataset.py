@@ -386,14 +386,8 @@ class pipeline:
                 general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
             
             spectrum.fooof_it(general_opts, frequency_opts, filter_opts, 
-                              epoch_opts, event_opts, fooof_opts, filetype = filetype)  
-            
-            try:
-                [self.tracking['fooof'][x].update(spectrum.tracking[x]) for x 
-                                        in self.tracking['fooof'].keys() if x 
-                                        in spectrum.tracking.keys()]
-            except:
-                self.tracking['fooof'] = {**self.tracking['fooof'], **spectrum.tracking}
+                              epoch_opts, event_opts, fooof_opts, 
+                              filetype = filetype)  
                 
         return 
     

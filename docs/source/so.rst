@@ -8,7 +8,7 @@ Overview
 Slow oscillations (SOs) are coherent waves corresponding to the alternation between biphasic membrane potential levels (UP states = depolarization 
 and DOWN states = hyperpolarization). Oscillating below ~1 Hz, SOs are generated during sleep stages NREM2 and NREM3.
 
-| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`Output<output_so>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
+| Slow oscillations can be detected as events and their characteristics (see definitions in section :ref:`output_so<Output>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
 | Seapipe provides 4 published methods to automatically detect SOs:
 
@@ -73,7 +73,7 @@ Functions to detect Slow Oscillations
 
    project.detect_slow_oscillations()
 |
-    This will copy the :doc:`Annotations file<Annotations_file>` from ``<xml_dir>`` to ``<root_dir>/OUT/slowwave/`` and write in the detected events. 
+    This will copy the :doc:`Annotations_file<Annotations file>` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/slowwave/`` and write in the detected events. 
 |
 2) Export event characteristics: 
 
@@ -81,7 +81,7 @@ Functions to detect Slow Oscillations
 
    project_name.export_eventparams()
 |   
-    This will extract a ``.csv`` file per channel and/or stage and/or cycle into the ``<sub>`` and ``<ses>`` folders in ``<root_dir>/OUT/slowwave/`` 
+    This will extract a ``.csv`` file for every channel and/or stage and/or cycle into the ``/sub-XXX/ses-XXX`` directory in ``<root_dir>/OUT/slowwave/`` 
 |
 3) Create datasets combining all the subjects: 
 
@@ -89,7 +89,7 @@ Functions to detect Slow Oscillations
 
    project_name.event_dataset()
 |
-    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) per session, stage and channel in ``root_dir/OUT/datasets/``
+    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) ``<root_dir>/OUT/datasets/``
 |
 
 .. _detection_SO:
@@ -120,36 +120,36 @@ Detect slow oscillations
 *Positional arguments:*
 
     **xml_dir**
-        * Path to folder with the .xml file containing sleep stages and arousal/artefact events. 
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input Annotations files. 
 
-        * Default is ``None`` which will point to ``root_dir/OUT/staging``
+        * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
     **out_dir**
         * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., Staresina2015)
 
-        * Default is ``None`` which will point to ``root_dir/OUT/slowwave``
+        * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
 
     **subs**
-        * Subject to analyze
+        * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * If you put ``None``, it will point to the *sub* column in *tracking* file
+            * Entering ``None`` will point seapipe to the *sub* column in the *tracking* file
 
-            * If you put a string of sub IDs (e.g., *['sub-01', 'sub-02']*), it will only detect those sub folders
+            * Entering a string of sub IDs (e.g., ``['sub-01', 'sub-02']``) will result in detections for those subjects only
 
     **sessions**
-        * Sessions/Visits to analyse per subject
+        * Session IDs to analyse per subject
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * If you put ``None``, it will point to the *ses* column in *tracking* file
+            * Entering ``None`` will point seapipe to the *ses* column in *tracking* file
 
-            * If you put a string of ses visits (e.g., *['ses-V1']*), it will only detect the selected session(s) within each subject
+            * Entering a string of ses visits (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
 
     **filetype**
         * Format of files containing EEG signal
@@ -158,10 +158,10 @@ Detect slow oscillations
 
             * Default is ``'.edf'`` format
 
-            * The pipeline can also read .eeg, .set formats
+            * The pipeline can also read ``.eeg``, ``.set`` formats
 
     **method**
-        * Method of SOs detection (i.e., Staresina2015, Ngo2015, Massimini2004,AASM/Massimini2004) 
+        * Method for SO detection (i.e., Staresina2015, Ngo2015, Massimini2004,AASM/Massimini2004) 
 
         * *Acceptable options:*
 

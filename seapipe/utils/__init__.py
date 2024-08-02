@@ -5,7 +5,7 @@
 
 from .audit import (check_dataset, make_bids, extract_channels, 
                     track_processing, check_fooof)
-from .load import (select_input_dirs, select_ouput_dirs, check_chans,
+from .load import (select_input_dirs, select_output_dirs, check_chans,
                    load_channels, rename_channels, check_adap_bands,
                    read_manual_peaks, load_adap_bands, read_inversion)
 from .logs import (CustomFormatter, CustomLogfileFormatter, create_logger,
