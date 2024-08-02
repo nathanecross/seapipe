@@ -312,7 +312,7 @@ class Spectrum:
                     sessions = listdir(f'{self.rec_dir}/{sub}')
                 except Exception as e:
                     logger.error(e)
-                    logger.warning(f'Is {sub} in BOTH <rec_dir> and <xml_dir> ?')
+                    logger.warning(f'Is {sub} in BOTH {self.rec_dir} and {self.xml_dir} ?')
                     flag+=1
                     break
                 sessions = [x for x in sessions if not '.' in x] 
