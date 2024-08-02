@@ -196,13 +196,12 @@ Detect slow oscillations
 
             * Default is ``None`` which will discard the name of the rater. 
 
-.. admonition:: NOTE
+            .. admonition:: NOTE
 
-    This assumes there is only one rater per Annotations file (``.xml``) 
-    !! make sure you don't have multiple raters!!
+                This assumes there is only one rater per Annotations file (``.xml``) 
+                !! make sure you don't have multiple raters!!
     
             * Entering a list of rater names (e.g., ``[<Rater1>, <Rater2>]``) will only save detected events on this rater in the Annotations file
-|
 
     **grp_name** *(str)*
         * Name of the tab in the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
@@ -372,11 +371,10 @@ To run per method if usin multiple detection methods
 
             * Entering an empty list (i.e., ``[]``) will perform no re-referencing
 
-.. admonition:: NOTE2
+        .. admonition:: NOTE2
 
-    If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
-    however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
-|
+            If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
+            however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
 
     **stage** *(list)*
         * Stages of interest
