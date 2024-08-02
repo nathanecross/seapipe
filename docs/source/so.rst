@@ -138,7 +138,7 @@ Detect slow oscillations
 
             * Entering ``None`` will point seapipe to the *sub* column in the *tracking* file
 
-            * Entering a string of sub IDs (e.g., ``['sub-01', 'sub-02']``) will result in detections for those subjects only
+            * Entering a list of sub IDs (e.g., ``['sub-01', 'sub-02']``) will result in detections for those subjects only
 
     **sessions** *(str, NoneType or list)*
         * Session IDs to analyse per subject
@@ -149,7 +149,7 @@ Detect slow oscillations
 
             * Entering ``None`` will point seapipe to the *ses* column in *tracking* file
 
-            * Entering a string of ses visits (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
+            * Entering a list of ses visits (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
 
     **filetype** *(str)*
         * Format of files containing EEG signal
@@ -179,13 +179,15 @@ Detect slow oscillations
             * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only detect the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
     **ref_chan** *(NoneType or list)*
-        * Reference channel(s) for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
+        * :ref:`Reference channel(s)<Channel Names>` for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *refset* columns in *tracking* file
+            * Default is ``None`` which will point to the *refset* columns in *tracking* file. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
 
-            * If you put string of channels' names (e.g., *['A1', 'A2']*), it will only re-reference to the channels written 
+            * Entering a list of channel names (e.g., ``['A1', 'A2']``) will re-reference to these channels  
+
+            * Entering an empty list (i.e., ``[]``) will perform no re-referencing
 
     **rater** *(NoneType or list)*
         * Name of the rater in the :ref:`Annotations file` to save the detections under
@@ -198,17 +200,16 @@ Detect slow oscillations
     This assumes there is only one rater per Annotations file (``.xml``) 
     !! make sure you don't have multiple raters!!
     
-            * If put string of rater's name (e.g., ``[<Rater1>, <Rater2>]``), it will only detects events from this rater per .xml (and create an empty extraction file if the 
-            rater is absent)
+            * Entering a list of rater names (e.g., ``[<Rater1>, <Rater2>]``) will only save detected events on this rater in the Annotations file
 
     **grp_name** *(str)*
-        * Name of the tab in the the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
+        * Name of the tab in the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
 
         * *Acceptable options:*
 
             * Default is ``eeg`` which is the recommended naming convention
            
-            * If you put string of channels' names (e.g., ``['eeg_hemiR']``), events can only be visualised in :ref:`Wonambi` with a montage that includes a tab with this name
+            * Entering a list of group names (e.g., ``['eeg_hemiR']``) will save the events to a tab of this name in the Annotations file. The events can only be visualised in :ref:`Wonambi` with a montage that includes a tab with this name
 
     **stage** *(list)*
         * Stages of interest
@@ -226,7 +227,7 @@ Detect slow oscillations
 
             * Default is ``None`` which will infer no cycles 
 
-            * If you put a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``), it will only detect the events for these specific 
+            * Entering a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``), it will only detect the events for these specific 
             cycles' numbers. If a ``sub`` has less than the number of cycles entered, then the maximum number of cycles possible will be used for that subject.
 
     **duration** *(tuple)*
@@ -238,7 +239,7 @@ Detect slow oscillations
 
             * Entering a tuple of float with length 2 (e.g., ``(0.5, 1)``)  will limit the detection to events with a duration within this range
 
-    **invert** *(NoneType or Logical)*
+    **invert** *(NoneType or logical)*
         * Option to invert polarity
 
         * *Acceptable options:*
@@ -250,14 +251,14 @@ Detect slow oscillations
 
             * Entering ``True`` will reverse (flip) the polarity of the recording 
 
-    **average_channels** *(Logical)*
+    **average_channels** *(logical)*
         * Options to average multiple channels before the detection 
 
         * Default is ``False``
         
         * Only pass ``True`` if using the ``['Ngo2015']`` method
 
-    **outfile** *(str or Logical)*
+    **outfile** *(str or logical)*
         * Logging of detection
 
         * *Acceptable options:*
@@ -278,6 +279,7 @@ To run per method if usin multiple detection methods
 .. code-block:: python
 
     project.export_eventparams(evt_name,
+                               frequency,
                                xml_dir = None, 
                                out_dir = None, 
                                subs = 'all', 
@@ -292,7 +294,6 @@ To run per method if usin multiple detection methods
                                concat_stage = False, 
                                keyword = None, 
                                segs = None,
-                               frequency = None,  #input required
                                params = 'all',  
                                epoch_dur = 30, 
                                average_channels = False,
@@ -303,186 +304,194 @@ To run per method if usin multiple detection methods
     **evt_name** *(list or str)*
         * Name of the event of interest to export from the :ref:`Annotations file` 
 
-        * Entering a string (e.g ``Staresina2015``) which refer to the Whale spindle detection (will lead to an ERROR argument)
+        * Enter a string (e.g ``Staresina2015``) which refers to the event as it is named in the Annotations file. **NOTE** This will be the method name used in the :ref:`detection<Detect slow oscillations>`
 
-        * Put the name of the method used for *detect_slow_oscillations* (e.g., ``['Staresina2015']``) !! One method per extraction !!
+        * Entering a list of event names (e.g ``['Staresina2015', 'Massimini2004']``) will export the parameters for each event *separately*
+
+    **frequency** (tuple)
+        * Frequency range of interest in which to export certain event parameters (e.g. *frequency*, *power*)
+
+            * Enter a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ containing the frequency range depending on the method used in the :ref:`detection<Detect slow oscillations>`: 
+                - Staresina2015 requires ``(0.5,1.25)``
+                - Ngo2015 requires ``(0,3.5)``
+                - Massimini2004 and AASM/Massimini2004 require ``(0.1,4)``
 
 *Positional arguments:*
 
-    **xml_dir**
-        * Path to folder with the .xml file containing sleep stages, arousal/artefact events and newly detected slow oscillations events.
+    **xml_dir** *(str)*
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the :ref:`Annotations files<Annotations file>` where the :ref:`detections<Detect slow oscillations>` were saved. 
 
-        * Default is ``None`` which will point to ``root_dir/OUT/slowwave``
+            * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
 
-    **out_dir**
-        * Output path for the created .csv file containing the characteristics of the slow oscillation events per subject, session, stage, channel
+    **out_dir** *(str)*
+        * Output path for the where to save the ``.csv`` file containing the parameters of the slow oscillation events per subject, session, and/or stage, and/or channel.
 
-        * Default is ``None`` which will point to ``root_dir/OUT/slowwave``
+            * Default is ``None`` which will point to ``root_dir/OUT/slowwave/``
 
-    **subs**
-        * Subject to analyze
-
-        * *Acceptable options:*
-
-            * Default is ``'all'`` which will point to all the *sub* folders in ``root_dir/DATA``
-
-            * If you put ``None``, it will point to the *sub* column in *tracking* file
-
-            * If you put a string of sub IDs (e.g., *['sub-01', 'sub-02']*), it will only export the SOs' characteristics from those sub folders
-
-    **sessions**
-        * Sessions/Visits to analyse per subject
+    **subs** *(str, NoneType or list)*
+        * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the *ses* folders within the sub folder in ``root_dir/DATA``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
 
-            * If you put ``None``, it will point to the *ses* column in *tracking* file
+            * Entering ``None`` will point seapipe to the *sub* column in the *tracking* file
 
-            * If you put a string of ses visits (e.g., *['ses-V1']*), it will only export the SOs' characteristics from the selected session(s) within each subject
+            * Entering a list of sub IDs (e.g., ``['sub-01', 'sub-02']``) will the parameters of the slow oscillation events for those subjects only
 
-    **chan**
+    **sessions** *(str, NoneType or list)*
+        * Session IDs to analyze
+
+        * *Acceptable options:*
+
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+
+            * Entering ``None`` will point seapipe to the *ses* column in *tracking* file
+
+            * Entering a list of session IDs (e.g., ``['ses-V1', 'ses-V2']``) will result in detections for those session(s) within each subject only
+
+    **chan** *(NoneType or list)*
         * Channel(s) of interest
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in *tracking* file - *Recommended*
+            * Default is ``None`` which will point to the *chanset* columns in *tracking* file
 
-            * If you put string of channels' names (e.g., *['Cz']*), it will only export the SOs' characteristics from the selected channels  
+            * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only export parameters for the events in the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
-    **ref_chan**
-        * Reference channel(s) for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
+    **ref_chan** *(NoneType or list)*
+        * :ref:`Reference channel(s)<Channel Names>` for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *refset* columns in *tracking* file - *Recommended*
+            * Default is ``None`` which will point to the *refset* columns in *tracking* file. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
 
-            * If you put string of channels' names (e.g., *['A1', 'A2']*), it will only export the SOs' characteristics from the selected channels and reference written
+            * Entering a list of channel names (e.g., ``['A1', 'A2']``) will re-reference to these channels  
 
-    **stage**
+            * Entering an empty list (i.e., ``[]``) will perform no re-referencing
+
+.. admonition:: NOTE
+    If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
+    however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
+
+    **stage** *(list)*
         * Stages of interest
 
         * *Acceptable options:*
 
             * Default is ``['NREM2', 'NREM3']`` 
 
-            * If you put string of stage (e.g., *['NREM3']*), it will only export the SOs' characteristics from this specific stage
+            * Entering a list of stages (e.g., ``['NREM3']``), it will only export parameters for the events in this specific stage
 
-    **grp_name**
-        * Name of the tab in the montage which includes the channels of interest. 
+    **grp_name** *(str)*
+        * Name of the tab in the :ref:`Annotations file` where the detected events are saved 
 
         * *Acceptable options:*
 
-            * Default is ``eeg`` which is the name we recommend
+            * Default is ``eeg`` which is the recommended naming convention
            
-            * Need to match ``grp_name`` used in *detect_slowocillation*
+            * If entering a list of group names (e.g., ``['eeg_hemiR']``), ensure that this matches ``grp_name`` used in the :ref:`detection stage<Detect slow oscillations>`
 
-    **rater**
-        * Name of the rater to analyze
+    **rater** *(NoneType or list)*
+        * Name of the rater in the :ref:`Annotations file` where the detected events are saved
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will discard the name of the rater and expect only one rater per .xml (!! make sure you don't have multiple raters!!)
-    
-            * If put string of rater's name (e.g., *[Rater1]*), it will only export the the event's characteristics from this rater (and create an empty extraction file if the 
-            rater is absent)
+            * Default is ``None`` which will discard the name of the rater
 
-    **cycle_idx**
+            * Entering a list of raters names (e.g., ``[<Rater1>, <Rater2>]``) will only export the the parameters for events saved under this rater. **NOTE** An create an empty extraction ``.csv`` file will be created if the rater is absent
+
+    **cycle_idx** *(NoneType or tuple)*
         * Sleep cycle numbers
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will infer no cycle
+            * Default is ``None`` which will infer no cycles 
 
-            * If you put a list of indices corresponding to sleep cycle numbers (e.g., *(1,2)*), it will only export the SOs' characteristics from these 
-            specific cycles. Also requires ``concat_cycle = False``
+            * Entering a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``) will only detect the events for these specific 
+            cycles. If a ``sub`` has less than the number of cycles entered, then the maximum number of cycles possible will be used for that subject
 
-    **concat_cycle**
-        * Concatenation options for sleep cycle
+    **concat_cycle** *(logical)*
+        * Concatenation options for sleep cycles
 
         * *Acceptable options:*
 
-            * Default is ``True`` which means that cycles will be concatenated (i.e., merge) before the exportation of the SOs' characteristics
+            * Default is ``True`` which means that all cycles will be concatenated (i.e., merged) before exporting the parameters of the SO events
 
-            * If you put ``False``, it will export SOs' characteristics per cycle
+            * Entering ``False`` will export the SO parameters per sleep cycle (saving each cycle as a separate ``.csv`` output file)
 
-    **concat_stage**
+    **concat_stage** *(logical)*
         * Concatenation options for stages
 
         * *Acceptable options:*
 
-            * Default is ``False`` which means that it will export SOs' characteristics per stage (NREM2 vs NREM3)
+            * Default is ``False`` which means the parameters of SO events will be exported per stage (e.g. NREM2, NREM3) separately (saving each stage as a separate ``.csv`` output file)
 
-            * If you put ``True``, stages will be concatenated (i.e., merge) before the exportation of SOs' characteristics
+            * Entering ``True`` will concatenate (i.e., merge) all stages before exporting the parameters of the SO events
 
-    **keyword**
-        * Allow search for a filename with a specific wildcard (keyword)
-
-        * *Acceptable options:*
-
-            * Default is ``None`` which will infer no keyword to search for
-
-            * If you put string of keywords, it will only export the event's characteristics from this specific .xml
-
-    **seg**
-        * Option to extract parameters between certain markers, which need to be defined in the .xml file in ``root_dir/OUT/staging``
+    **keyword** *(str)*
+        * Allow seapipe to search for a Annotations filename containing a specific wildcard (keyword)
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will infer no segmentation
+            * Default is ``None`` which will infer no keyword to search for.
 
-            * If you put a list of tuples, with both tags named (e.g. *[('N2_ON','N2_OFF'), ('N3_ON','N3_OFF')]*), it will only export the event's characteristics within the events markers (segments)
+            * Entering a string (e.g. ``Staresina_adapted_custom``) will only export event parameters from this specific Annotations file
 
-    **frequency**
-        * Frequency range of interest
+    **seg** *(NoneType or list of tuples)*
+        * Option to extract parameters of SOs that only occur in between certain markers. These markers need to be events saved in the :ref:`Annotations file`
 
-        * *Input Required:*
+        * *Acceptable options:*
 
-            * Put the frequency range depending on the method used for *detect_slow_oscillations*: Staresina2015 requires ``(0.5,1.25)``; Ngo2015 requires
-            ``(0,3.5)``; Massimini2004 and AASM/Massimini2004 requires ``(0.1,4)``
+            * Default is ``None`` which will infer no segmentation prior to exporting event parameters
 
-    **params**
-        * Options to export specific characteristics only
+            * Entering a list of tuples, with both start and end tags named (e.g. ``[('N2_ON', 'N2_OFF'), ('N3_ON', 'N3_OFF')]``) will export event parameters that only occur between these event markers
+
+    **params** *(str or dict)*
+        * The names of specific parameters to export
 
         * *Acceptable options:*
 
             * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended*
 
-            * You can specify characteristics of interest using ``True/False`` arguments (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
+            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_` with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
                          'energy':False, 'peakef':False]``)
 
-    **epoch_dur**
-        * Options to change the denominator (duration for index density)
+    **epoch_dur** *(int)*
+        * Options to change the denominator (duration) for the *SO density* index 
 
         * *Acceptable options:*
 
-            * Default is ``30`` infers 30-seconds epoch
+            * Default is ``30`` (this infers 30-second epochs)
 
-            * If you put a number (e.g., *60*), it will use that number as denominator for the computation of SO density
+            * Entering a number (e.g., ``60``) will imply that the SO density value equals the number of events per this time period (e.g. per *60 seconds*)
+    
+    **average_channels** *(logical)*
+        * Options to average multiple channels before the detection (Refer to this option in :ref:`Detect slow oscillations`)
 
-    **average_channels**
-        * Refer to the options to average channels before the detection - only relevant if you used the ``['Ngo2015']`` method in *detect_slow_oscillations*
+        * Default is ``False``
+        
+        * Only pass ``True`` if using the ``['Ngo2015']`` method
 
-        * Default is ``False``: only pass ``True`` if used the ``['Ngo2015']`` method to detect SOs
-
-    **outfile**
-        * Extraction of output file
+    **outfile** *(str or logical)*
+        * Logging of event parameter export
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a .csv file per subject, session, channel, stage in ``root_dir/OUT/slowwave/``
+            * Default is ``True`` which will create a logfile *export_params_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+
+            * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             
-            * If put ``False``, it won't extract the .csv file with the events' characteristics
-
+            * Entering ``False`` won't save a logfile
 
      .. note::
         By default
         * - *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
 
-        * - it will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* 
+        * - *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* 
         with ``concat_stage = True``.
 
-        * - it will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* 
+        * - *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* 
         with ``concat_cycle = False`` and ``concat_stage = False``.
 
 

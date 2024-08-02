@@ -833,14 +833,13 @@ class pipeline:
                                  subs, sessions, log_dir, outfile)
          return
     
-    def export_eventparams(self, evt_name, 
+    def export_eventparams(self, evt_name, frequency = None,
                                  xml_dir = None, out_dir = None, subs = 'all', 
                                  sessions = 'all', chan = None, ref_chan = None, 
                                  stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                                  rater = None, cycle_idx = None, 
                                  concat_cycle = True, concat_stage = False, 
-                                 keyword = None, segs = None, 
-                                 frequency = None,  
+                                 keyword = None, segs = None,  
                                  adap_bands = 'Fixed',  
                                  adap_bw = 4, params = 'all', epoch_dur = 30, 
                                  average_channels = False, outfile = True):
