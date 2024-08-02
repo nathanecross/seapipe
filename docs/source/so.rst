@@ -227,7 +227,7 @@ Detect slow oscillations
 
             * Default is ``None`` which will infer no cycles 
 
-            * Entering a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``), it will only detect the events for these specific 
+            * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``), it will only detect the events for these specific 
             cycles' numbers. If a ``sub`` has less than the number of cycles entered, then the maximum number of cycles possible will be used for that subject.
 
     **duration** *(tuple)*
@@ -237,7 +237,7 @@ Detect slow oscillations
 
             * Default is ``(0.2, 2)`` 
 
-            * Entering a tuple of float with length 2 (e.g., ``(0.5, 1)``)  will limit the detection to events with a duration within this range
+            * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of float with length 2 (e.g., ``(0.5, 1)``)  will limit the detection to events with a duration within this range
 
     **invert** *(NoneType or logical)*
         * Option to invert polarity
@@ -311,10 +311,10 @@ To run per method if usin multiple detection methods
     **frequency** (tuple)
         * Frequency range of interest in which to export certain event parameters (e.g. *frequency*, *power*)
 
-            * Enter a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ containing the frequency range depending on the method used in the :ref:`detection<Detect slow oscillations>`: 
-                - Staresina2015 requires ``(0.5,1.25)``
-                - Ngo2015 requires ``(0,3.5)``
-                - Massimini2004 and AASM/Massimini2004 require ``(0.1,4)``
+        * Enter a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ containing the frequency range depending on the method used in the :ref:`detection<Detect slow oscillations>`: 
+            - Staresina2015 requires ``(0.5, 1.25)``
+            - Ngo2015 requires ``(0, 3.5)``
+            - Massimini2004 and AASM/Massimini2004 require ``(0.1, 4)``
 
 *Positional arguments:*
 
@@ -370,7 +370,7 @@ To run per method if usin multiple detection methods
 
             * Entering an empty list (i.e., ``[]``) will perform no re-referencing
 
-.. admonition:: NOTE
+.. admonition:: NOTE2
     If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
     however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
 |
@@ -408,7 +408,7 @@ To run per method if usin multiple detection methods
 
             * Default is ``None`` which will infer no cycles 
 
-            * Entering a tuple of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``) will only detect the events for these specific 
+            * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of integers corresponding to sleep cycle numbers (e.g., ``(1,2,3,4,5)``) will only detect the events for these specific 
             cycles. If a ``sub`` has less than the number of cycles entered, then the maximum number of cycles possible will be used for that subject
 
     **concat_cycle** *(logical)*
@@ -445,7 +445,7 @@ To run per method if usin multiple detection methods
 
             * Default is ``None`` which will infer no segmentation prior to exporting event parameters
 
-            * Entering a list of tuples, with both start and end tags named (e.g. ``[('N2_ON', 'N2_OFF'), ('N3_ON', 'N3_OFF')]``) will export event parameters that only occur between these event markers
+            * Entering a list of `tuples <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_, with both start and end tags named (e.g. ``[('N2_ON', 'N2_OFF'), ('N3_ON', 'N3_OFF')]``) will export event parameters that only occur between these event markers
 
     **params** *(str or dict)*
         * The names of specific parameters to export
@@ -454,7 +454,7 @@ To run per method if usin multiple detection methods
 
             * Default is ``all`` which will export all characteristics (see :ref:`Output`) -  *Recommended*
 
-            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_` with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
+            * To specify only specific parameters to export, enter a `dictionary <https://docs.python.org/3/tutorial/datastructures.html#dictionaries>`_ with ``True`` or ``False`` for each parameter (e.g., ``params = ['dur':True, 'minamp':False, 'maxamp':False, 'ptp':True, 'rms':False, 'power':True, 'peakpf':False, 
                          'energy':False, 'peakef':False]``)
 
     **epoch_dur** *(int)*
@@ -519,7 +519,7 @@ Create datasets
                         outfile=True)
 
 
-*Positional arguments:*
+*Required arguments:*
     **chan**
         * Channel(s) of interest
 
@@ -527,6 +527,7 @@ Create datasets
         
             * Write a string of channels' names (e.g., *['Fz','Cz', 'Pz']*). Use the names written in the *chanset_rename* columns in the :ref:`tracking file<Tracking File>`
 
+*Positional arguments:*
     **xml_dir**
         * Path to folder containing the .csv extracted with the *export_eventparams* function
 
