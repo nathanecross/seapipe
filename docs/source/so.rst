@@ -196,8 +196,7 @@ Detect slow oscillations
 
             * Default is ``None`` which will discard the name of the rater. 
 
-            .. admonition:: NOTE
-
+            .. note::
                 This assumes there is only one rater per Annotations file (``.xml``) 
                 !! make sure you don't have multiple raters!!
     
@@ -371,8 +370,7 @@ To run per method if usin multiple detection methods
 
             * Entering an empty list (i.e., ``[]``) will perform no re-referencing
 
-        .. admonition:: NOTE2
-
+        .. note::
             If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
             however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
 
@@ -489,11 +487,9 @@ To run per method if usin multiple detection methods
         By default
         * - *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
 
-        * - *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* 
-        with ``concat_stage = True``.
+        * - *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* with ``concat_stage = True``.
 
-        * - *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* 
-        with ``concat_cycle = False`` and ``concat_stage = False``.
+        * - *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* with ``concat_cycle = False`` and ``concat_stage = False``.
 
 
 
@@ -586,8 +582,7 @@ Create datasets
 
             * Entering a list of stages (e.g., ``['NREM3']``) will only export parameters for the events in this specific stage
 
-                .. admonition:: NOTE3
-
+                .. note::
                     This will only work if the :ref:`export event parameters step<Export slow oscillations characteristics>` was run with ``concat_stage = False``
 
     **concat_stage** *(logical)*
@@ -599,8 +594,7 @@ Create datasets
 
             * Entering ``True`` will concatenate (i.e., merge) all stages before exporting the parameters of the SO events
 
-            .. admonition:: NOTE4
-
+            .. note::
                 Pay caution to how the argument ``concat_stage`` was defined in the :ref:`export event parameters step<Export slow oscillations characteristics>` .
                 If in this step (**Create datasets**) the argument is set to: ``concat_stage = False``, but in the :ref:`export event parameters step<Export slow oscillations characteristics>` this was set to ``concat_stage = True`` , then this will fail as the SO events have not been exported for stages combined. The previous step will need to be re-run with ``concat_stage = False``
 
@@ -613,8 +607,7 @@ Create datasets
 
             * Entering ``False`` create datasets per sleep cycle *separately* (saving each cycle as a separate ``.csv`` output file)
 
-            .. admonition:: NOTE5
-
+            .. note::
                 Similar to ``concat_stage`` - pay caution to how the argument ``concat_cycle`` was defined in the :ref:`export event parameters step<Export slow oscillations characteristics>` .
                 If in this step (**Create datasets**) the argument is set to: ``concat_cycle = False``, but in the :ref:`export event parameters step<Export slow oscillations characteristics>` this was set to ``concat_cycle = True`` , then this will fail as the SO events have not been exported for stages combined. The previous step will need to be re-run with ``concat_cycle = False``
 
