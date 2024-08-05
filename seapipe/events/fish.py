@@ -317,41 +317,46 @@ class FISH:
                                                            grp_name=self.grp_name)
                                     except Exception as e:
                                         logger.error(e)
-                                        logger.warning(f'No valid data found for {sub}, {ses}.')
+                                        logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}.')
                                         flag +=1
                                         break
+                                    if len(segments) < 1:
+                                        logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}.')
+                                        flag +=1
+                                        break
+                                    else:
                                         # Get times
-                                    poi = get_times(annot, stage=self.stage, 
-                                                    cycle=cycle, 
-                                                    chan=[channel], 
-                                                    exclude=True)
-                                    total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
-                                    count = len(evts)
-                                    density = count / (total_dur / epoch_dur)
-                                    logger.debug('----- WHOLE NIGHT -----')
-                                    logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                    logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
-                                    logger.info('')
-                                    # Export event parameters 
-                                    lg = create_logger_empty()
-                                    try:
-                                        data = event_params(segments, params=param_keys, 
-                                                            band=freq, n_fft=None)
-                                        if not path.exists(self.out_dir + '/' + sub):
-                                            mkdir(self.out_dir + '/' + sub)
-                                        if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                                            mkdir(self.out_dir + '/' + sub + '/' + ses)
-                                        out_dir = self.out_dir + '/' + sub + '/' + ses
-                                        data = sorted(data, key=lambda x: x['start'])
-                                        stagename = '-'.join(self.stage)
-                                        outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_{event}.csv'
-                                        export_event_params(outputfile, data, count=len(evts), 
-                                                            density=density)
-                                        logger.debug('Writing to ' + outputfile)
-                                    except:
-                                        logger.warning(f'Issue exporting data for {sub}, {ses}, {fnamechan}, {stagename}, {event}.')
-                                        flag +=1
-                                        break
+                                        poi = get_times(annot, stage=self.stage, 
+                                                        cycle=cycle, 
+                                                        chan=[channel], 
+                                                        exclude=True)
+                                        total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                        count = len(evts)
+                                        density = count / (total_dur / epoch_dur)
+                                        logger.debug('----- WHOLE NIGHT -----')
+                                        logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
+                                        logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
+                                        logger.info('')
+                                        # Export event parameters 
+                                        lg = create_logger_empty()
+                                        try:
+                                            data = event_params(segments, params=param_keys, 
+                                                                band=freq, n_fft=None)
+                                            if not path.exists(self.out_dir + '/' + sub):
+                                                mkdir(self.out_dir + '/' + sub)
+                                            if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                                                mkdir(self.out_dir + '/' + sub + '/' + ses)
+                                            out_dir = self.out_dir + '/' + sub + '/' + ses
+                                            data = sorted(data, key=lambda x: x['start'])
+                                            stagename = '-'.join(self.stage)
+                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_{event}.csv'
+                                            export_event_params(outputfile, data, count=len(evts), 
+                                                                density=density)
+                                            logger.debug('Writing to ' + outputfile)
+                                        except:
+                                            logger.warning(f'Issue exporting data for {sub}, {ses}, {fnamechan}, {stagename}, {event}.')
+                                            flag +=1
+                                            break
                                 
                                 ### PER STAGE AND CYCLE ###
                                 elif model == 'stage*cycle':
@@ -375,51 +380,55 @@ class FISH:
                                                                    grp_name=self.grp_name)
                                             except Exception as e:
                                                 logger.error(e)
-                                                logger.warning(f'No valid data found for {sub}, {ses}, STAGE {st} in CYCLE {cy+1}.')
+                                                logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, STAGE {st} in CYCLE {cy+1}.')
                                                 flag +=1
                                                 break
-                                            # Get times
-                                            if isinstance(chan_ful, ndarray):
+                                            if len(segments) < 1:
+                                                logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, STAGE {st} in CYCLE {cy+1}.')
+                                                flag +=1
+                                                break
+                                            else:
+                                                # Get times
+                                                if isinstance(chan_ful, ndarray):
+                                                    if len(chan_ful) > 1:
+                                                        chan_ful = chan_ful[0]
+            
                                                 if len(chan_ful) > 1:
                                                     chan_ful = chan_ful[0]
-        
-                                            if len(chan_ful) > 1:
-                                                chan_ful = chan_ful[0]
-        
-                                            # Calculate event density (per cycle)
-                                            poi = get_times(annot, stage=[st], 
-                                                            cycle=[cyc], chan=[channel], 
-                                                            exclude=True)
-                                            total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
-                                            evts = annot.get_events(name=event, 
-                                                                    time=cycle[cy][0:2], 
-                                                                    chan = f'{channel} ({self.grp_name})', 
-                                                                    stage = st)
-                                            count = len(evts)
-                                            density = len(evts) / (total_dur / epoch_dur)
-                                            logger.info('')
-                                            logger.debug(f'---- STAGE {st}, CYCLE {cy+1} ----')
-                                            logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                            logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
-                                            logger.info('')
-
-                                            
-                                            # Export event parameters 
-                                            lg = create_logger_empty()
-                                            data = event_params(segments, params=params, 
-                                                                band=freq, n_fft=None)
-                                            if not path.exists(self.out_dir + '/' + sub):
-                                                mkdir(self.out_dir + '/' + sub)
-                                            if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                                                mkdir(self.out_dir + '/' + sub + '/' + ses)
-                                            out_dir = self.out_dir + '/' + sub + '/' + ses
-                                            data = sorted(data, key=lambda x: x['start'])
-                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_cycle{cy+1}_{event}.csv' 
-                                            export_event_params(outputfile, data, 
-                                                                count=len(evts), 
-                                                                density=density)
-                                            logger.debug('Writing to ' + outputfile)   
-                                
+            
+                                                # Calculate event density (per cycle)
+                                                poi = get_times(annot, stage=[st], 
+                                                                cycle=[cyc], chan=[channel], 
+                                                                exclude=True)
+                                                total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                                evts = annot.get_events(name=event, 
+                                                                        time=cycle[cy][0:2], 
+                                                                        chan = f'{channel} ({self.grp_name})', 
+                                                                        stage = st)
+                                                count = len(evts)
+                                                density = len(evts) / (total_dur / epoch_dur)
+                                                logger.info('')
+                                                logger.debug(f'---- STAGE {st}, CYCLE {cy+1} ----')
+                                                logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
+                                                logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
+                                                logger.info('')
+    
+                                                
+                                                # Export event parameters 
+                                                lg = create_logger_empty()
+                                                data = event_params(segments, params=params, 
+                                                                    band=freq, n_fft=None)
+                                                if not path.exists(self.out_dir + '/' + sub):
+                                                    mkdir(self.out_dir + '/' + sub)
+                                                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                                                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                                                out_dir = self.out_dir + '/' + sub + '/' + ses
+                                                data = sorted(data, key=lambda x: x['start'])
+                                                outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_cycle{cy+1}_{event}.csv' 
+                                                export_event_params(outputfile, data, 
+                                                                    count=len(evts), 
+                                                                    density=density)
+                                                logger.debug('Writing to ' + outputfile)                
                                 ### PER STAGE ###
                                 elif model == 'per_stage':
                                     for s, st in enumerate(self.stage):
@@ -435,45 +444,48 @@ class FISH:
                                                                grp_name=self.grp_name)
                                         except Exception as e:
                                             logger.error(e)
-                                            logger.warning(f'No valid data found for {sub}, {ses}, {st}.')
+                                            logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, STAGE {st}.')
                                             flag +=1
                                             break
-                                        # Get times
-                                        poi = get_times(annot, stage=[st], cycle=cycle, 
-                                                        chan=[channel], exclude=True)
-                                        total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
-                                        evts = annot.get_events(name=event, time=None, 
-                                                                chan = f'{channel} ({self.grp_name})', 
-                                                                stage = st)
-                                        count = len(evts)
-                                        density = len(evts) / (total_dur / epoch_dur)
-                                        logger.info('')
-                                        logger.debug(f'---- STAGE {st} ----')
-                                        logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                        logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
-                                        logger.info('')
-                                        # Export event parameters 
-                                        lg = create_logger_empty()
-                                        data = event_params(segments, params=params, 
-                                                            band=freq, n_fft=None)
-                                        if not data:
-                                            data = [x for x in segments]
+                                        if len(segments) < 1:
+                                            logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, STAGE {st}.')
+                                            flag +=1
+                                            break
                                         else:
-                                            data = sorted(data, key=lambda x: x['start'])
-                                        
-                                        if not path.exists(self.out_dir + '/' + sub):
-                                            mkdir(self.out_dir + '/' + sub)
-                                        if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                                            mkdir(self.out_dir + '/' + sub + '/' + ses)
-                                        out_dir = self.out_dir + '/' + sub + '/' + ses
-                                        
-                                        outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_{event}.csv' 
-                                        export_event_params(outputfile, data, 
-                                                            count=len(evts), 
-                                                            density=density)
-                                        logger.debug('Writing to ' + outputfile) 
-                                        
-          
+                                            # Get times
+                                            poi = get_times(annot, stage=[st], cycle=cycle, 
+                                                            chan=[channel], exclude=True)
+                                            total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                            evts = annot.get_events(name=event, time=None, 
+                                                                    chan = f'{channel} ({self.grp_name})', 
+                                                                    stage = st)
+                                            count = len(evts)
+                                            density = len(evts) / (total_dur / epoch_dur)
+                                            logger.info('')
+                                            logger.debug(f'---- STAGE {st} ----')
+                                            logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
+                                            logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
+                                            logger.info('')
+                                            # Export event parameters 
+                                            lg = create_logger_empty()
+                                            data = event_params(segments, params=params, 
+                                                                band=freq, n_fft=None)
+                                            if not data:
+                                                data = [x for x in segments]
+                                            else:
+                                                data = sorted(data, key=lambda x: x['start'])
+                                            
+                                            if not path.exists(self.out_dir + '/' + sub):
+                                                mkdir(self.out_dir + '/' + sub)
+                                            if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                                                mkdir(self.out_dir + '/' + sub + '/' + ses)
+                                            out_dir = self.out_dir + '/' + sub + '/' + ses
+                                            
+                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{st}_{event}.csv' 
+                                            export_event_params(outputfile, data, 
+                                                                count=len(evts), 
+                                                                density=density)
+                                            logger.debug('Writing to ' + outputfile) 
                                 ### PER CYCLE ###
                                 elif model == 'per_cycle': 
                                     for cy, cycc in enumerate(cycle_idx):
@@ -494,49 +506,54 @@ class FISH:
                                                                grp_name=self.grp_name)
                                         except Exception as e:
                                             logger.error(e)
-                                            logger.warning(f'No valid data found for {sub}, {ses}, {cy}.')
+                                            logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, CYCLE {cy}.')
                                             flag +=1
                                             break
-                                        # Get times
-                                        if isinstance(chan_ful, ndarray):
+                                        if len(segments) < 1:
+                                            logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, CYCLE {cy}.')
+                                            flag +=1
+                                            break
+                                        else:
+                                            # Get times
+                                            if isinstance(chan_ful, ndarray):
+                                                if len(chan_ful) > 1:
+                                                    chan_ful = chan_ful[0]
+        
                                             if len(chan_ful) > 1:
                                                 chan_ful = chan_ful[0]
-    
-                                        if len(chan_ful) > 1:
-                                            chan_ful = chan_ful[0]
-    
-                                        # Calculate event density (per cycle)
-                                        poi = get_times(annot, stage=self.stage, 
-                                                        cycle=[cyc], chan=[channel], 
-                                                        exclude=True)
-                                        total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
-                                        evts = annot.get_events(name=event, 
-                                                                time=cycle[cy][0:2], 
-                                                                chan = f'{channel} ({self.grp_name})', 
-                                                                stage = self.stage)
-                                        count = len(evts)
-                                        density = len(evts) / (total_dur / epoch_dur)
-                                        logger.info('')
-                                        logger.debug(f'---- CYCLE {cy+1} ----')
-                                        logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
-                                        logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
-                                        logger.info('')
-                                        # Export event parameters 
-                                        lg = create_logger_empty()
-                                        data = event_params(segments, params=params, 
-                                                            band=freq, n_fft=None)
-                                        if not path.exists(self.out_dir + '/' + sub):
-                                            mkdir(self.out_dir + '/' + sub)
-                                        if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                                            mkdir(self.out_dir + '/' + sub + '/' + ses)
-                                        out_dir = self.out_dir + '/' + sub + '/' + ses
-                                        data = sorted(data, key=lambda x: x['start'])
-                                        stagename = '-'.join(self.stage)
-                                        outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cy+1}_{event}.csv'  
-                                        export_event_params(outputfile, data, 
-                                                            count=len(evts), 
-                                                            density=density)
-                                        logger.debug('Writing to ' + outputfile)
+        
+                                            # Calculate event density (per cycle)
+                                            poi = get_times(annot, stage=self.stage, 
+                                                            cycle=[cyc], chan=[channel], 
+                                                            exclude=True)
+                                            total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                            evts = annot.get_events(name=event, 
+                                                                    time=cycle[cy][0:2], 
+                                                                    chan = f'{channel} ({self.grp_name})', 
+                                                                    stage = self.stage)
+                                            count = len(evts)
+                                            density = len(evts) / (total_dur / epoch_dur)
+                                            logger.info('')
+                                            logger.debug(f'---- CYCLE {cy+1} ----')
+                                            logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
+                                            logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
+                                            logger.info('')
+                                            # Export event parameters 
+                                            lg = create_logger_empty()
+                                            data = event_params(segments, params=params, 
+                                                                band=freq, n_fft=None)
+                                            if not path.exists(self.out_dir + '/' + sub):
+                                                mkdir(self.out_dir + '/' + sub)
+                                            if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                                                mkdir(self.out_dir + '/' + sub + '/' + ses)
+                                            out_dir = self.out_dir + '/' + sub + '/' + ses
+                                            data = sorted(data, key=lambda x: x['start'])
+                                            stagename = '-'.join(self.stage)
+                                            outputfile = f'{out_dir}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cy+1}_{event}.csv'  
+                                            export_event_params(outputfile, data, 
+                                                                count=len(evts), 
+                                                                density=density)
+                                            logger.debug('Writing to ' + outputfile)
                                     
                                 ### PER SEGMENT ###
                                 if segs:
