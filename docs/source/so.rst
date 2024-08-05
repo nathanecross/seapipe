@@ -81,7 +81,7 @@ Functions to detect Slow Oscillations
 
    project_name.export_eventparams()
 |   
-    This will extract a ``.csv`` file for every channel and/or stage and/or cycle into the ``/sub-XXX/ses-XXX`` directory in ``<root_dir>/OUT/slowwave/`` 
+    This will extract a ``.csv`` file for every channel and/or stage and/or cycle into every ``/sub-XXX/ses-XXX`` directory in ``<root_dir>/OUT/slowwave/`` 
 |
 3) Create datasets combining all the subjects: 
 
@@ -274,7 +274,7 @@ Detect slow oscillations
 Export slow oscillations characteristics
 ----------------
 *Command line argument:*
-To run per method if usin multiple detection methods
+To run per method if using multiple detection methods
 
 .. code-block:: python
 
@@ -372,7 +372,7 @@ To run per method if usin multiple detection methods
 
         .. note::
             If the reference channels are not the same as were entered in the :ref:`detection stage<Detect slow oscillations>`, the event parameters will still be stored,
-            however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these stages!           
+            however the parameters (e.g. frequency, amplitude, power) might be affected. Be careful to remain consistent across these steps!           
 
     **stage** *(list)*
         * Stages of interest
@@ -485,18 +485,19 @@ To run per method if usin multiple detection methods
 
      .. note::
         By default
-        * - *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
 
-        * - *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* with ``concat_stage = True``.
+        * *export_eventparams* cannot extract SOs characteristics without required arguments for ``evt_name`` and ``frequency``. 
 
-        * - *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* with ``concat_cycle = False`` and ``concat_stage = False``.
+        * *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* with ``concat_stage = True``.
+
+        * *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* with ``concat_cycle = False`` and ``concat_stage = False``.
 
 
 
 .. _create_datasets:
 Create datasets
 ----------------
-*Command line argument:*
+*Command line argument:* To run per channel *and* method if using multiple detection methods.
 
 
 .. code-block:: python
