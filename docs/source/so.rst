@@ -490,7 +490,7 @@ To run per method if using multiple detection methods
 
         * *export_eventparams* will extract characteristics per stage (NREM2 vs NREM3). If you want the extraction for NREM2+NREM3 combined as well, re-run *export_eventparams* with ``concat_stage = True``.
 
-        * *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle and per stage as well, re-run *export_eventparams* with ``concat_cycle = False`` and ``concat_stage = False``.
+        * *export_eventparams* will extract characteristics for the whole-night. If you want the extraction per cycle, re-run *export_eventparams* with ``concat_cycle = False``.
 
 
 
