@@ -367,7 +367,8 @@ class Spectrum:
                 # get segments
                 for c, ch in enumerate(chanset):
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
-                    segments = fetch(dset, annot, cat = cat, evt_type = None, 
+                    segments = fetch(dset, annot, cat = cat, 
+                                     evt_type = event_opts['evt_type'], 
                                      stage = self.stage, cycle=cycle,  
                                      epoch = epoch_opts['epoch'], 
                                      epoch_dur = epoch_opts['epoch_dur'], 
@@ -715,7 +716,8 @@ class Spectrum:
                     ## Get segments of data
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
                     
-                    segments = fetch(dset, annot, cat = cat, evt_type = None, 
+                    segments = fetch(dset, annot, cat = cat, 
+                                     evt_type = event_opts['evt_type'], 
                                      stage = self.stage, cycle=cycle,   
                                      epoch = epoch_opts['epoch'], 
                                      epoch_dur = epoch_opts['epoch_dur'], 

@@ -10,6 +10,7 @@ from pandas import DataFrame, read_csv
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.seasnakes import seasnakes
+from seapipe.events.seabass import seabass
 from seapipe.pac.octopus import octopus, pac_method
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
@@ -315,12 +316,80 @@ class pipeline:
     '''
     SLEEP EVENTS DETECTIONS
     
+    sleep_staging
     detect_spectral_peaks,
     detect_slow_oscillations,
     detect_spindles,
     
     
     '''
+    def detect_sleep_stages(self, xml_dir=None, out_dir=None, subs='all', 
+                                  sessions='all', filetype='.edf', 
+                                  method = 'Vallat2021', qual_thresh = 0.5,
+                                  eeg_chan=None, ref_chan=None, eog_chan=None, 
+                                  emg_chan=None, rater=None, invert = None, 
+                                  outfile=True):
+        
+        # Set up logging
+        logger = create_logger('Detect sleep stages')
+        logger.info('')
+        logger.debug("Commencing sleep stage detection pipeline.")
+        logger.info('')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not xml_dir:
+            xml_dir = f'{self.outpath}/staging'   
+        if not out_dir:
+            out_dir = f'{self.outpath}/staging'    
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        # Set channels
+        eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
+        if isinstance(eeg_chan, str):
+            eeg_chan = [eeg_chan]
+        if isinstance(ref_chan, str):
+            ref_chan = [ref_chan]
+        if isinstance(eog_chan, str):
+            eog_chan = [eog_chan]
+        if isinstance(emg_chan, str):
+            emg_chan = [emg_chan]
+        
+        # Check inversion
+        if invert == None:
+            invert = check_chans(self.rootpath, None, False, logger)
+        elif type(invert) != bool:
+            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('SO detection finished with ERRORS. See log for details.')
+            return
+    
+        # Check annotations directory exists, run detection
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('SO detection finished with ERRORS. See log for details.')
+        else:   
+           stages = seabass(in_dir, xml_dir, out_dir, log_dir, eeg_chan, 
+                            ref_chan, eog_chan, emg_chan, rater, subs, sessions, 
+                            self.tracking) 
+           stages.detect_stages(method, qual_thresh, invert, filetype, 
+                                outfile)
+           try:
+               self.tracking = self.tracking | stages.tracking
+           except:
+               self.tracking = {**self.tracking, **stages.tracking}
+        return
+    
     
     def detect_spectral_peaks(self, xml_dir = None, out_dir = None, 
                                     subs = 'all', sessions = 'all', chan = None, 

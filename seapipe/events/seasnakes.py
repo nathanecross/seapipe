@@ -26,8 +26,8 @@ class seasnakes:
 
         This module runs a slow oscillation detection with the option of using
         previously published SO detectors:
-            1. Massimini et al. ()
-            2. Massimini et al. () [Adapted to AASM criteria]
+            1. Massimini et al. (2007)
+            2. Massimini et al. (2007) [Adapted to AASM criteria]
             3. Ngo et al. (2015)
             4. Staresina et al. (2015)
         
