@@ -264,9 +264,6 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
-        # Format concatenation
-        cat = (int(concat_cycle),int(concat_stage),1,1)
-        
         # Set default parameters
         if not general_opts:
             general_opts = default_general_opts()
@@ -282,6 +279,12 @@ class pipeline:
         if not filter_opts:
             filter_opts = default_filter_opts()    
         frequency_opts['frequency'] = (filter_opts['highpass'], filter_opts['lowpass'])
+        
+        # Format concatenation
+        cat = (int(concat_cycle),int(concat_stage),
+               int(epoch_opts['concat_signal']),
+               int(event_opts['concat_events']),
+               )
         
         # Set suffix for output filename
         if not general_opts['suffix']:

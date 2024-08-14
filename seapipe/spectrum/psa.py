@@ -13,8 +13,8 @@ from glob import glob
 from itertools import product
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from numpy import (arange, asarray, ceil, concatenate, empty, floor, mean, nan, 
-                   ones, pi, sqrt, stack, sum, where, zeros)
+from numpy import (append, arange, asarray, ceil, concatenate, empty, floor, 
+                   mean, nan, ones, pi, reshape, sqrt, stack, sum, where, zeros)
 from openpyxl import Workbook
 from os import listdir, mkdir, path, walk
 from pandas import DataFrame, ExcelWriter, read_csv
@@ -96,14 +96,16 @@ def default_epoch_opts():
                   'min_dur':0,
                   'epoch_dur': 30,
                   'epoch_overlap': 0.5,
-                  'epoch_step': None}
+                  'epoch_step': None,
+                  'concat_signal':True}
     
     return epoch_opts
 
 def default_event_opts():
     event_opts = {'evt_type': None,
                   'event_chan': None,
-                  'buffer': 2}
+                  'buffer': 2,
+                  'concat_events':True}
     return event_opts
 
 def default_fooof_opts():
@@ -541,11 +543,18 @@ class Spectrum:
         elif self.cat[1] == 0:
             model = 'per_stage'  
             logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage separately.')
+        
+        if self.cat[3] == 0:
+            ev_model = True
+            logger.debug(f"Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per event: {event_opts['evt_type']} separately.")
+        else:
+            ev_model = False
         if 'cycle' in model and self.cycle_idx == None:
             logger.info('')
             logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
             return
-        cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
+        cat = self.cat
+        #cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
         
         
         logger.info('')
@@ -554,8 +563,8 @@ class Spectrum:
                                   |
                                   |
                                   |  ,^\
-                                  | /   \           P.S.A.
-                                  |     `.
+                                  | /   \           Power Spectral
+                                  |     `.             Analysis
                         (µV2)     |      `~.       
                                   |         `./\
                                   |             `~.
@@ -725,7 +734,8 @@ class Spectrum:
                                      epoch_step = epoch_opts['epoch_step'], 
                                      reject_epoch = epoch_opts['reject_epoch'], 
                                      reject_artf = epoch_opts['reject_artf'],
-                                     min_dur = epoch_opts['min_dur'])
+                                     min_dur = epoch_opts['min_dur'],
+                                     buffer = event_opts['buffer'])
                     if len(segments)==0:
                         logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, {cycle}.")
                         continue
@@ -840,57 +850,59 @@ class Spectrum:
 
                         # Export and save data
                         ### Output filename ###
+                        if not ev_model:
+                            if model == 'whole_night':
+                                stagename = '-'.join(self.stage)
+                                outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}**{suffix}.csv'
+                            elif model == 'stage*cycle':    
+                                outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
+                            elif model == 'per_stage':
+                                outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}**{suffix}.csv'
+                            elif model == 'per_cycle':
+                                stagename = '-'.join(self.stage)
+                                outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
+                            if general_opts['freq_full']:
+                                save_freq([out], freq_bw, general_opts, outputfile, logger)
+                            if general_opts['freq_band']:
+                                save_bands([out], freq_bw, general_opts, frequency_opts, outputfile, logger)
+                            if general_opts['freq_plot']:
+                                save_plot([out], general_opts, outputfile, logger)
+                        elif sg == 0:
+                            out_full = [deepcopy(out)]
+                        else:
+                            out_full.append(out)
+                    
+                    # If analyses set to be per event        
+                    if ev_model:
+                        ev_out = []
+                        outputfile = [] #f"{outputfile.split('*')[0]}_{event_opts['evt_type'][0]}_**{outputfile.split('*')[2]}"
                         if model == 'whole_night':
-                            stagename = '-'.join(self.stage)
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}**{suffix}.csv'
-                        elif model == 'stage*cycle':    
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
-                        elif model == 'per_stage':
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}**{suffix}.csv'
-                        elif model == 'per_cycle':
-                            stagename = '-'.join(self.stage)
-                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}**{suffix}.csv'
-
-                        if general_opts['freq_full']:
-                            low = where(out['data'].axis['freq'][0]==freq_bw[0])[0][0]
-                            hi = where(out['data'].axis['freq'][0]==freq_bw[1])[0][0]
-                            out['data'].axis['freq'][0] = out['data'].axis['freq'][0][low:hi]
-                            out['data'].data[0] = asarray([out['data'].data[0][0][low:hi]])
-                            as_matrix = asarray([y for y in out['data'].data[0]])
-                            desc = get_descriptives(as_matrix)
-                            filename = f"{outputfile.split('*')[0]}_freq_full_{outputfile.split('*')[2]}"
-                            logger.debug(f'Writing to {filename}')  
-                            export_freq([out], filename, desc=desc)
+                            outputfile.append(f"{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{event_opts['evt_type'][0]}**{suffix}.csv")
+                            ev_out.append(out_full)
+                        if model == 'stage*cycle':
+                            for (stage,cycle) in product(self.stage,self.cycle_idx):
+                                outputfile.append(f"{outpath}/{sub}_{ses}_{fnamechan}_{stage}_cycle{cycle}_{event_opts['evt_type'][0]}**{suffix}.csv")
+                                out = [x for x in out_full if stage in x['stage']]
+                                out = [x for x in out if cycle in x['cycle']]
+                                ev_out.append(out)
+                        if model == 'per_stage':
+                            for stage in self.stage:
+                                outputfile.append(f'{outpath}/{sub}_{ses}_{fnamechan}_{stage}**{suffix}.csv')
+                                out = [x for x in out_full if stage in x['stage']]
+                                ev_out.append(out)
+                        if model == 'per_cycle':
+                            for cycle in self.cycle_idx:
+                                outputfile.append(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle}**{suffix}.csv') 
+                                out = [x for x in out if cycle in x['cycle']]
+                                ev_out.append(out)
+                        for out, outfile in zip(ev_out, outputfile):
+                            if general_opts['freq_full']:
+                                save_freq(out, freq_bw, general_opts, outfile, logger)
+                            if general_opts['freq_band']:
+                                save_bands(out, freq_bw, general_opts, frequency_opts, outfile, logger)
+                            if general_opts['freq_plot']:
+                                save_plot(out, general_opts, outfile, logger)     
                         
-                        if general_opts['freq_band']:
-                            filename = f"{outputfile.split('*')[0]}_freq_band_{outputfile.split('*')[2]}"
-                            logger.debug(f'Writing to {filename}') 
-                            try:
-                                export_freq_band([out], frequency_opts['bands'], filename)
-                            except:
-                                logger.error('Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
-                                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-                            
-                        if general_opts['freq_plot']:
-                            fig = Figure()
-                            FigureCanvas(fig)
-                            idx_plot = 1
-                            data = out['data']
-                            seg_chan = data.axis['chan'][0]
-                            sf = data.axis['freq'][0]
-                            if general_opts['max_freq_plot']:
-                                idx_max = asarray(
-                                        [abs(x - general_opts['max_freq_plot']) for x in sf]).argmin()
-                            for ch in seg_chan:
-                                Sxx = data(chan=ch)[0]
-                                ax = fig.add_subplot(len([out]), len(seg_chan), idx_plot)
-                                ax.semilogy(sf[1:idx_max], Sxx[1:idx_max])
-                                ax.set_xlabel('Frequency (Hz)')
-                                idx_plot += 1  
-                            logger.debug(f'Saving figure to {outpath}/{sub}_{ses}_{fnamechan}_powerspectrum.svg')
-                            fig.savefig(f'{outpath}/{sub}_{ses}_powerspectrum.svg')
-                        
-        
         ### 3. Check completion status and print
         if flag == 0:
             logger.debug('Power spectral analyses finished without ERROR.')  
@@ -900,8 +912,7 @@ class Spectrum:
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
         
         return 
-        
-        
+           
         
     def powerspec_summary(self, chan, general_opts, frequency_opts, filter_opts, 
                                 epoch_opts, event_opts, logger):
@@ -1206,14 +1217,64 @@ class Spectrum:
             logger.info('')
             logger.warning('Create powerspec dataset finished with WARNINGS. See log for details.')
         return 
-                            
-        
+    
+                        
+# MISC FUNCTIONS        
 def extract_psa_error(logger):
     logger.critical("Data extraction error: Check that all 'params' are written correctly.")
     logger.info('                      Check documentation for how event parameters need to be written:')
     logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')            
         
         
- 
+def save_freq(out, freq_bw, general_opts, outputfile, logger):
+
+    low = where(out[0]['data'].axis['freq'][0]==freq_bw[0])[0][0]
+    hi = where(out[0]['data'].axis['freq'][0]==freq_bw[1])[0][0]
+    
+    #[x[low:hi] for x['data'].axis['freq'][0] in out]
+    for i, x in enumerate(out):
+        out[i]['data'].axis['freq'][0] = x['data'].axis['freq'][0][low:hi]
+        out[i]['data'].data[0] = reshape(out[i]['data'].data[0][0][low:hi], 
+                                         (1, len(out[i]['data'].data[0][0][low:hi])))
+    as_matrix = asarray([x['data'].data[0][0] for x in out])
+    # out['data'].axis['freq'][0] = out['data'].axis['freq'][0][low:hi]
+    # out['data'].data[0] = asarray([out['data'].data[0][0][low:hi]])
+    #as_matrix = asarray([y for y in out[0]['data'].data[0]])
+    desc = get_descriptives(as_matrix)
+    filename = f"{outputfile.split('*')[0]}_freq_full_{outputfile.split('*')[2]}"
+    logger.debug(f'Writing to {filename}')  
+    export_freq(out, filename, desc=desc)
+        
+def save_bands(out, freq_bw, general_opts, frequency_opts, outputfile, logger):
+    filename = f"{outputfile.split('*')[0]}_freq_band_{outputfile.split('*')[2]}"
+    logger.debug(f'Writing to {filename}') 
+    try:
+        export_freq_band(out, frequency_opts['bands'], filename)
+    except:
+        logger.error('Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
+        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+
+def save_plot(out, general_opts, outputfile, logger):
+    
+    ''' TO COMPLETE '''
+    
+    # fig = Figure()
+    # FigureCanvas(fig)
+    # idx_plot = 1
+    # data = asarray([x['data'].data[0][0] for x in out])
+    # seg_chan = data[0].axis['chan'][0]
+    # sf = out[0]['data'].axis['freq'][0]
+    # if general_opts['max_freq_plot']:
+    #     idx_max = asarray(
+    #             [abs(x - general_opts['max_freq_plot']) for x in sf]).argmin()
+    # for ch in seg_chan:
+    #     Sxx = data(chan=ch)[0]
+    #     ax = fig.add_subplot(len([out]), len(seg_chan), idx_plot)
+    #     ax.semilogy(sf[1:idx_max], Sxx[1:idx_max])
+    #     ax.set_xlabel('Frequency (Hz)')
+    #     idx_plot += 1 
+    # filename = f"{outputfile.split('*')[0]}_powerspectrum.svg"
+    # logger.debug(f'Saving figure to {filename}')
+    # fig.savefig(f'{filename}')  
         
         
