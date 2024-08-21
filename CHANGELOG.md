@@ -4,6 +4,7 @@
 Beta Version
 
 0.1 Initial release
-0.2 All core functions
+0.2 All core functions included
+0.3 Fixed dependencies when installing in fresh environments
 
 
