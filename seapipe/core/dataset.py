@@ -326,12 +326,12 @@ class pipeline:
     
     
     '''
-    def detect_sleep_stages(self, xml_dir=None, out_dir=None, subs='all', 
-                                  sessions='all', filetype='.edf', 
+    def detect_sleep_stages(self, eeg_chan, xml_dir = None, out_dir = None, 
+                                  subs = 'all', sessions = 'all', 
                                   method = 'Vallat2021', qual_thresh = 0.5,
-                                  eeg_chan=None, ref_chan=None, eog_chan=None, 
-                                  emg_chan=None, rater=None, invert = None, 
-                                  outfile=True):
+                                  filetype = '.edf', ref_chan = None, 
+                                  eog_chan = None, emg_chan = None, 
+                                  rater = None, invert = False, outfile = True):
         
         # Set up logging
         logger = create_logger('Detect sleep stages')
@@ -353,13 +353,13 @@ class pipeline:
         
         # Set channels
         eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
-        if isinstance(eeg_chan, str):
+        if not isinstance(eeg_chan, list):
             eeg_chan = [eeg_chan]
-        if isinstance(ref_chan, str):
+        if not isinstance(ref_chan, list):
             ref_chan = [ref_chan]
-        if isinstance(eog_chan, str):
+        if not isinstance(eog_chan, list):
             eog_chan = [eog_chan]
-        if isinstance(emg_chan, str):
+        if not isinstance(emg_chan, list):
             emg_chan = [emg_chan]
         
         # Check inversion
@@ -367,20 +367,20 @@ class pipeline:
             invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
             logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('')
+            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
-            logger.critical('SO detection finished with ERRORS. See log for details.')
+            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
             return
     
         # Check annotations directory exists, run detection
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('')
+            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
-            logger.critical('SO detection finished with ERRORS. See log for details.')
+            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
         else:   
            stages = seabass(in_dir, xml_dir, out_dir, log_dir, eeg_chan, 
                             ref_chan, eog_chan, emg_chan, rater, subs, sessions, 

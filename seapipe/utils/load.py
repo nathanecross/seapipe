@@ -81,16 +81,16 @@ def check_chans(rootpath, chan, ref_chan, logger):
         chan = read_tracking_sheet(f'{rootpath}', logger)
         if not isinstance(chan, DataFrame) and chan == 'error':
             logger.error("Channels haven't been defined, and there was an error reading the tracking file.")
-            logger.info('Check documentation for how to set up channel data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('')
+            logger.info('Check documentation for how to set up channel data: https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
         
     if ref_chan is None:
         ref_chan = read_tracking_sheet(f'{rootpath}', logger)
         if not isinstance(ref_chan, DataFrame) and ref_chan == 'error':
             logger.warning("Reference channels haven't been defined, and there was an error reading the tracking file.")
-            logger.info('Check documentation for how to set up channel data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('')
+            logger.info('Check documentation for how to set up channel data: https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             logger.warning('No re-referencing will be performed prior to analysis.')
             ref_chan = None

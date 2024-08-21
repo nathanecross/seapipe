@@ -6,14 +6,18 @@ build-backend = "setuptools.build_meta"
 name = "seapipe"
 dynamic = ["version"]
 
-dependencies = [
-  "pandas",
-  "wonambi>7.0",
-  "fooof",
-  "scipy>=0.19",
-  "mne>1.6.0",
-  "tensorpac>0.5.6",
-]
+dependencies = ["fooof",
+                "mne>1.6.0",
+                "numpy<=1.26.4",
+                "openpyxl",
+                "pandas",
+                "pinguoin",
+                "safepickle",
+                "scipy<1.13.0",
+                "tensorpac>0.5.6",
+                "wonambi>7.0",
+                "yasa"
+                ]
 requires-python = ">=3.8"
 authors = [
   {name = "Nathan Cross", email = "nathan.cross@sydney.edu.au"},

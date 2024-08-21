@@ -155,11 +155,10 @@ class seabass:
                 rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
                 try:
                     edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
+                    chans = self.eeg_chan + self.ref_chan + self.eog_chan + self.emg_chan
+                    chans = [x for x in chans if x]
                     raw = mne.io.read_raw_edf(rdir + edf_file[0], 
-                                              include = self.eeg_chan + 
-                                                        self.ref_chan + 
-                                                        self.eog_chan + 
-                                                        self.emg_chan,
+                                              include = chans,
                                               preload=True, verbose = False)
                 except:
                     logger.warning(f' No input {filetype} file in {rdir}')
@@ -189,7 +188,8 @@ class seabass:
                                  'N2': 'NREM2',
                                  'N3': 'NREM3',
                                  'R': 'REM'}
-                    raw.set_eeg_reference(ref_channels=self.ref_chan, 
+                    if len([x for x in self.ref_chan if x]) > 0:
+                        raw.set_eeg_reference(ref_channels=self.ref_chan, 
                                           verbose = False)
                     sls = yasa.SleepStaging(raw, 
                                             eeg_name=self.eeg_chan[0], 
