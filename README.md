@@ -10,7 +10,7 @@ sleep spindles, slow oscillations, phase amplitude coupling,
 and power spectral analyses.
 
 It pulls functions from a range of other open source packages, including: 
-Wonambi, MNE specparam (fooof) and Tensorpac
+Wonambi, YASA, MNE, specparam (fooof) and Tensorpac
 
 It offers a simple and intuitive, yet fully customisable API. 
 The major advantage of seapipe is that it can be deployed on full, 
