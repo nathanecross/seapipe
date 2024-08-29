@@ -274,12 +274,11 @@ Detect slow oscillations
 Export slow oscillations characteristics
 ----------------
 *Command line argument:*
-To run per method if using multiple detection methods
 
 .. code-block:: python
 
     project.export_eventparams(evt_name,
-                               frequency,
+                               frequency = None,
                                xml_dir = None, 
                                out_dir = None, 
                                subs = 'all', 
