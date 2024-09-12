@@ -1,4 +1,4 @@
-Macro-architecture
+Macro-Architecture
 =====
 
 .. _overview:
