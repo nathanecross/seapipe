@@ -45,6 +45,7 @@ Contents
    wonambi
    macro
    so
+   spindle
    api
 
 
