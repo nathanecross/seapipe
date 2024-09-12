@@ -21,7 +21,8 @@ from copy import deepcopy
 from datetime import datetime, date
 from pandas import DataFrame
 from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, read_inversion, rename_channels)
+from ..utils.load import (load_channels, load_stagechan, load_emg, load_eog, 
+                          read_inversion, rename_channels)
 from ..utils.misc import remove_duplicate_evts
  
 
@@ -132,7 +133,8 @@ class seabass:
                 subs = listdir(self.rec_dir)
                 subs = [p for p in subs if not '.' in p]
         else:
-            logger.error("'subs' must either be an array of subject ids or = 'all' ")       
+            logger.error("'subs' must either be an array of subject ids or = 'all' ")  
+            return
         
         ### 2. Begin loop through dataset
        
@@ -150,18 +152,49 @@ class seabass:
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'slowosc':{}} 
-    
+                
+                # Load chans
+                pflag = deepcopy(flag)
+                flag, chanset = load_stagechan(sub, ses, self.eeg_chan, self.ref_chan,
+                                              flag, logger)
+                if flag - pflag > 0:
+                    logger.warning(f'Skipping {sub}, {ses}...')
+                    break
+                eeg_chan = [x for x in chanset]
+                ref_chan = chanset[eeg_chan[0]]
+                pflag = deepcopy(flag)
+                flag, emg_chan = load_emg(sub, ses, self.eeg_chan, self.ref_chan, 
+                                    flag, logger)
+                if flag - pflag > 0:
+                    logger.warning(f'Skipping {sub}, {ses}...')
+                    break
+                pflag = deepcopy(flag)
+                flag, eog_chan = load_eog(sub, ses, self.eeg_chan, self.ref_chan, 
+                                    flag, logger)
+                if flag - pflag > 0:
+                    logger.warning(f'Skipping {sub}, {ses}...')
+                    break
+                if not isinstance(eeg_chan, list):
+                    eeg_chan = [eeg_chan]
+                if not isinstance(ref_chan, list):
+                    ref_chan = [ref_chan]
+                if not isinstance(eog_chan, list):
+                    eog_chan = [eog_chan]
+                if not isinstance(emg_chan, list):
+                    emg_chan = [emg_chan]
+                
                 ## c. Load recording
                 rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
                 try:
                     edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                    chans = self.eeg_chan + self.ref_chan + self.eog_chan + self.emg_chan
+                    chans = eeg_chan + ref_chan + eog_chan + emg_chan
                     chans = [x for x in chans if x]
                     raw = mne.io.read_raw_edf(rdir + edf_file[0], 
                                               include = chans,
                                               preload=True, verbose = False)
                 except:
                     logger.warning(f' No input {filetype} file in {rdir}')
+                    flag += 1
                     break
                 
                 # d. Load/create for annotations file
@@ -177,24 +210,28 @@ class seabass:
                     logger.debug(f'Creating annotations file for {sub}, {ses}')
                 else:
                     logger.warning(f'Annotations file exists for {sub}, {ses}, staging will be overwritten.')
+                    flag += 1
                 annot = Annotations(xml_file)
                 
                 
                 if method == 'Vallat2021':
                     logger.debug(f'Predicting sleep stages file for {sub}, {ses}')
+                    if len(eeg_chan) > 1:
+                        logger.warning(f'Method: {method} only takes 1 eeg channel, but {len(eeg_chan)} were given. Skipping {sub}, {ses}...')
+                        break
                     epoch_length = 30
                     stage_key = {'W': 'Wake',
                                  'N1': 'NREM1',
                                  'N2': 'NREM2',
                                  'N3': 'NREM3',
                                  'R': 'REM'}
-                    if len([x for x in self.ref_chan if x]) > 0:
-                        raw.set_eeg_reference(ref_channels=self.ref_chan, 
+                    if len([x for x in ref_chan if x]) > 0:
+                        raw.set_eeg_reference(ref_channels=ref_chan, 
                                           verbose = False)
                     sls = yasa.SleepStaging(raw, 
-                                            eeg_name=self.eeg_chan[0], 
-                                            eog_name=self.eog_chan[0],
-                                            emg_name=self.emg_chan[0])
+                                            eeg_name=eeg_chan[0], 
+                                            eog_name=eog_chan[0],
+                                            emg_name=emg_chan[0])
                     hypno = sls.predict()
                     proba = sls.predict_proba()
                     
@@ -221,7 +258,16 @@ class seabass:
                     idx_epoch += 1
 
                 annot.save()
-        return
+        
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.debug('Sleep stage detection finished without ERROR.')  
+        else:
+            logger.warning('Sleep stage detection finished with WARNINGS. See log for details.')
+        
+        #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
+        
+        return 
     
     
     

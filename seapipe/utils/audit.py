@@ -53,8 +53,10 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
     filesize = 0
     
     for pt in part:
-        dirs = [x for x in listdir(path.join(datapath, pt)) if path.isdir(path.join(datapath, pt, x))]
-        files = [x for x in listdir(path.join(datapath, pt)) if path.isfile(path.join(datapath, pt, x))]
+        
+        real_files = [x for x in listdir(path.join(datapath, pt))if not x.startswith('.')]
+        dirs = [x for x in real_files if path.isdir(path.join(datapath, pt, x))]
+        files = [x for x in real_files if path.isfile(path.join(datapath, pt, x))]
         
         nsd.append(len(dirs))
         annots = 0
@@ -71,8 +73,9 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
             for dr in dirs:
                 try:
                     eeg_dir = path.join(datapath, pt, dr, 'eeg')
-                    dirs2 = [x for x in listdir(eeg_dir) if path.isdir(path.join(eeg_dir, x))]
-                    files2 = [x for x in listdir(eeg_dir) if path.isfile(path.join(eeg_dir, x))]
+                    real_files = [x for x in listdir(eeg_dir) if not x.startswith('.')]
+                    dirs2 = [x for x in real_files if path.isdir(path.join(eeg_dir, x))]
+                    files2 = [x for x in real_files if path.isfile(path.join(eeg_dir, x))]
                     if len(dirs2) < 1:
                         if len(files2) == 1:
                             annots += len([x for x in files2 if '.xml' in x])

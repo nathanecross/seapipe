@@ -326,7 +326,7 @@ class pipeline:
     
     
     '''
-    def detect_sleep_stages(self, eeg_chan, xml_dir = None, out_dir = None, 
+    def detect_sleep_stages(self, eeg_chan = None, xml_dir = None, out_dir = None, 
                                   subs = 'all', sessions = 'all', 
                                   method = 'Vallat2021', qual_thresh = 0.5,
                                   filetype = '.edf', ref_chan = None, 
@@ -353,14 +353,6 @@ class pipeline:
         
         # Set channels
         eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
-        if not isinstance(eeg_chan, list):
-            eeg_chan = [eeg_chan]
-        if not isinstance(ref_chan, list):
-            ref_chan = [ref_chan]
-        if not isinstance(eog_chan, list):
-            eog_chan = [eog_chan]
-        if not isinstance(emg_chan, list):
-            emg_chan = [emg_chan]
         
         # Check inversion
         if invert == None:

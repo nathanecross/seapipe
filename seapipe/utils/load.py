@@ -269,6 +269,184 @@ def rename_channels(sub, ses, chan, logger):
     return newchans
 
 
+def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+    # verbose = 0 (error only)
+    # verbose = 1 (warning only)
+    # verbose = 2 (debug)
+    
+    if type(chan) == type(DataFrame()):
+        if verbose==2:
+            logger.debug("Reading channel names from tracking file")
+        # Search participant
+        chans = chan[chan['sub']==sub]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search session
+        chans = chans[chans['ses']==ses]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search channel
+        chans = chans.filter(regex='stagechan')
+        chans = chans.dropna(axis=1, how='all')
+        if len(chans.columns) == 0:
+            if verbose>0:
+                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+            flag+=1
+            return flag, None
+    else:
+        chans = chan
+    
+    if type(ref_chan) == type(DataFrame()):
+        if verbose==2:
+            logger.debug("Reading reference channel names from tracking file ")
+        ref_chans = ref_chan[ref_chan['sub']==sub]
+        if ref_chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        ref_chans = ref_chans[ref_chans['ses']==ses]
+        if ref_chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        ref_chans = ref_chans.filter(regex='refset')
+        ref_chans = ref_chans.dropna(axis=1, how='all')
+        if len(ref_chans.columns) == 0:
+            if verbose>0:
+                logger.warning(f"No reference channel set found in tracking file for {sub}, {ses}. Progressing without re-referencing...")
+            ref_chans = []
+    elif ref_chan:
+        ref_chans = ref_chan
+    else:
+        ref_chans = []
+    
+    if type(chans) == list:
+        if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
+            chan = ref_chan[ref_chan['sub']==sub]
+            chan = chan[chan['ses']==ses]
+            chan = chan.filter(regex='chanset')
+            chan = chan.filter(regex='^((?!rename).)*$')
+            ref_chan=[]
+            for c in chans:
+                ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
+            ref_chan = [char.split(x, sep=', ').tolist() for x in ref_chan]
+            
+            chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
+            
+        elif type(ref_chans) == DataFrame:
+            ref_chans = ref_chans.to_numpy()[0]
+            ref_chans = ref_chans.astype(str)
+            ref_chans = char.split(ref_chans, sep=', ')
+            ref_chans = [x for y in ref_chans for x in y]
+            chanset = {chn:ref_chans for chn in chans}    
+        else:
+            chanset = {chn:[] for chn in chans}
+    
+    elif type(chans) == type(DataFrame()):
+        if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
+            logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            flag+=1
+            return flag, None
+        elif type(ref_chans) == DataFrame:
+            ref_chans = ref_chans.to_numpy()[0]
+            ref_chans = ref_chans.astype(str)
+            ref_chans = char.split(ref_chans, sep=', ')
+            ref_chans = [x for x in ref_chans]
+        
+        chans = chans.to_numpy()[0]
+        chans = chans.astype(str)
+        chans = char.split(chans, sep=', ')
+        chans = [x for x in chans]
+        chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        
+    else:
+        logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
+        flag+=1
+        return flag, None
+    
+    return  flag, chanset
+
+
+def load_eog(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+    # verbose = 0 (error only)
+    # verbose = 1 (warning only)
+    # verbose = 2 (debug)
+    
+    if type(chan) == type(DataFrame()):
+        if verbose==2:
+            logger.debug("Reading eog channel names from tracking file")
+        # Search participant
+        chans = chan[chan['sub']==sub]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search session
+        chans = chans[chans['ses']==ses]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search channel
+        chans = chans.filter(regex='eog')
+        chans = chans.dropna(axis=1, how='all')
+        if len(chans.columns) == 0:
+            if verbose>0:
+                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+            flag+=1
+            return flag, None
+        chans = [x for x in chans['eog']]
+    else:
+        chans = chan
+    return flag, chans
+
+
+def load_emg(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+    # verbose = 0 (error only)
+    # verbose = 1 (warning only)
+    # verbose = 2 (debug)
+    
+    if type(chan) == type(DataFrame()):
+        if verbose==2:
+            logger.debug("Reading emg channel names from tracking file")
+        # Search participant
+        chans = chan[chan['sub']==sub]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search session
+        chans = chans[chans['ses']==ses]
+        if chans.size == 0:
+            if verbose>0:
+                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+            flag+=1
+            return flag, None
+        # Search channel
+        chans = chans.filter(regex='emg')
+        chans = chans.dropna(axis=1, how='all')
+        if len(chans.columns) == 0:
+            if verbose>0:
+                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+            flag+=1
+            return flag, None
+        chans = [x for x in chans['emg']]
+    else:
+        chans = chan
+    return flag, chans
+
 def check_adap_bands(rootpath, subs, sessions, chan, logger):
     
     try:

@@ -3,7 +3,7 @@ mne>1.6.0
 numpy<=1.26.4
 openpyxl
 pandas
-pinguoin
+pingouin
 safepickle
 scipy<1.13.0
 tensorpac>0.5.6
