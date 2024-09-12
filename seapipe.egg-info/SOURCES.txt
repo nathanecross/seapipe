@@ -16,6 +16,7 @@ seapipe/core/dataset.py
 seapipe/events/__init__.py
 seapipe/events/eel.py
 seapipe/events/fish.py
+seapipe/events/marker_detect.py
 seapipe/events/seabass.py
 seapipe/events/seasnakes.py
 seapipe/events/surf.py
