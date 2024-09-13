@@ -202,7 +202,11 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.astype(str)
         chans = char.split(chans, sep=', ')
         chans = [x for x in chans]
-        chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        
+        if len(ref_chans)>0:
+            chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        else:
+            chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
         
     else:
         logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
@@ -351,6 +355,7 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             chanset = {chn:[] for chn in chans}
     
     elif type(chans) == type(DataFrame()):
+        
         if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
             logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
@@ -361,12 +366,15 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             ref_chans = ref_chans.astype(str)
             ref_chans = char.split(ref_chans, sep=', ')
             ref_chans = [x for x in ref_chans]
-        
+
         chans = chans.to_numpy()[0]
         chans = chans.astype(str)
         chans = char.split(chans, sep=', ')
         chans = [x for x in chans]
-        chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        if len(ref_chans)>0:
+            chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        else:
+            chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
         
     else:
         logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
@@ -376,7 +384,7 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     return  flag, chanset
 
 
-def load_eog(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+def load_eog(sub, ses, chan, flag, logger, verbose=2):
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
@@ -403,16 +411,16 @@ def load_eog(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}...")
             flag+=1
-            return flag, None
+            return flag, []
         chans = [x for x in chans['eog']]
     else:
         chans = chan
     return flag, chans
 
 
-def load_emg(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+def load_emg(sub, ses, chan, flag, logger, verbose=2):
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
@@ -439,9 +447,9 @@ def load_emg(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+                logger.warning(f"No emg found in tracking file for {sub}, {ses}...")
             flag+=1
-            return flag, None
+            return flag, []
         chans = [x for x in chans['emg']]
     else:
         chans = chan

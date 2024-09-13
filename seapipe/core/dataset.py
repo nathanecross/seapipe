@@ -585,7 +585,7 @@ class pipeline:
             if not frequency:
                 frequency = (9,16)           
             logger.debug('Detection using ADAPTED (automatic) frequency bands has been selected (adap_bands = Auto)')
-            self.track(step='fooof', show = False, log = False)
+            self.track(subs, sessions, step = 'fooof', show = False, log = False)
             if not type(chan) == type(DataFrame()):
                 logger.critical("For adap_bands = Auto, the argument 'chan' must be 'None' and specfied in 'tracking.csv'")
                 logger.critical('Spindle detection finished with ERRORS. See log for details.')

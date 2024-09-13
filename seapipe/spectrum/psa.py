@@ -335,7 +335,12 @@ class Spectrum:
                     flag+=1
                     break
                 
-                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]            
+                try:
+                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                except:
+                    logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
+                    flag+=1
+                    break
                 
                 ### Define output path
                 if not path.exists(self.out_dir):

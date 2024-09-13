@@ -164,6 +164,7 @@ class whales:
                     dset = Dataset(rdir + edf_file[0])
                 except:
                     logger.warning(f' No input {filetype} file in {rdir}')
+                    flag+=1
                     break
                 
                 ## d. Load annotations
@@ -184,7 +185,8 @@ class whales:
                     else:
                         logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
                 except:
-                    logger.warning(f' No input annotations file in {xdir}')
+                    logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
+                    flag+=1
                     break
                 
                 # Read annotations file

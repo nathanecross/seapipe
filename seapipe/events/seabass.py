@@ -162,18 +162,10 @@ class seabass:
                     break
                 eeg_chan = [x for x in chanset]
                 ref_chan = chanset[eeg_chan[0]]
-                pflag = deepcopy(flag)
-                flag, emg_chan = load_emg(sub, ses, self.eeg_chan, self.ref_chan, 
+                flag, emg_chan = load_emg(sub, ses, self.eeg_chan, 
                                     flag, logger)
-                if flag - pflag > 0:
-                    logger.warning(f'Skipping {sub}, {ses}...')
-                    break
-                pflag = deepcopy(flag)
-                flag, eog_chan = load_eog(sub, ses, self.eeg_chan, self.ref_chan, 
+                flag, eog_chan = load_eog(sub, ses, self.eeg_chan,
                                     flag, logger)
-                if flag - pflag > 0:
-                    logger.warning(f'Skipping {sub}, {ses}...')
-                    break
                 if not isinstance(eeg_chan, list):
                     eeg_chan = [eeg_chan]
                 if not isinstance(ref_chan, list):
@@ -228,6 +220,10 @@ class seabass:
                     if len([x for x in ref_chan if x]) > 0:
                         raw.set_eeg_reference(ref_channels=ref_chan, 
                                           verbose = False)
+                    if len(emg_chan) < 1:
+                        emg_chan = [None]
+                    if len(eog_chan) < 1:
+                        eog_chan = [None]    
                     sls = yasa.SleepStaging(raw, 
                                             eeg_name=eeg_chan[0], 
                                             eog_name=eog_chan[0],
