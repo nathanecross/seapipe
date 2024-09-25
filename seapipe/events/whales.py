@@ -14,7 +14,8 @@ from wonambi.attr import Annotations
 from wonambi.detect import consensus, DetectSpindle
 from wonambi.trans import fetch
 from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
+from ..utils.load import (load_channels, load_adap_bands, load_sessions, 
+                          rename_channels, read_manual_peaks)
 from ..utils.misc import remove_duplicate_evts
 
 
@@ -146,10 +147,8 @@ class whales:
             if not sub in self.tracking['spindle'].keys():
                 self.tracking['spindle'][sub] = {}
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                sessions = listdir(self.rec_dir + '/' + sub)
-                sessions = [x for x in sessions if not '.' in x]   
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2)   
             
             for v, ses in enumerate(sessions):
                 logger.info('')
@@ -169,25 +168,26 @@ class whales:
                 
                 ## d. Load annotations
                 xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                try:
-                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
-                    # Copy annotations file before beginning
-                    if not path.exists(self.out_dir):
-                        mkdir(self.out_dir)
-                    if not path.exists(self.out_dir + '/' + sub):
-                        mkdir(self.out_dir + '/' + sub)
-                    if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                        mkdir(self.out_dir + '/' + sub + '/' + ses)
-                    backup = self.out_dir + '/' + sub + '/' + ses + '/'
-                    backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
-                    if not path.exists(backup_file):
-                        shutil.copy(xdir + xml_file[0], backup_file)
-                    else:
-                        logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                except:
-                    logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
-                    flag+=1
-                    break
+                #try:
+                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                logger.debug(xml_file)
+                # Copy annotations file before beginning
+                if not path.exists(self.out_dir):
+                    mkdir(self.out_dir)
+                if not path.exists(self.out_dir + '/' + sub):
+                    mkdir(self.out_dir + '/' + sub)
+                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                if not path.exists(backup_file):
+                    shutil.copy(xdir + xml_file[0], backup_file)
+                else:
+                    logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                #except:
+                #logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
+                #flag+=1
+                #break
                 
                 # Read annotations file
                 annot = Annotations(backup_file, rater_name=self.rater)
@@ -277,18 +277,18 @@ class whales:
                             if len(spindle.events) == 0:
                                 logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
                         now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
-                        if cat[0] == 1:
-                            self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                                                                      'Stage':self.stage,
-                                                                      'Cycle':'All',
-                                                                      'File':backup_file,
-                                                                      'Updated':now}
-                        else:
-                            self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                                                                      'Stage':self.stage,
-                                                                      'Cycle':list(range(1,len(segments))),
-                                                                      'File':backup_file,
-                                                                      'Updated':now}
+                        # if cat[0] == 1:
+                        #     self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
+                        #                                               'Stage':self.stage,
+                        #                                               'Cycle':'All',
+                        #                                               'File':backup_file,
+                        #                                               'Updated':now}
+                        # else:
+                        #     self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
+                        #                                               'Stage':self.stage,
+                        #                                               'Cycle':list(range(1,len(segments))),
+                        #                                               'File':backup_file,
+                        #                                               'Updated':now}
                         
                         # l. Remove any duplicate detected spindles on channel 
                         remove_duplicate_evts(annot, evt_name=evt_name, chan=f'{ch} ({self.grp_name})')
@@ -381,10 +381,8 @@ class whales:
             if not sub in self.tracking['spindle'].keys():
                 self.tracking['spindle'][sub] = {}
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                sessions = listdir(self.rec_dir + '/' + sub)
-                sessions = [x for x in sessions if not '.' in x]   
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2)  
             
             for v, ses in enumerate(sessions):
                 logger.info('')

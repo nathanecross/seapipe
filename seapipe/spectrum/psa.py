@@ -25,7 +25,7 @@ from wonambi.trans import (fetch, frequency, get_descriptives, export_freq,
                            export_freq_band)
 from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
 from ..utils.logs import create_logger
-from ..utils.load import infer_ref, load_channels, rename_channels
+from ..utils.load import infer_ref, load_channels, load_sessions, rename_channels
 
 
 def default_general_opts():
@@ -308,16 +308,8 @@ class Spectrum:
         for p, sub in enumerate(subs):
             
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                try:
-                    sessions = listdir(f'{self.rec_dir}/{sub}')
-                except Exception as e:
-                    logger.error(e)
-                    logger.warning(f'Is {sub} in BOTH {self.rec_dir} and {self.xml_dir} ?')
-                    flag+=1
-                    break
-                sessions = [x for x in sessions if not '.' in x] 
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2)
 
             for v, ses in enumerate(sessions):
                 logger.info('')

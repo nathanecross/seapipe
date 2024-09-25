@@ -16,7 +16,7 @@ from copy import deepcopy
 from datetime import datetime, date
 from pandas import DataFrame
 from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, read_inversion)
+from ..utils.load import (load_channels, read_inversion, load_sessions)
 from ..utils.misc import remove_duplicate_evts
 
 
@@ -144,10 +144,8 @@ class seasnakes:
         for i, sub in enumerate(subs):
             tracking[f'{sub}'] = {}
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                sessions = listdir(self.rec_dir + '/' + sub)
-                sessions = [x for x in sessions if not '.' in x]   
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2)
             
             for v, ses in enumerate(sessions):
                 logger.info('')

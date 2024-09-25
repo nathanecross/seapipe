@@ -21,8 +21,8 @@ from copy import deepcopy
 from datetime import datetime, date
 from pandas import DataFrame
 from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, load_stagechan, load_emg, load_eog, 
-                          read_inversion, rename_channels)
+from ..utils.load import (load_channels, load_sessions, load_stagechan, load_emg, 
+                          load_eog, read_inversion, rename_channels)
 from ..utils.misc import remove_duplicate_evts
  
 
@@ -90,10 +90,10 @@ class seabass:
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_{today}_log.txt'
+            logfile = f'{self.log_dir}/detect_stages_{evt_out}_{today}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
             logger.info('')
-            logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
+            logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {now} --------------")
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
@@ -143,11 +143,8 @@ class seabass:
         for i, sub in enumerate(subs):
             tracking[f'{sub}'] = {}
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                sessions = listdir(self.rec_dir + '/' + sub)
-                sessions = [x for x in sessions if not '.' in x]   
-            
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2)
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')

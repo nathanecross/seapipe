@@ -20,8 +20,8 @@ from seapipe.stats import sleepstats
 from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, make_bids,
                         track_processing)
 from seapipe.utils.logs import create_logger, create_logger_outfile
-from seapipe.utils.load import (check_chans, check_adap_bands, select_input_dirs,
-                        select_output_dirs)
+from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_sheet, 
+                                select_input_dirs, select_output_dirs,)
 
 
 ## TO DO:
@@ -186,7 +186,7 @@ class pipeline:
         ## Track sessions  
         if not isinstance(subs, list) and subs == 'all':
             subs = [x for x in listdir(self.datapath) if '.' not in x]
-        else:
+        elif not isinstance(subs, list):
             subs = read_csv(f'{self.rootpath}/{subs}', sep='\t')
             subs = subs['sub'].drop_duplicates().tolist()
         subs.sort()
@@ -351,6 +351,14 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+        
         # Set channels
         eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
         
@@ -411,6 +419,14 @@ class pipeline:
             out_dir = f'{self.outpath}/fooof' 
         if not path.exists(out_dir):
             mkdir(out_dir)
+            
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()    
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
@@ -483,6 +499,14 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+            
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
@@ -552,6 +576,14 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+            
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
@@ -672,6 +704,14 @@ class pipeline:
         elif merge_type == 'addition':
             cs_thresh = 0.01
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+        
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
@@ -724,6 +764,14 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+            
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
@@ -789,6 +837,14 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+            
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):

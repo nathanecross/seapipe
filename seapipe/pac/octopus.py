@@ -32,7 +32,8 @@ from wonambi.trans import fetch
 from wonambi.attr import Annotations 
 from wonambi.detect.spindle import transform_signal
 from seapipe.utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_inversion, read_manual_peaks)
+from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
+                          load_sessions, read_inversion, read_manual_peaks)
 from ..utils.misc import remove_duplicate_evts
 
 
@@ -263,10 +264,8 @@ class octopus:
         for i, sub in enumerate(subs):
             tracking[f'{sub}'] = {}
             # b. Begin loop through sessions
-            sessions = self.sessions
-            if sessions == 'all':
-                sessions = listdir(self.rec_dir + '/' + sub)
-                sessions = [x for x in sessions if not '.' in x]   
+            flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
+                                     logger, verbose=2) 
             
             for v, ses in enumerate(sessions):
                 logger.info('')

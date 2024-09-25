@@ -485,7 +485,7 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
         for ses in sessions:
             if not self.tracking['fooof'][sub][ses] == '-':
                 flag, chanset = load_channels(sub, ses, chan, ref_chan, 0, 
-                                              logger, verbose=1)
+                                              logger, verbose=0)
                 if flag>0:
                     return 'error', None, None, None
                 newchans = rename_channels(sub, ses, chan, logger)

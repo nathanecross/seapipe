@@ -100,6 +100,33 @@ def check_chans(rootpath, chan, ref_chan, logger):
     else:
         return chan, ref_chan
 
+def load_sessions(sub, ses, rec_dir, flag, logger, verbose=2):
+    # verbose = 0 (error only)
+    # verbose = 1 (warning only)
+    # verbose = 2 (debug)
+    
+    if type(ses) == type(DataFrame()):
+        if verbose==2:
+            logger.debug("Reading channel names from tracking file")
+        # Search participant
+        sub_row = ses[ses['sub']==sub]
+        if sub_row.size == 0:
+            if verbose>0:
+                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file.")
+                flag+=1
+                return flag, None
+        ses = [x for x in sub_row['ses']]
+    elif type(ses) == str and ses == 'all':
+            ses = listdir(rec_dir + '/' + sub)
+            ses = [x for x in ses if not '.' in x]
+    elif not type(ses) == list:
+        logger.error("'sessions' must be set to None,'all' or a list of sub ids. For session setup options, refer to documentation:")
+        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+        flag+=1
+        return flag, None
+    
+    return flag, ses
+
 
 def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     # verbose = 0 (error only)
@@ -113,14 +140,14 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session {ses} not found in column 'ses' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -285,14 +312,14 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session {ses} not found in column 'ses' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -308,7 +335,7 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     if type(ref_chan) == type(DataFrame()):
         if verbose==2:
-            logger.debug("Reading reference channel names from tracking file ")
+            logger.debug("Reading reference channel names from tracking file")
         ref_chans = ref_chan[ref_chan['sub']==sub]
         if ref_chans.size == 0:
             if verbose>0:
@@ -356,16 +383,20 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     
     elif type(chans) == type(DataFrame()):
         
-        if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
-            logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            flag+=1
-            return flag, None
-        elif type(ref_chans) == DataFrame:
+        if type(ref_chans) == DataFrame:
+            if len(ref_chans.columns) != len(chans.columns):
+                logger.warning(f"There were >2 reference channel sets in 'tracking' file for {sub}, {ses}, we will just use the first set for automatic staging.")
+                ref_chans = ref_chans.iloc[:,0]
+                
             ref_chans = ref_chans.to_numpy()[0]
-            ref_chans = ref_chans.astype(str)
+            if not isinstance(ref_chans, str):
+                ref_chans = ref_chans.astype(str)
             ref_chans = char.split(ref_chans, sep=', ')
-            ref_chans = [x for x in ref_chans]
+            if ref_chans.size < 2:
+                ref_chans = reshape(ref_chans, (1,1))
+                ref_chans = [x for x in ref_chans[0][0]]
+            else:
+                ref_chans = [x for x in ref_chans]
 
         chans = chans.to_numpy()[0]
         chans = chans.astype(str)
