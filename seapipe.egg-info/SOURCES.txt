@@ -23,9 +23,7 @@ seapipe/events/surf.py
 seapipe/events/whales.py
 seapipe/pac/__init__.py
 seapipe/pac/cfc_func.py
-seapipe/pac/erpac.py
 seapipe/pac/event_cfc.py
-seapipe/pac/mean_amps.py
 seapipe/pac/octopus.py
 seapipe/pac/pacats.py
 seapipe/pac/plots.py
