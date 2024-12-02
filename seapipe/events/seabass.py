@@ -31,7 +31,7 @@ class seabass:
     """ Sleep Events Analysis Basic Automated Sleep Staging (SEABASS)
 
         This module runs automated sleep staging with the option of using
-        previously published SO detectors:
+        previously published staging algorithms:
             1. Vallat et al. (2020) - YASA
             2. 
         

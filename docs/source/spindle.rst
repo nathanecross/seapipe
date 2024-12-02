@@ -11,7 +11,7 @@ neurons (TC in thalamic relay nuclei), neurons from the thalamic reticular nucle
 
 | Spindles can be detected as events and their characteristics (see definitions in section :ref:`Output<Outputs of Spindles>`) can be extracted across NREM (NREM2+NREM3), per stage and/or per cycle.
 
-| Seapipe provides 8 published methods to automatically detect spindles:
+| Seapipe (via `Wonambi <https://wonambi-python.github.io/>`_) provides 8 published methods to automatically detect spindles:
 
     * `Ferrarelli et al. (2007) <https://doi.org/10.1176/ajp.2007.164.3.483>`_:
     
@@ -252,14 +252,14 @@ Detect spindles
 
             * Entering ``Manual`` will point to the *chanset_peaks* columns in the :ref:`tracking file<Tracking File>`. It will add *_adap* at the end of the event name (e.g., Moelle2011_adap).
 
-    **adap_bw** *(str)*
+    **adap_bw** *(str or float)*
         * Size of the frequency range around sigma peak frequency when entering ``Auto``or ``Manual`` to **adap_bands**
 
         * *Acceptable options:*
 
             * Default is ``4``meaning 2Hz on both side of the sigma peak frequency
 
-            * Enter a number 
+            * Any `float <https://docs.python.org/3/tutorial/floatingpoint.html>`_ is allowed
 
     **duration** *(tuple)*
         * Minimum and maximum duration of events that will be detected. Any events with durations that are outside these limits will be discarded

@@ -326,10 +326,10 @@ class pipeline:
     
     
     '''
-    def detect_sleep_stages(self, eeg_chan = None, xml_dir = None, out_dir = None, 
-                                  subs = 'all', sessions = 'all', 
+    def detect_sleep_stages(self, xml_dir = None, out_dir = None, 
+                                  subs = 'all', sessions = 'all', filetype = '.edf', 
                                   method = 'Vallat2021', qual_thresh = 0.5,
-                                  filetype = '.edf', ref_chan = None, 
+                                  eeg_chan = None, ref_chan = None, 
                                   eog_chan = None, emg_chan = None, 
                                   rater = None, invert = False, outfile = True):
         
@@ -809,16 +809,15 @@ class pipeline:
     
     '''    
     def pac(self, xml_dir = None, out_dir = None, subs = 'all', sessions = 'all', 
-                  chan = None, ref_chan = None, rater = None, grp_name = 'eeg', 
-                  stage = ['NREM2','NREM3'], concat_stage = True, 
-                  cycle_idx = None, concat_cycle = True, filetype = '.edf', 
+                  filetype = '.edf', chan = None, ref_chan = None, rater = None, 
+                  grp_name = 'eeg', stage = ['NREM2','NREM3'], concat_stage = True, 
+                  cycle_idx = None, concat_cycle = True,  
                   method = 'MI', surrogate = 'Time lag', correction = 'Z-score',
                   adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
                   adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),
-                  evt_name = 'Staresina2015', min_dur = 1, nbins = 18, invert = None,
-                  adap_bw = 4, peaks = None, frequency_opts = None, 
-                  filter_opts = None, epoch_opts = None, event_opts = None, 
-                  reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                  adap_bw = 4, evt_name = None, min_dur = 1, nbins = 18, invert = None,
+                  frequency_opts = None, filter_opts = None, epoch_opts = None, 
+                  event_opts = None, reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                   progress = True, outfile = True):
         
         # Set up logging
@@ -888,7 +887,7 @@ class pipeline:
                        frequency_opts, event_opts, filetype, idpac, evt_name, 
                        min_dur, adap_bands_phase, frequency_phase, 
                        adap_bands_amplitude, frequency_amplitude, 
-                       peaks, adap_bw, invert, progress, outfile)
+                       adap_bw, invert, progress, outfile)
     
         return
     

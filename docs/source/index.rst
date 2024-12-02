@@ -43,9 +43,11 @@ Contents
 
    usage
    wonambi
+   staging
    macro
    so
    spindle
+   pac
    api
 
 

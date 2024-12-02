@@ -49,14 +49,14 @@ def pac_method(method, surrogate, correction, list_methods=False):
                4 : 'ndPAC [Ozkurt 2012 (IEEE)]',
                5 : 'Phase-Locking Value (PLV) [Penny 2008 (J. Neuro. Meth.), Lachaux 1999 (HBM)]',
                6 : 'Gaussian Copula PAC (GCPAC) `Ince 2017 (HBM)`'}
-    surrogates = {0 :' No surrogates', 
+    surrogates = {0 :'No surrogates', 
                   1 : 'Swap phase / amplitude across trials [Tort 2010 (J Neurophys.)]',
                   2 : 'Swap amplitude time blocks [Bahramisharif 2013 (J. Neurosci.) ]',
                   3 : 'Time lag [Canolty et al. 2006 (Science)]'}
     corrections = {0 : 'No normalization',
-                   1 : 'Substract the mean of surrogates',
+                   1 : 'Subtract the mean of surrogates',
                    2 : 'Divide by the mean of surrogates',
-                   3 : 'Substract then divide by the mean of surrogates',
+                   3 : 'Subtract then divide by the mean of surrogates',
                    4 : 'Z-score'}
     
     if list_methods:
@@ -103,8 +103,8 @@ class octopus:
                  idpac = (2,3,4), evt_type = None, min_dur = 1, 
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
-                 peaks = None, adap_bw = 4, invert = False, progress=True,
-                 outfile = 'event_coupling_log.txt'):
+                 adap_bw = 4, invert = False, progress=True,
+                 outfile = 'detect_pac_log.txt'):
 
         '''
         O.C.T.O.P.U.S
