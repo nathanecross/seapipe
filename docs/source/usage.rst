@@ -91,14 +91,15 @@ To retrieve a table of all the analyses that have been run (and are located in `
                   step=['staging','spindles', 'so', 'fooof'], 
                   chan = ['Fz (eeg)'],
                   outfile='progress.csv')
-      
+
+This will output a table of each stage provided for the subs, sessions and channels specified:
 ::
    2024-12-02 18:42:41 - Tracking - Slow oscillation detection has NOT been run. 
 
                            ses      staging      spindle slow_osc        fooof
-   sub-IN001  [ses-V1, ses-V2]  [ses-V1, -]  [ses-V1, -]      [-]  [ses-V1, -]
-   sub-IN003          [ses-V1]     [ses-V1]     [ses-V1]      [-]          [-]
-   sub-IN076               [-]          [-]          [-]      [-]          [-]
+   sub-001  [ses-V1, ses-V2]  [ses-V1, -]  [ses-V1, -]      [-]  [ses-V1, -]
+   sub-003          [ses-V1]     [ses-V1]     [ses-V1]      [-]          [-]
+   sub-004               [-]          [-]          [-]      [-]          [-]
 
 |
 .. _tracking file:
