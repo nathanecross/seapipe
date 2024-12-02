@@ -51,11 +51,11 @@ of every dataset:
                       Subjects: 2
                       Sessions: 2
 
-2024-12-02 18:35:54 - Audit - The dataset appears compatible for SEAPIPE analysis.
+   2024-12-02 18:35:54 - Audit - The dataset appears compatible for SEAPIPE analysis.
 
              BIDS?  #sessions  #recordings    
-sub-001  False          2            1  !!
-sub-003  False          1            1    
+   sub-001  False          2            1  !!
+   sub-003  False          1            1    
 
 
 This will be automatically saved to a file *dataset_audit.csv*
