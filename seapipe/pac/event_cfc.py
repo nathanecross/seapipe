@@ -7,7 +7,6 @@ Created on Sun Nov 20 13:55:32 2022
 """
 
 from . cfc_func import mean_amp
-from . mean_amps import generate_adap_bands
 from numpy import (abs, argmax, asarray, ceil, concatenate, interp, linspace, 
                    logical_and, mean, median, nan, nanmean, newaxis, ones, pi, 
                    random, reshape, roll, sin, squeeze, vstack, where, zeros)

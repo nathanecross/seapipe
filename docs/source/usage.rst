@@ -46,18 +46,16 @@ of every dataset:
  
 ::
 
-   Participants   BIDS?	   #sessions #recordings   #annotations
-   sub-002        TRUE	      2	         2	            2
-   sub-004        TRUE	      3	         3	            3
-   sub-006	  FALSE	      2	         2	            1
-   sub-007	  TRUE	      2	         2	            2
-   sub-008	  FALSE	      2	         1	            1
-   sub-009	  TRUE	      2	         2	            2
-   sub-011	  FALSE	      0	         0	            0
-   sub-013	  TRUE	      2	         2	            2
-   sub-014	  FALSE       0          2                  2
-   sub-015	  TRUE	      2	         2	            2
-   sub-016	  FALSE	      2	         2	            0
+                      Summary:
+                      2 files, 2.80 GB
+                      Subjects: 2
+                      Sessions: 2
+
+2024-12-02 18:35:54 - Audit - The dataset appears compatible for SEAPIPE analysis.
+
+             BIDS?  #sessions  #recordings    
+sub-001  False          2            1  !!
+sub-003  False          1            1    
 
 
 This will be automatically saved to a file *dataset_audit.csv*
@@ -66,7 +64,7 @@ To retrieve a list of all the files inside the root directory, along with the
 directories 1 and 2 levels preceding the files,
 you can use the ``pipeline.list_dataset()`` function:
 
->>> pipeline.list_dataset()
+>>> project_name.list_dataset()
 
 :: 
 
@@ -84,6 +82,23 @@ you can use the ``pipeline.list_dataset()`` function:
    ----------
    etc.
 
+
+To retrieve a table of all the analyses that have been run (and are located in ``<root_dir>/OUT/``), run the following command:
+
+.. code-block:: python
+
+    project.track(subs = 'tracking.tsv',
+                  step=['staging','spindles', 'so', 'fooof'], 
+                  chan = ['Fz (eeg)'],
+                  outfile='progress.csv')
+      
+::
+   2024-12-02 18:42:41 - Tracking - Slow oscillation detection has NOT been run. 
+
+                           ses      staging      spindle slow_osc        fooof
+   sub-IN001  [ses-V1, ses-V2]  [ses-V1, -]  [ses-V1, -]      [-]  [ses-V1, -]
+   sub-IN003          [ses-V1]     [ses-V1]     [ses-V1]      [-]          [-]
+   sub-IN076               [-]          [-]          [-]      [-]          [-]
 
 |
 .. _tracking file:

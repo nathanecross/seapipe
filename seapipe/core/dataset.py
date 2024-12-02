@@ -187,7 +187,8 @@ class pipeline:
         if not isinstance(subs, list) and subs == 'all':
             subs = [x for x in listdir(self.datapath) if '.' not in x]
         elif not isinstance(subs, list):
-            subs = read_csv(f'{self.rootpath}/{subs}', sep='\t')
+            
+            subs = read_tracking_sheet(self.rootpath, logger)
             subs = subs['sub'].drop_duplicates().tolist()
         subs.sort()
         
