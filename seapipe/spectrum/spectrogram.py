@@ -18,7 +18,6 @@ from safepickle import dump, load
 from scipy.signal import spectrogram
 from scipy.stats import binned_statistic
 import sys
-from termcolor import colored
 from ..utils.misc import laplacian_mne, notch_mne, notch_mne2
 from ..utils.logs import create_logger, create_logger_outfile
 from ..utils.load import load_channels, rename_channels
