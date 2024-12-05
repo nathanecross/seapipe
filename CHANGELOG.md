@@ -15,4 +15,5 @@ Beta Version
 0.3.7 Removed redundant scripts from pac
 0.3.9 Added artefact detection 
 0.4 Added continuous PAC for and fixed bugs with event PAC
+0.4.1 Updated format bids to allow subject-level
 
