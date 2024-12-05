@@ -614,7 +614,8 @@ class FISH:
             #         tb = sys.exc_info()[2]
             #         tbinfo = traceback.format_tb(tb)[0]
             #         logger.info(tbinfo)
-                        
+    
+                    
     def net(self, chan, evt_name, adap_bands, params = 'all', cat = (1,1,1,1), 
                   cycle_idx = None, outfile = True):
         

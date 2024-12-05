@@ -11,7 +11,9 @@ from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.seasnakes import seasnakes
 from seapipe.events.seabass import seabass
+from seapipe.events.sand import SAND
 from seapipe.pac.octopus import octopus, pac_method
+from seapipe.pac.pacats import pacats
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
@@ -321,6 +323,7 @@ class pipeline:
     SLEEP EVENTS DETECTIONS
     
     sleep_staging
+    detect_artefacts,
     detect_spectral_peaks,
     detect_slow_oscillations,
     detect_spindles,
@@ -394,6 +397,75 @@ class pipeline:
                self.tracking = {**self.tracking, **stages.tracking}
         return
     
+    
+    def detect_artefacts(self, xml_dir = None, out_dir = None, 
+                               subs = 'all', sessions = 'all', filetype = '.edf', 
+                               method = 'yasa_std', win_size = 5,
+                               eeg_chans = None, ref_chan = None, 
+                               eog_chan = None, emg_chan = None, 
+                               rater = None, invert = False, outfile = True):
+        
+        # Set up logging
+        logger = create_logger('Detect artefacts')
+        logger.info('')
+        logger.debug("Commencing artefact detection pipeline.")
+        logger.info('')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not xml_dir:
+            xml_dir = f'{self.outpath}/staging'   
+        if not out_dir:
+            out_dir = f'{self.outpath}/staging'    
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+        
+        # Set channels
+        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chan, logger)
+        
+        # Check inversion
+        if invert == None:
+            invert = check_chans(self.rootpath, None, False, logger)
+        elif type(invert) != bool:
+            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.info('')
+            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
+            return
+    
+        # Check annotations directory exists, run detection
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('')
+            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
+        else:   
+           artefacts = SAND(in_dir, xml_dir, out_dir, log_dir, eeg_chans, 
+                            ref_chan, eog_chan, emg_chan, rater, subs, sessions, 
+                            self.tracking) 
+           artefacts.detect_artefacts(method, invert, filetype, win_size, outfile)
+       
+           try:
+               self.tracking = self.tracking | artefacts.tracking
+           except:
+               self.tracking = {**self.tracking, **artefacts.tracking}
+        return
+        
+        
     
     def detect_spectral_peaks(self, xml_dir = None, out_dir = None, 
                                     subs = 'all', sessions = 'all', chan = None, 
@@ -852,9 +924,6 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
-        # Format concatenation
-        cat = (int(concat_cycle),int(concat_stage),0,0)
-        
         # Set PAC methods
         idpac = pac_method(method, surrogate, correction)
         
@@ -879,17 +948,33 @@ class pipeline:
             logger.info('-' * 10)
             logger.critical('Phase amplitude coupling finished with ERRORS. See log for details.')
             return
-
-        Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                          grp_name, stage, rater, subs, sessions, reject_artf,
-                          self.tracking)
         
-        Octopus.pac_it(cycle_idx, cat, nbins, filter_opts, epoch_opts, 
-                       frequency_opts, event_opts, filetype, idpac, evt_name, 
-                       min_dur, adap_bands_phase, frequency_phase, 
-                       adap_bands_amplitude, frequency_amplitude, 
-                       adap_bw, invert, progress, outfile)
-    
+        # Check whether event based or continuous
+        if evt_name: #OCTOPUS
+            cat = (int(concat_cycle),int(concat_stage),0,0)
+            Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
+                              chan, ref_chan, grp_name, stage, rater, 
+                              subs, sessions, reject_artf,
+                              self.tracking)
+            
+            Octopus.pac_it(cycle_idx, cat, nbins, filter_opts, epoch_opts, 
+                           frequency_opts, event_opts, filetype, idpac, evt_name, 
+                           min_dur, adap_bands_phase, frequency_phase, 
+                           adap_bands_amplitude, frequency_amplitude, 
+                           adap_bw, invert, progress, outfile)
+        else: #PACATS
+            cat = (int(concat_cycle),int(concat_stage),1,1)
+            
+            Pacats = pacats(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
+                            chan, ref_chan, grp_name, stage, rater, subs, sessions, 
+                            reject_artf, self.tracking)
+            Pacats.pac_it(cycle_idx, cat, nbins, filter_opts, epoch_opts, 
+                           frequency_opts, filetype, idpac, 
+                           min_dur, adap_bands_phase, frequency_phase, 
+                           adap_bands_amplitude, frequency_amplitude,
+                           adap_bw, invert, progress, outfile)
+            
+                          
         return
     
     #--------------------------------------------------------------------------
@@ -1036,7 +1121,7 @@ class pipeline:
         elif isinstance(evt_name, list):
             evts = evt_name
         else:
-            logger.error(TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed."))
+            logger.error(TypeError(f"'evt_name' can only be a str or a list of str, but {type(evt_name)} was passed."))
             return
         for evt_name in evts:
             # Set input/output directories

@@ -150,7 +150,10 @@ class octopus:
                         ## WARNING: TEST WHAT THE LAPLACIAN FILTER DOES TO THE POWER SPECTRUM BEFORE USING
                                     THIS OPTION
         
-        If adap_bands = (True,True) then the (phase,amplitude) signal will be filtered within an adapted 
+        If adap_bands_phase = True then the phase signal will be filtered within an adapted 
+        frequency range for each individual subject or recording.
+        
+        If adap_bands_amplitude = True then the amplitude signal will be filtered within an adapted 
         frequency range for each individual subject or recording.
         
         The output provided by this script will be an array of size:
@@ -431,7 +434,7 @@ class octopus:
                         segments.read_data(ch, chanset[ch])
                     
                     
-                    # 6.a. Define PAC object
+                    # 6. Define PAC object
                     pac = Pac(idpac = idpac, f_pha = f_pha, f_amp = f_amp, 
                               dcomplex = filter_opts['dcomplex'], 
                               cycle = filter_opts['filtcycle'], 
@@ -439,220 +442,236 @@ class octopus:
                               n_bins = nbins,
                               verbose='ERROR')
                     
-                    # b. Create blocks
-                    ampbin = zeros((len(segments), nbins))
-                    ms = int(ceil(len(segments)/50))
-                    longamp = zeros((ms,50),dtype=object) # initialise (blocked) ampltidue series
-                    longpha = zeros((ms,50),dtype=object) # initialise (blocked) phase series 
-                    
                     # 7.a. Divide segments based on concatenation
                     nsegs=[]
                     if model == 'whole_night':
-                        nsegs = [s for s in segments]
+                        nsegs = [[s for s in segments]]
+                        seg_label = ['whole_night']
                     elif model == 'stage*cycle':
+                        seg_label = []
                         for st in self.stage:
                             for cy in cycle_idx:
                                 segs = [s for s in segments if st in s['stage'] if cy in s['cycle']]
                                 nsegs.append(segs)
+                                seg_label.append(f'{st}_cycle{cy}')
                     elif model == 'per_cycle':
+                        seg_label = []
                         for cy in cycle_idx:
                             segs = [s for s in segments if cy in s['cycle']]
                             nsegs.append(segs)
+                            seg_label.append(f'cycle{cy}')
                     elif model == 'per_stage':
+                        seg_label = []
                         for st in self.stage:
                             segs = [s for s in segments if st in s['stage']]
                             nsegs.append(segs)
+                            seg_label.append(f'{st}')
                     
-                    # b. Loop over segments and apply filtering (if required)
-                    z=0
+                    # 7.b. Loop over segments and apply filtering (if required)
                     logger.info('')
-                    for sg in range(len(nsegs)):
+                    for nsg in range(len(nsegs)):
+                        seg = nsegs[nsg]
+                        logger.debug(f'Analysing {seg_label[nsg]}')
                         
-                        # Print out progress
-                        if progress:
-                            z +=1
-                            j = z/len(segments)
-                            sys.stdout.write('\r')
-                            sys.stdout.write(f"                      Progress: [{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
-                            sys.stdout.flush()
+                        # 7.c. Create blocks
+                        ampbin = zeros((len(seg), nbins))
+                        ms = int(ceil(len(seg)/50))
+                        longamp = zeros((ms,50),dtype=object) # initialise (blocked) amplitude series
+                        longpha = zeros((ms,50),dtype=object) # initialise (blocked) phase series 
                         
-                        seg = nsegs[sg]
-                        out = dict(seg)
-                        data = seg['data']
-                        timeline = data.axis['time'][0]
-                        out['start'] = timeline[0]
-                        out['end'] = timeline[-1]
-                        out['duration'] = len(timeline) / data.s_freq
-                        if filter_opts['laplacian']:
-                            selectchans = filter_opts['lapchan']
-                        else:
-                            selectchans = ch
                         
-                        # b. Notch filters
-                        if filter_opts['notch']:
-                            data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                        channel=selectchans, 
-                                                        freq=filter_opts['notch_freq'],
-                                                        rename=filter_opts['laplacian_rename'],
-                                                        renames=filter_opts['renames'],
-                                                        montage=filter_opts['montage'])
+                        for s, sg in enumerate(seg):
                             
-                        if filter_opts['notch_harmonics']: 
-                            data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                      channel=selectchans, 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])    
-                        
-                        # c. Bandpass filters
-                        if filter_opts['bandpass']:
-                            data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
-                                                      channel=selectchans,
-                                                      highpass=filter_opts['highpass'], 
-                                                      lowpass=filter_opts['lowpass'], 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])
-                        
-                        # d. Laplacian transform
-                        if filter_opts['laplacian'] and laplace_flag:
-                            data.data[0] = laplacian_mne(data, 
-                                                 filter_opts['oREF'], 
-                                                 channel=selectchans, 
-                                                 ref_chan=chanset[ch], 
-                                                 laplacian_rename=filter_opts['laplacian_rename'], 
-                                                 renames=filter_opts['renames'],
-                                                 montage=filter_opts['montage'])
-                            data.axis['chan'][0] = asarray([x for x in chanset])
-                            selectchans = ch
-                            dat = data[0]
-                        else:
-                            dat = data()[0][0]
-    
-    
-                       
-                        # e. Fix polarity of recording
-                        if inversion:
-                            dat = dat*-1 
-       
-                        # f. Obtain phase signal
-                        pha = squeeze(pac.filter(data.s_freq, dat, ftype='phase'))
-                        
-                        if len(pha.shape)>2:
-                            pha = squeeze(pha)
-                        
-                        # g. obtain amplitude signal
-                        amp = squeeze(pac.filter(data.s_freq, dat, ftype='amplitude'))
-                        if len(amp.shape)>2:
-                            amp = squeeze(amp)
-                        
-                        # h. extract signal (minus buffer)
-                        nbuff = int(event_opts['buffer'] * data.s_freq)
-                        minlen = data.s_freq * min_dur
-                        if len(pha) >= 2 * nbuff + minlen:
-                            pha = pha[nbuff:-nbuff]
-                            amp = amp[nbuff:-nbuff]                               
+                            # Print out progress
+                            if progress:
+                                j = s/len(seg)
+                                sys.stdout.write('\r')
+                                sys.stdout.write(f"                      Progress: [{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
+                                sys.stdout.flush()
                             
-                        # Apply phase correction for hilbert transform
-                        #pha = roll(pha, int(pi/2*s_freq), axis=-1)
-    
-                        # i. put data in blocks (for surrogate testing)
-                        longpha[sg//50, sg%50] = pha
-                        longamp[sg//50, sg%50] = amp
+                            out = dict(sg)
+                            data = sg['data']
+                            timeline = data.axis['time'][0]
+                            out['start'] = timeline[0]
+                            out['end'] = timeline[-1]
+                            out['duration'] = len(timeline) / data.s_freq
+                            if filter_opts['laplacian']:
+                                selectchans = filter_opts['lapchan']
+                            else:
+                                selectchans = ch
+                            
+                            # 7.d. Notch filters
+                            if filter_opts['notch']:
+                                data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
+                                                            channel=selectchans, 
+                                                            freq=filter_opts['notch_freq'],
+                                                            rename=filter_opts['laplacian_rename'],
+                                                            renames=filter_opts['renames'],
+                                                            montage=filter_opts['montage'])
+                                
+                            if filter_opts['notch_harmonics']: 
+                                data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
+                                                          channel=selectchans, 
+                                                          rename=filter_opts['laplacian_rename'],
+                                                          renames=filter_opts['renames'],
+                                                          montage=filter_opts['montage'])    
+                            
+                            # 7.e. Bandpass filters
+                            if filter_opts['bandpass']:
+                                data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
+                                                          channel=selectchans,
+                                                          highpass=filter_opts['highpass'], 
+                                                          lowpass=filter_opts['lowpass'], 
+                                                          rename=filter_opts['laplacian_rename'],
+                                                          renames=filter_opts['renames'],
+                                                          montage=filter_opts['montage'])
+                            
+                            # 7.f. Laplacian transform
+                            if filter_opts['laplacian'] and laplace_flag:
+                                data.data[0] = laplacian_mne(data, 
+                                                     filter_opts['oREF'], 
+                                                     channel=selectchans, 
+                                                     ref_chan=chanset[ch], 
+                                                     laplacian_rename=filter_opts['laplacian_rename'], 
+                                                     renames=filter_opts['renames'],
+                                                     montage=filter_opts['montage'])
+                                data.axis['chan'][0] = asarray([x for x in chanset])
+                                selectchans = ch
+                                dat = data[0]
+                            else:
+                                dat = data()[0][0]
+                            
+                            
+                            # 7.g. Fix polarity of recording
+                            if inversion:
+                                dat = dat*-1 
+           
+                            # 7.h. Obtain phase signal
+                            pha = squeeze(pac.filter(data.s_freq, dat, ftype='phase'))
+                            
+                            if len(pha.shape)>2:
+                                pha = squeeze(pha)
+                            
+                            # 7.i. obtain amplitude signal
+                            amp = squeeze(pac.filter(data.s_freq, dat, ftype='amplitude'))
+                            if len(amp.shape)>2:
+                                amp = squeeze(amp)
+                            
+                            # 7.j. extract signal (minus buffer)
+                            nbuff = int(event_opts['buffer'] * data.s_freq)
+                            minlen = data.s_freq * min_dur
+                            if len(pha) >= 2 * nbuff + minlen:
+                                pha = pha[nbuff:-nbuff]
+                                amp = amp[nbuff:-nbuff]                               
+                                
+                            # Apply phase correction for hilbert transform
+                            #pha = roll(pha, int(pi/2*s_freq), axis=-1)
+        
+                            # 7.k. put data in blocks (for surrogate testing)
+                            longpha[s//50, s%50] = pha
+                            longamp[s//50, s%50] = amp
+                            
+                            # 7.l. put data in long format (for preferred phase)
+                            ampbin[s, :] = mean_amp(pha, amp, nbins=nbins)
+        
+                        # 8.a. if number of events not divisible by block length,
+                        #    pad incomplete final block with randomly resampled events
+                        sys.stdout.write('\r')
+                        sys.stdout.flush()
                         
-                        # j. put data in long format (for preferred phase)
-                        ampbin[sg, :] = mean_amp(pha, amp, nbins=nbins)
+                        rem = len(segments) % 50
+                        if rem > 0:
+                            pads = 50 - rem
+                            for pad in range(pads):
+                                ran = random.randint(0,rem)
+                                longpha[-1,rem+pad] = longpha[-1,ran]
+                                longamp[-1,rem+pad] = longamp[-1,ran]
+                        
+                        # b. Calculate Coupling Strength
+                        mi = zeros((longamp.shape[0],1))
+                        mi_pv = zeros((longamp.shape[0],1))
+                        for row in range(longamp.shape[0]): 
+                            amp = zeros((1))   
+                            pha = zeros((1)) 
+                            for col in range(longamp.shape[1]):
+                                pha = concatenate((pha,longpha[row,col]))
+                                amp = concatenate((amp,longamp[row,col]))
+                            pha = reshape(pha,(1,1,len(pha)))
+                            amp = reshape(amp,(1,1,len(amp)))
+                            mi[row] = pac.fit(pha, amp, n_perm=400,random_state=5,
+                                          verbose=False)[0][0]
+                            mi_pv[row] = pac.infer_pvalues(p=0.95, mcp='fdr')[0][0]
     
-                    # 8.a. if number of events not divisible by block length,
-                    #    pad incomplete final block with randomly resampled events
-                    sys.stdout.write('\r')
-                    sys.stdout.flush()
-                    
-                    rem = len(segments) % 50
-                    if rem > 0:
-                        pads = 50 - rem
-                        for pad in range(pads):
-                            ran = random.randint(0,rem)
-                            longpha[-1,rem+pad] = longpha[-1,ran]
-                            longamp[-1,rem+pad] = longamp[-1,ran]
-                    
-                    # b. Calculate Coupling Strength
-                    mi = zeros((longamp.shape[0],1))
-                    mi_pv = zeros((longamp.shape[0],1))
-                    for row in range(longamp.shape[0]): 
-                        amp = zeros((1))   
-                        pha = zeros((1)) 
-                        for col in range(longamp.shape[1]):
-                            pha = concatenate((pha,longpha[row,col]))
-                            amp = concatenate((amp,longamp[row,col]))
-                        pha = reshape(pha,(1,1,len(pha)))
-                        amp = reshape(amp,(1,1,len(amp)))
-                        mi[row] = pac.fit(pha, amp, n_perm=400,random_state=5,
-                                      verbose=False)[0][0]
-                        mi_pv[row] = pac.infer_pvalues(p=0.95, mcp='fdr')[0][0]
-
-                    ## c. Calculate preferred phase
-                    ampbin = ampbin / ampbin.sum(-1, keepdims=True) # normalise amplitude
-                    ampbin = ampbin.squeeze()
-                    ampbin = ampbin[~isnan(ampbin[:,0]),:] # remove nan trials
-                    ab = ampbin
-                    
-                    # d. Create bins for preferred phase
-                    vecbin = zeros(nbins)
-                    width = 2 * pi / nbins
-                    for n in range(nbins):
-                        vecbin[n] = n * width + width / 2  
-                    
-                    # e. Calculate mean direction (theta) & mean vector length (rad)
-                    ab_pk = argmax(ab,axis=1)
-                    theta = circ_mean(vecbin,histogram(ab_pk,bins=nbins, 
-                                                        range=(0,nbins))[0])
-                    theta_deg = degrees(theta)
-                    if theta_deg < 0:
-                        theta_deg += 360
-                    rad = circ_r(vecbin, histogram(ab_pk,bins=nbins)[0], d=width)
-                    
-                    # f. Take mean across all segments/events
-                    ma = nanmean(ab, axis=0)
-                    
-                    # g. Correlation between mean amplitudes and phase-giving sine wave
-                    sine = sin(linspace(-pi, pi, nbins))
-                    sine = interp(sine, (sine.min(), sine.max()), (ma.min(), ma.max()))
-                    rho, pv1 = circ_corrcc(ma, sine)
-
-                    # h. Rayleigh test for non-uniformity of circular data
-                    ppha = vecbin[ab.argmax(axis=-1)]
-                    z, pv2 = circ_rayleigh(ppha)
-                    pv2 = round(pv2,5)
-                    
-                    # 9.a Export and save data
-                    freqs = f'pha-{f_amp[0]}-{f_amp[1]}Hz_amp-{f_amp[0]}-{f_amp[1]}Hz'
-                    if model == 'whole_night':
-                        stagename = '-'.join(self.stage)
-                        outputfile = '{}/{}_{}_{}_{}_{}_pac_parameters.csv'.format(
-                                        outpath,sub,ses,fnamechan,stagename,freqs)
-                    elif model == 'stage*cycle':    
-                        outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_pac_parameters.csv'.format(
-                                      outpath,sub,ses,fnamechan,self.stage[sg],cycle_idx[sg],freqs)
-                    elif model == 'per_stage':
-                        outputfile = '{}/{}_{}_{}_{}_{}_pac_parameters.csv'.format(
-                                      outpath,sub,ses,fnamechan,self.stage[sg],freqs)
-                    elif model == 'per_cycle':
-                        stagename = '-'.join(self.stage)
-                        outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_pac_parameters.csv'.format(
-                                      outpath,sub,ses,fnamechan,stagename,cycle_idx[sg],freqs)
-
-                    # b. Save cfc metrics to dataframe
-                    d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 
-                                    theta_deg, rad, rho, pv1, z, pv2])
-                    d = d.transpose()
-                    d.columns = ['mi','mi_norm','sig','pp_rad','ppdegrees','mvl',
-                                  'rho','pval','rayl','pval2']
-                    d.to_csv(path_or_buf=outputfile, sep=',')
-                    
-                    # c. Save binned amplitudes to pickle file
-                    outputfile = outputfile.split('_pac_parameters.csv')[0] + '_mean_amps'
-                    save(outputfile, ab)
+                        ## c. Calculate preferred phase
+                        ampbin = ampbin / ampbin.sum(-1, keepdims=True) # normalise amplitude
+                        ampbin = ampbin.squeeze()
+                        ampbin = ampbin[~isnan(ampbin[:,0]),:] # remove nan trials
+                        ab = ampbin
+                        
+                        # d. Create bins for preferred phase
+                        vecbin = zeros(nbins)
+                        width = 2 * pi / nbins
+                        for n in range(nbins):
+                            vecbin[n] = n * width + width / 2  
+                        
+                        # e. Calculate mean direction (theta) & mean vector length (rad)
+                        ab_pk = argmax(ab,axis=1)
+                        theta = circ_mean(vecbin,histogram(ab_pk,bins=nbins, 
+                                                            range=(0,nbins))[0])
+                        theta_deg = degrees(theta)
+                        if theta_deg < 0:
+                            theta_deg += 360
+                        rad = circ_r(vecbin, histogram(ab_pk,bins=nbins)[0], d=width)
+                        
+                        # f. Take mean across all segments/events
+                        ma = nanmean(ab, axis=0)
+                        
+                        # g. Correlation between mean amplitudes and phase-giving sine wave
+                        sine = sin(linspace(-pi, pi, nbins))
+                        sine = interp(sine, (sine.min(), sine.max()), (ma.min(), ma.max()))
+                        rho, pv1 = circ_corrcc(ma, sine)
+    
+                        # h. Rayleigh test for non-uniformity of circular data
+                        ppha = vecbin[ab.argmax(axis=-1)]
+                        z, pv2 = circ_rayleigh(ppha)
+                        pv2 = round(pv2,5)
+                        
+                        # 9.a Export and save data
+                        if adap_bands_phase == 'Fixed':
+                            phadap = '-fixed'
+                        else:
+                            phadap = '-adap'
+                        if adap_bands_amplitude == 'Fixed':
+                            ampadap = '-fixed'
+                        else:
+                            ampadap = '-adap'    
+                        freqs = f'pha-{f_pha[0]}-{f_pha[1]}Hz{phadap}_amp-{f_amp[0]}-{f_amp[1]}Hz{ampadap}'
+                        if model == 'whole_night':
+                            stagename = '-'.join(self.stage)
+                            outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
+                                            outpath,sub,ses,fnamechan,stagename,freqs,evt_type)
+                        elif model == 'stage*cycle':    
+                            outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_{}_pac_parameters.csv'.format(
+                                          outpath,sub,ses,fnamechan,self.stage[nsg],cycle_idx[nsg],freqs,evt_type)
+                        elif model == 'per_stage':
+                            outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
+                                          outpath,sub,ses,fnamechan,self.stage[nsg],freqs,evt_type)
+                        elif model == 'per_cycle':
+                            stagename = '-'.join(self.stage)
+                            outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_{}_pac_parameters.csv'.format(
+                                          outpath,sub,ses,fnamechan,stagename,cycle_idx[nsg],freqs,evt_type)
+    
+                        # b. Save cfc metrics to dataframe
+                        d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 
+                                        theta_deg, rad, rho, pv1, z, pv2])
+                        d = d.transpose()
+                        d.columns = ['mi_raw','mi_norm','pval1','pp_radians','ppdegrees','mvl',
+                                      'rho','pval2','rayl','pval3']
+                        d.to_csv(path_or_buf=outputfile, sep=',')
+                        
+                        # c. Save binned amplitudes to pickle file
+                        outputfile = outputfile.split('_pac_parameters.csv')[0] + '_mean_amps'
+                        save(outputfile, ab)
        
         ### 10. Check completion status and print
         if flag == 0:
