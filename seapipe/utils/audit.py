@@ -120,7 +120,7 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
 
 
 
-def make_bids(in_dir, origin = 'SCN', filetype = '.edf'):
+def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf'):
     
     """Converts the directory specified by <in_dir> to be BIDS compatible.
     You can specify the origin format of the data. For now, this only converts
@@ -129,48 +129,50 @@ def make_bids(in_dir, origin = 'SCN', filetype = '.edf'):
     """
     
     if origin=='SCN':
-        parts = [x for x in listdir(in_dir) if '.' not in x]
+        if subs == 'all':
+            subs = [x for x in listdir(in_dir) if '.' not in x]
         
-        for p, part in enumerate(parts):
+        
+        for s, sub in enumerate(subs):
             
-            src = f'{in_dir}/{part}'
-            dst = f'{in_dir}/sub-{part}'
+            src = f'{in_dir}/{sub}'
+            dst = f'{in_dir}/sub-{sub}'
             rename(src, dst)
             
             sess = [x for x in listdir(dst) if '.' not in x]
             
             for s, ses in enumerate(sess):
-                src = f'{in_dir}/sub-{part}/{ses}'
-                dst = f'{in_dir}/sub-{part}/ses-{ses}/'
+                src = f'{in_dir}/sub-{sub}/{ses}'
+                dst = f'{in_dir}/sub-{sub}/ses-{ses}/'
                 rename(src, dst)
                 
-                mkdir(f'{in_dir}/sub-{part}/ses-{ses}/eeg/')
+                mkdir(f'{in_dir}/sub-{sub}/ses-{ses}/eeg/')
                 
                 # EDFs
                 files = [x for x in listdir(dst) if filetype in x] 
                 for f, file in enumerate(files):
-                    src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
-                    dst = f'{in_dir}/sub-{part}/ses-{ses}/eeg/sub-{part}_ses-{ses}_eeg{filetype}'
+                    src = f'{in_dir}/sub-{sub}/ses-{ses}/{file}'
+                    dst = f'{in_dir}/sub-{sub}/ses-{ses}/eeg/sub-{sub}_ses-{ses}_eeg{filetype}'
                     rename(src, dst)
                 
                 # XMLs
                 odir = '/'.join(in_dir.split('/')[0:-1]) + '/OUT/'
                 if not path.exists(odir):
                     mkdir(odir)
-                odir = f'{odir}/staging/'
+                odir = f'{odir}/staging_manual/'
                 if not path.exists(odir):
                     mkdir(odir)
-                odir = f'{odir}/sub-{part}/'
+                odir = f'{odir}/sub-{sub}/'
                 if not path.exists(odir):
                     mkdir(odir)
                 odir = f'{odir}/ses-{ses}/'
                 if not path.exists(odir):
                     mkdir(odir)
                 
-                dst = f'{in_dir}/sub-{part}/ses-{ses}/'
+                dst = f'{in_dir}/sub-{sub}/ses-{ses}/'
                 files = [x for x in listdir(dst) if '.xml' in x]
                 for f, file in enumerate(files):
-                    src = f'{in_dir}/sub-{part}/ses-{ses}/{file}'
+                    src = f'{in_dir}/sub-{sub}/ses-{ses}/{file}'
                     
                     if len(file.split('_')) > 1:
                         newfile = file.split('_')[0]

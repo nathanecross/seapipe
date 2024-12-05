@@ -230,8 +230,8 @@ class pipeline:
 
         return   
 
-    def make_bids(self, origin = 'SCN'):
-        make_bids(self.datapath, origin=origin)
+    def make_bids(self, subs = 'all', origin = 'SCN'):
+        make_bids(self.datapath, subs = subs, origin = origin)
         
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude=exclude)
