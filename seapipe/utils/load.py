@@ -46,6 +46,10 @@ def select_input_dirs(outpath, xml_dir, evt_name=None):
             xml_dir = f'{outpath}/staging'
         elif evt_name is None:
             xml_dir = f'{outpath}/staging'
+        elif evt_name in ['event_pac']:
+            xml_dir = f'{outpath}/event_pac'
+        elif evt_name in ['pac']:
+            xml_dir = f'{outpath}/pac'
         else:
             xml_dir = f'{outpath}/{evt_name}'
         

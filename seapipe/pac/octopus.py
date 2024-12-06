@@ -104,7 +104,7 @@ class octopus:
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
                  adap_bw = 4, invert = False, progress=True,
-                 outfile = 'detect_pac_log.txt'):
+                 outfile = 'detect_event_pac_log.txt'):
 
         '''
         O.C.T.O.P.U.S
@@ -579,7 +579,7 @@ class octopus:
                         sys.stdout.write('\r')
                         sys.stdout.flush()
                         
-                        rem = len(segments) % 50
+                        rem = len(seg) % 50
                         if rem > 0:
                             pads = 50 - rem
                             for pad in range(pads):
@@ -594,6 +594,8 @@ class octopus:
                             amp = zeros((1))   
                             pha = zeros((1)) 
                             for col in range(longamp.shape[1]):
+                                if row == 62 and col == 25:
+                                    print(f'Col: {col}')
                                 pha = concatenate((pha,longpha[row,col]))
                                 amp = concatenate((amp,longamp[row,col]))
                             pha = reshape(pha,(1,1,len(pha)))
@@ -649,17 +651,17 @@ class octopus:
                         if model == 'whole_night':
                             stagename = '-'.join(self.stage)
                             outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
-                                            outpath,sub,ses,fnamechan,stagename,freqs,evt_type)
+                                            outpath,sub,ses,fnamechan,stagename,'-'.join(evt_type),freqs)
                         elif model == 'stage*cycle':    
                             outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_{}_pac_parameters.csv'.format(
-                                          outpath,sub,ses,fnamechan,self.stage[nsg],cycle_idx[nsg],freqs,evt_type)
+                                          outpath,sub,ses,fnamechan,self.stage[nsg],cycle_idx[nsg],'-'.join(evt_type),freqs)
                         elif model == 'per_stage':
                             outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
-                                          outpath,sub,ses,fnamechan,self.stage[nsg],freqs,evt_type)
+                                          outpath,sub,ses,fnamechan,self.stage[nsg],'-'.join(evt_type),freqs)
                         elif model == 'per_cycle':
                             stagename = '-'.join(self.stage)
                             outputfile = '{}/{}_{}_{}_{}_cycle{}_{}_{}_pac_parameters.csv'.format(
-                                          outpath,sub,ses,fnamechan,stagename,cycle_idx[nsg],freqs,evt_type)
+                                          outpath,sub,ses,fnamechan,stagename,cycle_idx[nsg],'-'.join(evt_type),freqs)
     
                         # b. Save cfc metrics to dataframe
                         d = DataFrame([mean(pac.pac), mean(mi), median(mi_pv), theta, 

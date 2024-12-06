@@ -180,8 +180,8 @@ class seabass:
                     raw = mne.io.read_raw_edf(rdir + edf_file[0], 
                                               include = chans,
                                               preload=True, verbose = False)
-                except:
-                    logger.warning(f' No input {filetype} file in {rdir}')
+                except Exception as e:
+                    logger.warning(f' No input {filetype} file in {rdir}, {repr(e)}')
                     flag += 1
                     break
                 

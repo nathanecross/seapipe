@@ -888,9 +888,10 @@ class pipeline:
                   method = 'MI', surrogate = 'Time lag', correction = 'Z-score',
                   adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
                   adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),
-                  adap_bw = 4, evt_name = None, min_dur = 1, nbins = 18, invert = None,
+                  adap_bw = 4, min_dur = 1, nbins = 18, invert = None,
                   frequency_opts = None, filter_opts = None, epoch_opts = None, 
-                  event_opts = None, reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                  evt_name = None, event_opts = None, 
+                  reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                   progress = True, outfile = True):
         
         # Set up logging
@@ -904,10 +905,7 @@ class pipeline:
             mkdir(log_dir) 
         if not xml_dir:
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name) 
-        if not out_dir:
-            out_dir = select_output_dirs(self.outpath, out_dir, 'pac')  
-        if not path.exists(out_dir):
-            mkdir(out_dir)
+        
         
         # Check subs
         if not subs:
@@ -951,6 +949,11 @@ class pipeline:
         
         # Check whether event based or continuous
         if evt_name: #OCTOPUS
+            if not out_dir:
+                out_dir = f'{self.outpath}/event_pac'  
+            if not path.exists(out_dir):
+                mkdir(out_dir)
+                
             cat = (int(concat_cycle),int(concat_stage),0,0)
             Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
                               chan, ref_chan, grp_name, stage, rater, 
@@ -963,8 +966,11 @@ class pipeline:
                            adap_bands_amplitude, frequency_amplitude, 
                            adap_bw, invert, progress, outfile)
         else: #PACATS
+            if not out_dir:
+                out_dir = f'{self.outpath}/pac'  
+            if not path.exists(out_dir):
+                mkdir(out_dir)
             cat = (int(concat_cycle),int(concat_stage),1,1)
-            
             Pacats = pacats(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
                             chan, ref_chan, grp_name, stage, rater, subs, sessions, 
                             reject_artf, self.tracking)
@@ -1012,7 +1018,7 @@ class pipeline:
         # Set channels
         times, ref_chan = check_chans(self.rootpath, None, True, logger)
         
-        self.track(subs='all', ses='all', 
+        self.track(subs=subs, ses=sessions, 
                    step=['staging'],
                    show=False, log=True)
         
@@ -1107,7 +1113,7 @@ class pipeline:
     
     def event_dataset(self, chan, evt_name, 
                             xml_dir = None, out_dir = None, subs = 'all', 
-                            sessions = 'all', stage = None, 
+                            sessions = 'all', stage = ['NREM2','NREM3'], 
                             concat_stage = False, concat_cycle = True, 
                             cycle_idx = None, grp_name = 'eeg', 
                             adap_bands = 'Fixed',  params = 'all', outfile=True):
@@ -1122,6 +1128,9 @@ class pipeline:
             evts = evt_name
         else:
             logger.error(TypeError(f"'evt_name' can only be a str or a list of str, but {type(evt_name)} was passed."))
+            logger.info('Check documentation for how to create an event_dataset:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
             return
         for evt_name in evts:
             # Set input/output directories
@@ -1153,16 +1162,74 @@ class pipeline:
             if isinstance(chan, str):
                 chan = [chan]
             
-            # Default stage
-            if stage == None:
-                stage = ['NREM2','NREM3']
-                
+        
             fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
                               stage, subs = subs, sessions = sessions) 
             fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, outfile)
         
         return
     
+    def pac_dataset(self, chan, evt_name = None, subs = 'all', sessions = 'all',
+                          xml_dir = None, out_dir = None,  stage = None, 
+                          concat_stage = False, concat_cycle = True, 
+                          cycle_idx = None, grp_name = 'eeg', 
+                          adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
+                          adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),  
+                          params = 'all', outfile=True):
+        
+        # Set up logging
+        logger = create_logger('PAC dataset')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not path.exists(self.outpath + '/datasets/'):
+            mkdir(self.outpath + '/datasets/')
+        
+        # Check if event-based or continuous PAC
+        if isinstance(evt_name, str):
+            evt = 'event_pac' 
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt)
+            cat = (int(concat_cycle),int(concat_stage),1,1)
+        elif evt_name == None:
+            evt = 'pac' 
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt)
+            cat = (int(concat_cycle),int(concat_stage),0,0)
+        else:
+            logger.error(TypeError(f"'evt_name' can only be a str or NoneType, but {type(evt_name)} was passed."))
+            logger.info('Check documentation for how to create a PAC summary dataset:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+       
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. PAC detection has not been run or an incorrect type has been selected.")
+            logger.info('Check documentation for how to run a pipeline:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+
+        out_dir = f'{self.outpath}/datasets/pac'
+
+        # Format chan
+        if isinstance(chan, str):
+            chan = [chan]
+        
+        # Default stage
+        if stage == None:
+            stage = ['NREM2','NREM3']
+            
+        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
+                          stage, subs = subs, sessions = sessions) 
+        fish.pac_summary(chan, evt_name, adap_bands_phase, frequency_phase, 
+                              adap_bands_amplitude, frequency_amplitude,
+                              params = 'all',
+                              cat = cat, cycle_idx = None, outfile = True)
+        
+        return
 
     def powerspec_dataset(self, chan, xml_dir = None, out_dir = None, 
                                 subs = 'all', sessions = 'all', 

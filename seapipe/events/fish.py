@@ -202,7 +202,7 @@ class FISH:
                             xml_file = [x for x in listdir(self.xml_dir +  '/' + sub + '/' + ses ) 
                                     if x.endswith('.xml') if not x.startswith('.')]    
                         if len(xml_file) == 0:                
-                            logger.warning(f'{event} has not been detected for Subject {sub}, visit {ses} - skipping..')
+                            logger.warning(f'{event} has not been detected for {sub}, {ses} - skipping..')
                             flag+=1
                             break
                         elif len(xml_file) > 1:
@@ -221,7 +221,12 @@ class FISH:
                             # 4.c. Get sleep cycles (if any)
                             if cycle_idx is not None:
                                 all_cycles = annot.get_cycles()
-                                cycle = [all_cycles[y - 1] for y in cycle_idx if y <= len(all_cycles)]
+                                if all_cycles:
+                                    cycle = [all_cycles[y - 1] for y in cycle_idx if y <= len(all_cycles)]
+                                else:
+                                    logger.warning(f'Cycles have not been marked for {sub}, {ses} - exporting all cycles..')
+                                    flag+=1
+                                    cycle = None
                             else:
                                 cycle = None
                             
@@ -743,7 +748,7 @@ class FISH:
                         data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{evt_name}.csv' 
                         if path.isfile(data_file):
                             try:
-                                df.loc[sub] = extract_data(data_file, variables)
+                                df.loc[sub] = extract_event_data(data_file, variables)
                             except:
                                 extract_data_error(logger)
                                 flag +=1
@@ -767,7 +772,7 @@ class FISH:
                                 data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}_{cycle}_{evt_name}.csv'
                                 if path.isfile(data_file):
                                     try:
-                                        df.loc[sub] = extract_data(data_file, variables)
+                                        df.loc[sub] = extract_event_data(data_file, variables)
                                     except:
                                         extract_data_error(logger)
                                         flag +=1
@@ -791,7 +796,7 @@ class FISH:
                             data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{cycle}_{evt_name}.csv'
                             if path.isfile(data_file):
                                 try:
-                                    df.loc[sub] = extract_data(data_file, variables)
+                                    df.loc[sub] = extract_event_data(data_file, variables)
                                 except:
                                     extract_data_error(logger)
                                     flag +=1
@@ -813,7 +818,7 @@ class FISH:
                             data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}_{evt_name}.csv'
                             if path.isfile(data_file):
                                 try:
-                                    df.loc[sub] = extract_data(data_file, variables)
+                                    df.loc[sub] = extract_event_data(data_file, variables)
                                 except:
                                     extract_data_error(logger)
                                     flag +=1
@@ -836,6 +841,248 @@ class FISH:
         return 
  
     
+    def pac_summary(self, chan, evt_name = None, 
+                          adap_bands_phase = 'Fixed', 
+                          frequency_phase = (0.5, 1.25), 
+                          adap_bands_amplitude = 'Fixed', 
+                          frequency_amplitude = (11, 16),
+                          params = 'all', cat = (1,1,1,1), cycle_idx = None, 
+                          outfile = True):
+        
+        
+        '''
+            PAC summary
+            
+            This function extracts the summary parameters of PAC for each sub 
+            and ses, and creates a master-level dataframe tabulating this 
+            information. This function can only be used for one set of analyses
+            at a time.
+        '''
+        
+        ### 0.a Set up logging
+        flag = 0
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/event_dataset_{evt_name}_{today}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
+            logger.info('')
+            logger.info(f'-------------- New call evoked at {now} --------------')
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
+        else:
+            logger = create_logger('PAC dataset')
+        
+        logger.info('')
+        logger.debug(r""" Commencing PAC Dataset Creation
+
+                     
+                      (Graphic Under Construction...)
+                      
+                      ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀  ⢀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⠾⢻⣿⡟⠻⠶⢦⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                        ⠀⠀⠀⠀⣀⣤⠾⠛⠉⠀⠀⣸⠛⣷⠀⠀⠀⠀⠉⠙⠻⠶⣦⣤⣀⠀⠀⠀⠀⠀
+                        ⠀⠀⠐⠛⠋⠀⠀⠀⠀⠀⠀⠛⠀⠛⠂⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠒⠂⠀⠀
+                        ⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀
+                        ⠀⠀⠀⢠⣤⣤⣤⠀⠀⠀⠀⢠⣤⡄⢠⣤⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⡄⠀⠀⠀
+                        ⠀⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠸⠿⠇⠸⠿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣶⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠃⡀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠋⠈⠛⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⢸⣿⡇⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⡇⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⢀⣴⠾⠋⢸⣿⡇⠈⠳⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                        ⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠈⠛⠃⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                                
+                                                    """,)
+        
+        ### 1. First check the directories
+        # a. Check for output folder, if doesn't exist, create
+        if not path.exists(self.out_dir):
+                mkdir(self.out_dir)
+        
+        # b. Get subject IDs
+        subs = self.subs
+        if isinstance(subs, list):
+            None
+        elif subs == 'all':
+                subs = next(walk(self.xml_dir))[1]
+        else:
+            logger.error("'subs' must either be an array of participant ids or = 'all' ")
+            
+        # c. Take a look through directories to get sessions
+        subs.sort()
+        sessions = {}
+        for s, sub in enumerate(subs):
+            if self.sessions == 'all':
+                sessions[sub] = next(walk(f'{self.xml_dir}/{sub}'))[1]
+        sessions = list(set([y for x in sessions.values() for y in x]))           
+        sessions.sort() 
+        
+        ### 2. Set up organisation of export
+        if cat[0] + cat[1] == 2:
+            model = 'whole_night'
+            logger.debug('Exporting parameters for the whole night.')
+        elif cat[0] + cat[1] == 0:
+            model = 'stage*cycle'
+            logger.debug('Exporting parameters per stage and cycle separately.')
+        elif cat[0] == 0:
+            model = 'per_cycle'
+            logger.debug('Exporting parameters per cycle separately.')
+        elif cat[1] == 0:
+            model = 'per_stage'  
+            logger.debug('Exporting parameters per stage separately.')
+        if 'cycle' in model and cycle_idx == None:
+            logger.info('')
+            logger.critical("To export cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
+            return
+        
+        # 3. Set variable names and combine with visits 
+        if params == 'all':
+            variables = ['mi_raw', 'mi_norm	', 'pval1',	'pp_radians', 
+                         'ppdegrees', 'mvl']
+        else:
+            variables = params
+        
+        # 4. Set name of bands for filename hunting 
+        if adap_bands_phase == 'Fixed':
+            adap_phase_name = 'fixed'
+        else:
+            adap_phase_name = 'adap'
+        if adap_bands_amplitude == 'Fixed':
+            adap_amp_name = 'fixed'
+        else:
+            adap_amp_name = 'adap'
+            
+        phase_name = f'pha-{frequency_phase[0]}-{frequency_phase[1]}Hz-{adap_phase_name}'
+        amp_name = f'amp-{frequency_amplitude[0]}-{frequency_amplitude[1]}Hz-{adap_amp_name}'
+        
+        # 4. Begin data extraction
+        for c, ch in enumerate(chan):
+            logger.debug(f'Creating a PAC dataset for {ch}..')
+            
+            # a. Create column names (append chan and ses names)
+            if evt_name:
+                pac_name = f'{evt_name}_{phase_name}_{amp_name}_pac'
+            else:
+                pac_name = f'{phase_name}_{amp_name}_pac'
+                
+            for v, ses in enumerate(sessions):
+                sesvar = []
+                for pair in product(variables, [ses]):
+                    sesvar.append('_'.join(pair))
+                columns = []
+                for pair in product([pac_name], sesvar, [ch]):
+                    columns.append('_'.join(pair))
+                
+                # b. Extract data based on cycle and stage setup
+                if model == 'whole_night':
+                    stagename = '-'.join(self.stage)
+                    logger.debug(f'Collating PAC parameters from {ch}, {stagename}..')
+                    st_columns = [x + f'_{stagename}' for x in columns]
+                    df = DataFrame(index=subs, columns=st_columns,dtype=float) 
+                    for s, sub in enumerate(subs): 
+                        logger.debug(f'Extracting from {sub}, {ses}')
+                        data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{pac_name}_parameters.csv' 
+                        if path.isfile(data_file):
+                            try:
+                                df.loc[sub] = extract_pac_data(data_file, variables)
+                            except:
+                                extract_data_error(logger)
+                                flag +=1
+                                return
+                        else:
+                            flag +=1
+                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {phase_name}_{amp_name} - has pac been run for {model}, with these frequency bands?')
+                    if not path.exists(f'{self.out_dir}/{pac_name}_{model}'):
+                        mkdir(f'{self.out_dir}/{pac_name}_{model}')
+                    df.to_csv(f"{self.out_dir}/{pac_name}_{model}/pac_{phase_name}_{amp_name}_{ses}_{ch}_{stagename}.csv")
+                    
+                elif model == 'stage*cycle':
+                    for cyc in cycle_idx:
+                        cycle = f'cycle{cyc}'
+                        for st in self.stage:
+                            st_columns = [x + f'_{st}_{cycle}' for x in columns]
+                            df = DataFrame(index=subs, columns=st_columns,dtype=float) 
+                            logger.debug(f'Collating PAC parameters from {ch}, {st}..')
+                            for s, sub in enumerate(subs): 
+                                logger.debug(f'Extracting from {sub}, {ses}')
+                                data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}_{cycle}_{pac_name}_parameters.csv'
+                                if path.isfile(data_file):
+                                    try:
+                                        df.loc[sub] = extract_pac_data(data_file, variables)
+                                    except:
+                                        extract_data_error(logger)
+                                        flag +=1
+                                        return
+                                else:
+                                    flag +=1
+                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {phase_name}_{amp_name} - has pac been run for {model}, with these frequency bands?')
+                            if not path.exists(f'{self.out_dir}/{pac_name}_{model}'):
+                                mkdir(f'{self.out_dir}/{pac_name}_{model}')
+                            df.to_csv(f"{self.out_dir}/{pac_name}_{model}/pac_{phase_name}_{amp_name}_{ses}_{ch}_{st}_{cycle}.csv")
+                
+                elif model == 'per_cycle':
+                    for cyc in cycle_idx:
+                        cycle = f'cycle{cyc}'
+                        stagename = '-'.join(self.stage)
+                        st_columns = [x + f'_{stagename}_{cycle}' for x in columns]
+                        df = DataFrame(index=subs, columns=st_columns,dtype=float) 
+                        logger.debug(f'Collating PAC parameters from {ch}, {stagename}, {cycle}..')
+                        for s, sub in enumerate(subs): 
+                            logger.debug(f'Extracting from {sub}, {ses}')
+                            data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{cycle}_{pac_name}_parameters.csv'
+                            if path.isfile(data_file):
+                                try:
+                                    df.loc[sub] = extract_pac_data(data_file, variables)
+                                except:
+                                    extract_data_error(logger)
+                                    flag +=1
+                                    return
+                            else:
+                                flag +=1
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, {phase_name}_{amp_name} - has pac been run for {model}, with these frequency bands?')
+                        if not path.exists(f'{self.out_dir}/{pac_name}_{model}'):
+                            mkdir(f'{self.out_dir}/{pac_name}_{model}')
+                        df.to_csv(f"{self.out_dir}/{pac_name}_{model}/pac_{phase_name}_{amp_name}_{ses}_{ch}_{stagename}_{cycle}.csv")
+                    
+                elif model == 'per_stage':
+                    for st in self.stage:
+                        st_columns = [x + f'_{st}' for x in columns]
+                        df = DataFrame(index=subs, columns=st_columns,dtype=float) 
+                        logger.debug(f'Collating PAC parameters from {ch}, {st}..')
+                        for s, sub in enumerate(subs): 
+                            logger.debug(f'Extracting from {sub}, {ses}')
+                            data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{st}_{pac_name}_parameters.csv'
+                            if path.isfile(data_file):
+                                try:
+                                    df.loc[sub] = extract_pac_data(data_file, variables)
+                                except:
+                                    extract_data_error(logger)
+                                    flag +=1
+                                    return
+                            else:
+                                flag +=1
+                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, {phase_name}_{amp_name} - has pac been run for {model}, with these frequency bands?')
+                        if not path.exists(f'{self.out_dir}/{pac_name}_{model}'):
+                            mkdir(f'{self.out_dir}/{pac_name}_{model}')  
+                        df.to_csv(f"{self.out_dir}/{pac_name}_{model}/pac_{phase_name}_{amp_name}_{ses}_{ch}_{st}.csv")
+        
+                
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.info('')
+            logger.debug('Create PAC dataset finished without ERROR.')  
+        else:
+            logger.info('')
+            logger.warning('Create PAC dataset finished with WARNINGS. See log for details.')
+        return 
+        
+        
+        return
+    
     def trawls():
         
         '''
@@ -852,8 +1099,34 @@ def extract_data_error(logger):
     logger.info('                      Check documentation for how event parameters need to be written:')
     logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')
     
+
+
+def extract_pac_data(data_file, variables):
     
-def extract_data(data_file, variables):
+    # Read csv
+    df = read_csv(data_file, header=0)
+    
+    # PAC variables
+    data = []
+    if 'mi_raw' in variables:
+        data.append(df['mi_raw'][0])
+    if 'mi_norm' in variables:
+        data.append(df['mi_norm'][0])
+    if 'pval1' in variables:
+        data.append(df['pval1'][0])              
+    if 'pp_radians' in variables:
+        data.append(df['pp_radians'][0])               
+    if 'ppdegrees' in variables:
+        data.append(df['ppdegrees'][0])
+    if 'mvl' in variables:
+        data.append(df['mvl'][0])
+    					
+    data = asarray(data)
+
+    return data
+    
+    
+def extract_event_data(data_file, variables):
     
     # Delimiter
     data_file_delimiter = ','

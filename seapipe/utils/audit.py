@@ -90,8 +90,8 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
                     finalbids += 1
                     logger.critical(f"BIDS incompatibility. No 'eeg' directory found for {pt}, {dr}\n")
             
-            bids.append(all([len(dirs2) < 1 for dirs2 in dirs]))
-            nedf.append(edfs)
+        bids.append(all([len(dirs2) < 1 for dirs2 in dirs]))
+        nedf.append(edfs)
     
     if len(set(nsd)) > 1:
         logger.warning('Not all participants have the same number of sessions\n')
