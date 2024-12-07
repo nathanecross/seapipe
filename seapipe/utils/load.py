@@ -209,11 +209,26 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
             
         elif type(ref_chans) == DataFrame:
+            # ref_chans = ref_chans.to_numpy()[0]
+            # ref_chans = ref_chans.astype(str)
+            # ref_chans = char.split(ref_chans, sep=', ')
+            # ref_chans = [x for y in ref_chans for x in y]
+            # chanset = {chn:ref_chans for chn in chans}    
+
             ref_chans = ref_chans.to_numpy()[0]
             ref_chans = ref_chans.astype(str)
-            ref_chans = char.split(ref_chans, sep=', ')
-            ref_chans = [x for y in ref_chans for x in y]
-            chanset = {chn:ref_chans for chn in chans}    
+            ref_chans_all = []
+            for cell in ref_chans:
+                cell = cell.split(', ')
+                for x in cell:
+                    if ',' in x: 
+                        x = x.split(',')
+                        ref_chans_all = ref_chans_all + x
+                    else:
+                        ref_chans_all.append(x)
+            ref_chans = [x for x in ref_chans_all if not x=='']
+            chanset = {chn:ref_chans for chn in chans} 
+            
         else:
             chanset = {chn:[] for chn in chans}
     
@@ -226,18 +241,39 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         elif type(ref_chans) == DataFrame:
             ref_chans = ref_chans.to_numpy()[0]
             ref_chans = ref_chans.astype(str)
-            ref_chans = char.split(ref_chans, sep=', ')
-            ref_chans = [x for x in ref_chans]
+            ref_chans_all = []
+            for cell in ref_chans:
+                cell = cell.split(', ')
+                refcell = []
+                for x in cell:
+                    if ',' in x: 
+                        x = x.split(',')
+                        refcell = refcell + x
+                    else:
+                        refcell.append(x)
+                refcell = [x for x in refcell if not x=='']
+                ref_chans_all.append(refcell)
+            
         
         chans = chans.to_numpy()[0]
         chans = chans.astype(str)
-        chans = char.split(chans, sep=', ')
-        chans = [x for x in chans]
-        
-        if len(ref_chans)>0:
-            chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        chans_all = []
+        for cell in chans:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            chans_all.append(chancell)
+
+        if len(ref_chans_all)>0:
+            chanset = {key:ref_chans_all[i] for i,chn in enumerate(chans_all) for key in chn}
         else:
-            chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
+            chanset = {key:[] for i,chn in enumerate(chans_all) for key in chn}
         
     else:
         logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
@@ -582,17 +618,37 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
 
     chans = chans.to_numpy()[0]
     chans = chans.astype(str)
-    chans = char.split(chans, sep=', ')
-    chans = [x for y in chans for x in y]
+    chans_all = []
+    for cell in chans:
+        cell = cell.split(', ')
+        for x in cell:
+            if ',' in x: 
+                x = x.split(',')
+                chans_all = chans_all + x
+            else:
+                chans_all.append(x)
+    chans = [x for x in chans_all if not x=='']
+    
     
     peaks = peaks.to_numpy()[0]
     peaks = peaks.astype(str)
-    peaks = char.split(peaks, sep=', ')
-    peaks = [float(x) for y in peaks for x in y]
+    peaks_all = []
+    for cell in peaks:
+        cell = cell.split(', ')
+        for x in cell:
+            if ',' in x: 
+                x = x.split(',')
+                peaks_all = peaks_all + x
+            else:
+                peaks_all.append(x)
+    peaks = [float(x) for x in peaks_all if not x=='']
     
-    freq = (peaks[chans.index(chan)] - adap_bw/2, 
+    try:
+        freq = (peaks[chans.index(chan)] - adap_bw/2, 
             peaks[chans.index(chan)] + adap_bw/2)
-
+    except:
+        logger.warning('Inconsistent number of peaks and number of channels listed in tracking sheet for {sub}, {ses}. Will use Fixed frequency bands instead...')
+        freq = None
     
     return freq
 

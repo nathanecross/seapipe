@@ -313,7 +313,7 @@ class pacats:
                                                  adap_bw, logger)
                     elif adap_bands_phase == 'Auto':
                         stagename = '-'.join(self.stage)
-                        band_limits = f'{self.frequency[0]}-{self.frequency[1]}Hz'
+                        band_limits = f'{frequency_phase[0]}-{frequency_phase[1]}Hz'
                         f_pha = load_adap_bands(self.tracking['fooof'], sub, ses,
                                                fnamechan, stagename, band_limits, 
                                                adap_bw, logger)
@@ -334,7 +334,7 @@ class pacats:
                                                  adap_bw, logger)
                     elif adap_bands_amplitude == 'Auto':
                         stagename = '-'.join(self.stage)
-                        band_limits = f'{self.frequency[0]}-{self.frequency[1]}Hz'
+                        band_limits = f'{frequency_amplitude[0]}-{frequency_amplitude[1]}Hz'
                         f_amp = load_adap_bands(self.tracking['fooof'], sub, ses,
                                                fnamechan, stagename, band_limits, 
                                                adap_bw, logger)

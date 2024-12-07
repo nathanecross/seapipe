@@ -272,6 +272,8 @@ class FISH:
                                     logger.debug("Adapted bands has been set as 'Manual'. Will search for peaks within the tracking sheet")
                                     freq = read_manual_peaks(self.rootpath, sub, ses, channel, 
                                                              adap_bw, logger)
+                                    if not freq:
+                                        flag += 1
                                 elif adap_bands == 'Auto':
                                     stagename = '-'.join(self.stage)
                                     if frequency == None:
@@ -941,7 +943,7 @@ class FISH:
         
         # 3. Set variable names and combine with visits 
         if params == 'all':
-            variables = ['mi_raw', 'mi_norm	', 'pval1',	'pp_radians', 
+            variables = ['mi_raw', 'mi_norm', 'pval1',	'pp_radians', 
                          'ppdegrees', 'mvl']
         else:
             variables = params

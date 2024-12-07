@@ -27,12 +27,12 @@ from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_she
 
 
 ## TO DO:
-#   - add frequency option in export_eventparams to be default for SO & spindle
+#   - adapt load channels to be flexible for non-equivalent refsets and chansets
 #   - add in log for detection whether auto, fixed or adapted bands was run
 #   - add selection of subs to be readable from 'tracking.tsv'
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
-#   - create catch for errors in tracking sheet around ',' (chans, adap_bands etc.)
+#  ** create catch for errors in tracking sheet around ',' (chans, adap_bands etc.)
 #   - fix discrepency between track WARNINGS and output in dataframe 
 #   - update initial tracking to include spindles, slow_oscillation, cfc, power_spectrum
 #   - update export sleepstats to export by stage/cycle separately
