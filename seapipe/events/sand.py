@@ -95,7 +95,7 @@ class SAND:
             logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_{today}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
             logger.info('')
-            logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
+            logger.info(f"-------------- New call of 'Detect artefacts' evoked at {now} --------------")
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')

@@ -12,6 +12,44 @@ To use seapipe, first install it using pip:
 
    (.venv) $ pip install seapipe
 
+.. _data_preparation_and_setup:
+Data Preparation and Setup
+----------------
+
+Seapipe is a `bids-standard <https://bids-specification.readthedocs.io/en/stable/>`_ data processing pipeline, 
+and as such the data will need to be organised according to `bids-specification <https://bids-specification.readthedocs.io/en/stable/common-principles.html#source-vs-raw-vs-derived-data>` 
+for seapipe to run properly. 
+By running seapipe, raw data will be transformed and partial as well as final results will be saved. Therefore, the original, raw data must be separated from the outputs (derivatives).
+This is done by placing the raw dataset inside a directory labelled ``sourcedata`` inside the root directory.
+
+For example, a eeg datafile should be in the structure ``~/rootdir/sourcedata/sub-01/ses-01/eeg/sub-01_ses-01_task-sleep_acq-PSG_eeg.edf``
+
+An example of the datastructure would look like this:
+::
+   └─ my_project-1/
+      ├─ sourcedata/
+      │  ├─ sub-01/
+      │  │  ├─ ses-01
+      │  │  │  └─ eeg
+      │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_eeg.edf
+      │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_eeg.json
+      │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_events.tsv   *optional for seapipe*
+      │  │  │     └─ sub-01_ses-01_task-sleep_acq-PSG_channels.tsv *optional for seapipe*
+      │  │  ├─ ses-02/
+      │  │  └─ ...
+      │  ├─ sub-02/
+      │  ├─ ... 
+      │  ├─ dataset_description.json 
+      │  └─ participants.tsv
+      └─ derivatives/
+         ├─ seapipe/
+         └─ ...
+
+
+.. admonition:: NOTE - BIDS🧠
+   1. You can look at example bids-standard EEG datasets `here <https://openneuro.org/search/modality/eeg>`_.
+   2. It is recommended that you use a `bids-validator <https://bids-standard.github.io/bids-validator/>`_ on the ``/sourcedata`` folder *prior to using seapipe*.
+
 .. _creating_a_pipeline:
 Creating a pipeline
 ----------------
@@ -24,7 +62,7 @@ To begin, open python and load seapipe
 
 Then you can initiate the pipeline by specifying the path to your dataset.
 
->>> project_name = pipeline('/home/username/project/') 
+>>> project_name = pipeline('~/my_project-1/') 
 
 .. _checking_your_dataset:
 Checking your dataset

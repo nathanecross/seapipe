@@ -67,8 +67,8 @@ class pipeline:
     def __init__(self, indir, outfile=False, filetype='.edf'):
         
         self.rootpath = indir
-        self.datapath = indir + '/DATA'
-        self.outpath = indir + '/OUT'
+        self.datapath = indir + '/sourcedata'
+        self.outpath = indir + '/derivatives'
         if not path.exists(self.outpath):
             mkdir(self.outpath)
         self.outfile = outfile
