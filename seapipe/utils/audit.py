@@ -105,8 +105,13 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
                    for c1, c2 in zip(subdirs['#sessions'], subdirs['#recordings'])]
     
     if outfile:
-        subdirs.to_csv(outfile)
-    
+        if isinstance(outfile, str):
+            subdirs.to_csv(outfile)
+        elif isinstance(outfile, str):
+            subdirs.to_csv(f'{rootpath}/derivatives/seapipe/audit/audit.csv')
+        else:
+            logger.warning("'outfile' should be set to an instance of boolean or str, not {type(outfile)}. No log will be saved. \n")
+            
     if finalbids == 0:
         logger.info('\n                      Summary:')
         logger.info(f"                      {sum(subdirs['#recordings'])} files, {filesize / (10**9):,.2f} GB")

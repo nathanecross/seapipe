@@ -18,4 +18,5 @@ Beta Version
 0.4.1 Updated format bids to allow subject-level
 0.4.2 Updates to export PAC summary
 0.4.3 Improved loading channel names and completed PAC event dataset
+0.4.4 Fixed bugs related to reading channel names from tracking sheet
 

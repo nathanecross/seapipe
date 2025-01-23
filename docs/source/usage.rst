@@ -17,7 +17,7 @@ Data Preparation and Setup
 ----------------
 
 Seapipe is a `bids-standard <https://bids-specification.readthedocs.io/en/stable/>`_ data processing pipeline, 
-and as such the data will need to be organised according to `bids-specification <https://bids-specification.readthedocs.io/en/stable/common-principles.html#source-vs-raw-vs-derived-data>` 
+and as such the data will need to be organised according to `bids-specification <https://bids-specification.readthedocs.io/en/stable/common-principles.html#source-vs-raw-vs-derived-data>`_ 
 for seapipe to run properly. 
 By running seapipe, raw data will be transformed and partial as well as final results will be saved. Therefore, the original, raw data must be separated from the outputs (derivatives).
 This is done by placing the raw dataset inside a directory labelled ``sourcedata`` inside the root directory.
@@ -33,8 +33,8 @@ An example of the datastructure would look like this:
       │  │  │  └─ eeg
       │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_eeg.edf
       │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_eeg.json
-      │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_events.tsv   *optional for seapipe*
-      │  │  │     └─ sub-01_ses-01_task-sleep_acq-PSG_channels.tsv *optional for seapipe*
+      │  │  │     ├─ sub-01_ses-01_task-sleep_acq-PSG_events.tsv     *optional for seapipe*
+      │  │  │     └─ sub-01_ses-01_task-sleep_acq-PSG_channels.tsv   *optional for seapipe*
       │  │  ├─ ses-02/
       │  │  └─ ...
       │  ├─ sub-02/
@@ -47,8 +47,8 @@ An example of the datastructure would look like this:
 
 
 .. admonition:: NOTE - BIDS🧠
-   1. You can look at example bids-standard EEG datasets `here <https://openneuro.org/search/modality/eeg>`_.
-   2. It is recommended that you use a `bids-validator <https://bids-standard.github.io/bids-validator/>`_ on the ``/sourcedata`` folder *prior to using seapipe*.
+   1 - You can look at example bids-standard EEG datasets `here <https://openneuro.org/search/modality/eeg>`_.
+   2 - It is recommended that you use a `bids-validator <https://bids-standard.github.io/bids-validator/>`_ on the ``/sourcedata`` folder *prior to using seapipe*.
 
 .. _creating_a_pipeline:
 Creating a pipeline
@@ -69,8 +69,7 @@ Checking your dataset
 ----------------
 
 Before running any analyses, it is important to check your data.
-For seapipe to run properly, the data needs to be organised in the **Brain Imaging Data Structure (BIDS)**.
-The compatibility of the dataset with BIDS can be validated `online <https://bids-standard.github.io/bids-validator/>`_.
+For seapipe to run properly, the data needs to be organised in the **Brain Imaging Data Structure (BIDS)** (see :ref:`Data Preparation and Setup`).
 
 However, seapipe also works almost symbiotically with the `Wonambi <https://wonambi-python.github.io/>`_ package.
 Therefore, any annotations (sleep scoring, artefact markings etc.) need to be inside a wonambi annotations (.xml) file. 

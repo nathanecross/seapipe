@@ -52,6 +52,16 @@ class pipeline:
     ----------
     indir : str 
         name of the root level directory containing the BIDS organised data
+        
+    outfile : bool / str
+        whether to save log of dataset audit to file. If False (default) - does
+        not save any log file. If True - saves a log under the filepath 
+        /derivatives/seapipe/audit/audit.csv. Else if a string to a filepath, 
+        it will save the log under the filepath indicated in the string.
+        
+    filetype : str
+        extension of file to search for. Default is '.edf' - but according to 
+        BIDS convention other filetypes can be '.vhdr', '.vmrk', '.eeg' or '.set'
 
     Attributes
     ----------
@@ -64,10 +74,10 @@ class pipeline:
 
     """
         
-    def __init__(self, indir, outfile=False, filetype='.edf'):
+    def __init__(self, indir, outfile = False, filetype = '.edf'):
         
         self.rootpath = indir
-        self.datapath = indir + '/sourcedata'
+        self.datapath = indir + '/DATA'
         self.outpath = indir + '/derivatives'
         if not path.exists(self.outpath):
             mkdir(self.outpath)
@@ -235,7 +245,17 @@ class pipeline:
         
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude=exclude)
-        
+    
+    
+    #--------------------------------------------------------------------------
+    '''
+    ANALYSIS FUNCTIONS
+    
+    power_spectrum -> performs power spectral analysis.
+    
+                       
+    
+    '''    
     
     
     def power_spectrum(self, xml_dir = None, out_dir = None, 

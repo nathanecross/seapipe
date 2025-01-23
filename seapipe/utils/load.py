@@ -296,8 +296,7 @@ def rename_channels(sub, ses, chan, logger):
             return None
         # Search channels
         oldchans = chans.filter(regex='chanset')
-        oldchans = oldchans.filter(regex='^((?!rename).)*$')
-        oldchans = oldchans.filter(regex='^((?!peaks).)*$')
+        oldchans = oldchans.filter(regex='^((?!_).)*$') # filter out "_"
         chans = chans.filter(regex='^((?!invert).)*$')
         oldchans = oldchans.dropna(axis=1, how='all')
         if len(oldchans.columns) == 0:
@@ -311,21 +310,47 @@ def rename_channels(sub, ses, chan, logger):
     
     if type(oldchans) == type(DataFrame()):
         if type(newchans) == DataFrame and len(newchans.columns) != len(oldchans.columns):
-            logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.warning(f"Using original channel names for {sub}, {ses}...")
-            return None
+            try:
+                oldchans = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
+            except:
+                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.warning(f"Using original channel names for {sub}, {ses}...")
+                return None
         
-        oldchans=oldchans.to_numpy() 
-        oldchans = oldchans.astype(str)
-        oldchans = char.split(oldchans[0], sep=', ')
-        oldchans = [x for y in oldchans for x in y]
+        oldchans = oldchans.to_numpy() 
+        oldchans = oldchans[0].astype(str)
+        oldchans_all = []
+        for cell in oldchans:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            oldchans_all.append(chancell)       
+        oldchans = oldchans_all[0]
+
         
         if type(newchans) == DataFrame:
-            newchans = newchans.to_numpy()
-            newchans = newchans.astype(str)
-            newchans = char.split(newchans[0], sep=', ')
-            newchans = [x for y in newchans for x in y]
+            newchans = newchans.to_numpy() 
+            newchans = newchans[0].astype(str)
+            newchans_all = []
+            for cell in newchans:
+                cell = cell.split(', ')
+                chancell = []
+                for x in cell:
+                    if ',' in x: 
+                        x = x.split(',')
+                        chancell = chancell + x
+                    else:
+                        chancell.append(x)
+                chancell = [x for x in chancell if not x=='']
+                newchans_all.append(chancell)       
+            newchans = newchans_all[0]
         
         if len(oldchans) == len(newchans):
             newchans = {chn:newchans[i] for i,chn in enumerate(oldchans)}
