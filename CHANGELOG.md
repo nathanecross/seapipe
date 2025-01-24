@@ -19,4 +19,4 @@ Beta Version
 0.4.2 Updates to export PAC summary
 0.4.3 Improved loading channel names and completed PAC event dataset
 0.4.4 Fixed bugs related to reading channel names from tracking sheet
-
+0.4.5 Fixed bugs with power spectrum analysis and export

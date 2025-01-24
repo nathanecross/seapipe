@@ -561,12 +561,12 @@ class Spectrum:
                                   |
                                   |  ,^\
                                   | /   \           Power Spectral
-                                  |     `.             Analysis
-                        (µV2)     |      `~.       
-                                  |         `./\
-                                  |             `~.
-                                  |                `•._
-                                  |                    `~¬.…_._._
+                                  |      `.            Analysis
+                        (µV2)     |       `~.       
+                                  |          `./\
+                                  |              `~.
+                                  |                 `•._
+                                  |                     `~¬.…_._._
                                   |_______________________________
                                               (Hz)
                                   
@@ -647,7 +647,8 @@ class Spectrum:
                     break
             
                 newchans = rename_channels(sub, ses, self.chan, logger)
-                filter_opts['oREF'] = infer_ref(sub, ses, self.chan, logger)    
+                if not filter_opts['oREF']:
+                    filter_opts['oREF'] = infer_ref(sub, ses, self.chan, logger)    
                 
                 # Loop through channels
                 for c, ch in enumerate(chanset):
@@ -947,7 +948,7 @@ class Spectrum:
         frequency = frequency_opts['frequency']
         flag = 0
         if general_opts['freq_full']:
-            variables_full = [str(x) for x in (arange(0.25,filter_opts['lowpass']*4,0.25))]
+            variables_full = [str(x) for x in (arange(0.25,filter_opts['lowpass'],0.25))]
             idx_data_full = list(range(9,8+filter_opts['lowpass']*4))
         if general_opts['freq_band']:
             col_headers = frequency_opts['headers'] 
@@ -976,12 +977,12 @@ class Spectrum:
         # a. Check for output folder, if doesn't exist, create
         if not path.exists(self.out_dir):
             mkdir(self.out_dir)
-        outdir = f'{self.out_dir}/powerspec_{model}'
-        if path.exists(outdir):
-            logger.debug(f"Output directory: {outdir} exists")
+        out_dir = f'{self.out_dir}/powerspectrum_{model}'
+        if path.exists(out_dir):
+            logger.debug(f"Output directory: {out_dir} exists")
         else:
-            logger.debug(f"Creating output directory: {outdir}")
-            mkdir(outdir)
+            logger.debug(f"Creating output directory: {out_dir}")
+            mkdir(out_dir)
         
         # b. Get subject IDs
         subs = self.subs
@@ -1031,11 +1032,9 @@ class Spectrum:
                     if general_opts['freq_full']:    
                         st_columns = [x + f'_{stagename}' for x in columns_b]
                         freq_band = DataFrame(index=subs, columns=st_columns, dtype=float)
-                    if not path.exists(f'{self.out_dir}/spectrum_{model}'):
-                        mkdir(f'{self.out_dir}/spectrum_{model}')
                     for sub in subs: 
                         logger.debug(f'Extracting from {sub}, {ses}')
-                        paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}**{suffix}.csv'
+                        paramsfile = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}**{suffix}.csv'
                         if general_opts['freq_full']:
                             filename = f"{paramsfile.split('*')[0]}_freq_full_{paramsfile.split('*')[2]}"
                             if not path.exists(filename):
@@ -1045,7 +1044,7 @@ class Spectrum:
                             else:
                                 try:
                                     df = read_csv(filename, skiprows=1)
-                                    freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                    freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
                                 except:
                                     extract_psa_error(logger)
                                     flag +=1
@@ -1059,15 +1058,15 @@ class Spectrum:
                             else:
                                 try:
                                     df = read_csv(filename, skiprows=1)
-                                    freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                    freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
                                 except:
                                     extract_psa_error(logger)
                                     flag +=1
                                     continue
                     if general_opts['freq_full']:
-                        freq_full.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}.csv")
+                        freq_full.to_csv(f"{out_dir}/powerspectrum_{ses}_{ch}_{stagename}_freq_full_{suffix}.csv")
                     if general_opts['freq_band']:
-                        freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}.csv")
+                        freq_band.to_csv(f"{out_dir}/powerspectrum_{ses}_{ch}_{stagename}_freq_band_{suffix}.csv")
  
                 elif model == 'stage*cycle':
                     for cyc in self.cycle_idx:
@@ -1091,7 +1090,7 @@ class Spectrum:
                                     else:
                                         try:
                                             df = read_csv(filename, skiprows=1)
-                                            freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                            freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
                                         except:
                                             extract_psa_error(logger)
                                             flag +=1
@@ -1105,15 +1104,15 @@ class Spectrum:
                                     else:
                                         try:
                                             df = read_csv(filename, skiprows=1)
-                                            freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                            freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
                                         except:
                                             extract_psa_error(logger)
                                             flag +=1
                                             continue
                             if general_opts['freq_full']:
-                                freq_full.to_csv(f"{self.out_dir}/pectrum_{ses}_{ch}_{st}_{cycle}.csv")
+                                freq_full.to_csv(f"{out_dir}/pectrum_{ses}_{ch}_{st}_{cycle}_freq_full_{suffix}.csv")
                             if general_opts['freq_band']:
-                                freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{st}_{cycle}.csv")
+                                freq_band.to_csv(f"{out_dir}/spectrum_{ses}_{ch}_{st}_{cycle}_freq_band_{suffix}.csv")
 
                 elif model == 'per_cycle':
                     for cyc in self.cycle_idx:
@@ -1137,7 +1136,7 @@ class Spectrum:
                                 else:
                                     try:
                                         df = read_csv(filename, skiprows=1)
-                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
                                     except:
                                         extract_psa_error(logger)
                                         flag +=1
@@ -1151,15 +1150,15 @@ class Spectrum:
                                 else:
                                     try:
                                         df = read_csv(filename, skiprows=1)
-                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
                                     except:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
                         if general_opts['freq_full']:
-                            freq_full.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}.csv")
+                            freq_full.to_csv(f"{out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}_freq_full_{suffix}.csv")
                         if general_opts['freq_band']:
-                            freq_band.to_csv(f"{self.out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}.csv")
+                            freq_band.to_csv(f"{out_dir}/spectrum_{ses}_{ch}_{stagename}_{cycle}_freq_band_{suffix}.csv")
 
                 elif model == 'per_stage':
                     for st in self.stage:
@@ -1181,7 +1180,7 @@ class Spectrum:
                                 else:
                                     try:
                                         df = read_csv(filename, skiprows=1)
-                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full]
+                                        freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
                                     except:
                                         extract_psa_error(logger)
                                         flag +=1
@@ -1195,15 +1194,15 @@ class Spectrum:
                                 else:
                                     try:
                                         df = read_csv(filename, skiprows=1)
-                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band]
+                                        freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
                                     except:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
                         if general_opts['freq_full']:
-                            freq_full.to_csv(f"{outdir}/spectrum_{ses}_{ch}_{st}.csv")
+                            freq_full.to_csv(f"{out_dir}/spectrum_{ses}_{ch}_{st}_freq_full_{suffix}.csv")
                         if general_opts['freq_band']:
-                            freq_band.to_csv(f"{outdir}/spectrum_{ses}_{ch}_{st}.csv")
+                            freq_band.to_csv(f"{out_dir}/spectrum_{ses}_{ch}_{st}_freq_band_{suffix}.csv")
                             
          
         ### 3. Check completion status and print

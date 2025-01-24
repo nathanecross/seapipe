@@ -311,17 +311,20 @@ def rename_channels(sub, ses, chan, logger):
     if type(oldchans) == type(DataFrame()):
         if type(newchans) == DataFrame and len(newchans.columns) != len(oldchans.columns):
             try:
-                oldchans = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
+                oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
+                oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
             except:
                 logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.warning(f"Using original channel names for {sub}, {ses}...")
                 return None
         
-        oldchans = oldchans.to_numpy() 
-        oldchans = oldchans[0].astype(str)
+        # Split cells in tracking
+        # OLD Channels to be renamed
+        oldchans_to_be_renamed = oldchans_to_be_renamed.to_numpy() 
+        oldchans_to_be_renamed = oldchans_to_be_renamed[0].astype(str)
         oldchans_all = []
-        for cell in oldchans:
+        for cell in oldchans_to_be_renamed:
             cell = cell.split(', ')
             chancell = []
             for x in cell:
@@ -332,8 +335,24 @@ def rename_channels(sub, ses, chan, logger):
                     chancell.append(x)
             chancell = [x for x in chancell if not x=='']
             oldchans_all.append(chancell)       
-        oldchans = oldchans_all[0]
-
+        oldchans_to_be_renamed = oldchans_all[0]
+        
+        # OLD Channels to be kept
+        oldchans_to_be_kept = oldchans_to_be_kept.to_numpy() 
+        oldchans_to_be_kept = oldchans_to_be_kept[0].astype(str)
+        oldchans_all = []
+        for cell in oldchans_to_be_kept:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            oldchans_all.append(chancell)       
+        oldchans_to_be_kept = oldchans_all[0]
         
         if type(newchans) == DataFrame:
             newchans = newchans.to_numpy() 
@@ -352,8 +371,10 @@ def rename_channels(sub, ses, chan, logger):
                 newchans_all.append(chancell)       
             newchans = newchans_all[0]
         
-        if len(oldchans) == len(newchans):
-            newchans = {chn:newchans[i] for i,chn in enumerate(oldchans)}
+        if len(oldchans_to_be_renamed) == len(newchans):
+            newchans = {chn:newchans[i] for i,chn in enumerate(oldchans_to_be_renamed)}
+            n = {x:x for x in oldchans_to_be_kept}
+            newchans = n | newchans
         else:
             logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')

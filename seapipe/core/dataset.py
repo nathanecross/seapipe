@@ -280,7 +280,7 @@ class pipeline:
         if not xml_dir:
             xml_dir = f'{self.outpath}/staging'   
         if not out_dir:
-            out_dir = f'{self.outpath}/spectrum' 
+            out_dir = f'{self.outpath}/powerspectrum' 
         if not path.exists(out_dir):
             mkdir(out_dir)
             
@@ -1131,11 +1131,11 @@ class pipeline:
         return
     
     
-    def event_dataset(self, chan, evt_name, 
-                            xml_dir = None, out_dir = None, subs = 'all', 
-                            sessions = 'all', stage = ['NREM2','NREM3'], 
-                            concat_stage = False, concat_cycle = True, 
-                            cycle_idx = None, grp_name = 'eeg', 
+    def event_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
+                            subs = 'all', sessions = 'all', 
+                            stage = ['NREM2','NREM3'], concat_stage = False, 
+                            concat_cycle = True, cycle_idx = None, 
+                            grp_name = 'eeg', 
                             adap_bands = 'Fixed',  params = 'all', outfile=True):
         
         # Set up logging
@@ -1152,19 +1152,24 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return
+        
         for evt_name in evts:
+            # Append 'adap' after event name if adapted bands were used
+            if adap_bands in ['Auto', 'Manual']:
+                evt_name = f'{evt_name}_adap'
+                self.track(step='fooof', show = False, log = False)
+            
             # Set input/output directories
             in_dir = self.datapath
             log_dir = self.outpath + '/audit/logs/'
             if not path.exists(log_dir):
                 mkdir(log_dir)
-            if not path.exists(self.outpath + '/datasets/'):
-                mkdir(self.outpath + '/datasets/')
-            
-            if adap_bands in ['Auto','Manual']:
-                evt_name = f'{evt_name}_adap'
-                self.track(step='fooof', show = False, log = False)
-            out_dir = self.outpath + f'/datasets/{evt_name}'
+            if not out_dir:    
+                if not path.exists(self.outpath + '/datasets/'):
+                    mkdir(self.outpath + '/datasets/')
+                out_dir = self.outpath + f'/datasets/{evt_name}'
+            if not path.exists(out_dir):
+                mkdir(out_dir)
             
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
             if not path.exists(xml_dir):
@@ -1205,8 +1210,12 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        if not path.exists(self.outpath + '/datasets/'):
-            mkdir(self.outpath + '/datasets/')
+        if not out_dir:
+            if not path.exists(self.outpath + '/datasets/'):
+                mkdir(self.outpath + '/datasets/')
+            out_dir = f'{self.outpath}/datasets/pac'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
         
         # Check if event-based or continuous PAC
         if isinstance(evt_name, str):
@@ -1232,7 +1241,7 @@ class pipeline:
             logger.info('-' * 10)
             return
 
-        out_dir = f'{self.outpath}/datasets/pac'
+        
 
         # Format chan
         if isinstance(chan, str):
@@ -1269,13 +1278,14 @@ class pipeline:
         log_dir = self.outpath + '/audit/logs/'
         if not path.exists(log_dir):
             mkdir(log_dir)
-        if not path.exists(self.outpath + '/datasets/'):
-            mkdir(self.outpath + '/datasets/')
-        
         if not out_dir:
-            out_dir = select_output_dirs(self.outpath, out_dir, 'powerspec')
+            if not path.exists(self.outpath + '/datasets/'):
+                mkdir(self.outpath + '/datasets/')
+            out_dir = f'{self.outpath}/datasets/powerspectrum'
+            if not path.exists(out_dir):
+                mkdir(out_dir)
         
-        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name='spectrum')
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name = 'powerspectrum')
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
