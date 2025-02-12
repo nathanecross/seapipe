@@ -194,7 +194,8 @@ class Spectrum:
 
     
     def fooof_it(self, general_opts, frequency_opts, filter_opts, epoch_opts, 
-                       event_opts, fooof_opts, filetype = '.edf'):
+                       event_opts, fooof_opts, filetype = '.edf', 
+                       logger = create_logger('spectral peaks')):
         
 
         '''
@@ -222,7 +223,6 @@ class Spectrum:
         '''
         
         ### 0.a. Set up logging
-        logger = create_logger('Specparam')
         logger.info('')
         tracking = self.tracking
         flag = 0
@@ -508,19 +508,19 @@ class Spectrum:
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
-            logger.debug('Specparam finished without ERROR.')  
+            logger.debug('Specparam finished without error.')  
         else:
             logger.info('')
-            logger.warning('Specparam finished with WARNINGS. See log for details.')
+            logger.warning(f'Specparam finished with {flag} WARNINGS. See log for details.')
         return 
 
     
     
     def powerspec_it(self, general_opts, frequency_opts, filter_opts, epoch_opts, 
-                           event_opts, norm, norm_opts, filetype = '.edf'):
+                           event_opts, norm, norm_opts, filetype = '.edf',
+                           logger = create_logger('Power Spectral Analysis')):
         
         ### 0.a. Set up logging
-        logger = create_logger('Power Spectral Analysis')
         tracking = self.tracking
         logger.info('')
         flag = 0
@@ -755,7 +755,7 @@ class Spectrum:
                     
                     # Loop over segments and apply transforms
                     for sg, seg in enumerate(segments):
-                        logger.debug(f'Analysing segment {sg} of {len(segments)}')
+                        logger.debug(f'Analysing segment {sg+1} of {len(segments)}')
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -903,9 +903,9 @@ class Spectrum:
                         
         ### 3. Check completion status and print
         if flag == 0:
-            logger.debug('Power spectral analyses finished without ERROR.')  
+            logger.debug('Power spectral analyses finished without error.')  
         else:
-            logger.warning('Power spectral analyses finished with WARNINGS. See log for details.')
+            logger.warning(f'Power spectral analyses finished with {flag} WARNINGS. See log for details.')
         
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
         
@@ -1208,10 +1208,10 @@ class Spectrum:
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
-            logger.debug('Create powerspec dataset finished without ERROR.')  
+            logger.debug('Create powerspec dataset finished without error.')  
         else:
             logger.info('')
-            logger.warning('Create powerspec dataset finished with WARNINGS. See log for details.')
+            logger.warning(f'Create powerspec dataset finished with {flag} WARNINGS. See log for details.')
         return 
     
                         

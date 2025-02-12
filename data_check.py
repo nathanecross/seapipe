@@ -48,7 +48,7 @@ def moving_average(a, win=100):
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
-file = '/Users/ncro8394/Documents/projects/seapipe/DATA/sub-IN001/ses-V1/eeg/sub-IN001_ses-V1_eeg.edf'
+file = '/Users/ncro8394/Documents/projects/seapipe/DATA/sub-IN003/ses-V1/eeg/sub-IN003_ses-V1_eeg.edf'
 
 d = Dataset(file)
 
@@ -205,20 +205,27 @@ o_dat = samplerate.resample(o_dat, 200/s_freq, 'sinc_fastest')
 emg_dat = samplerate.resample(emg_dat, 200/s_freq, 'sinc_fastest')
 ecg_dat = samplerate.resample(ecg_dat, 200/s_freq, 'sinc_fastest')
 
-
 mat = np.vstack((f_dat, o_dat, emg_dat, ecg_dat))
-np.save('/Users/ncro8394/DeepSleep/data/feature_8m/sub-IN001.npy' , mat)
+
+# Resize array to 16m and save
+ideal_len = 4096*4096
+mat = np.concatenate((mat, np.zeros( (mat.shape[0], ideal_len-mat.shape[1]) )), axis=1)
+np.save('/Users/ncro8394/DeepSleep/data/feature_16m/sub-IN003.npy' , mat)
 
 
-# Save labels
-annot = Annotations('/Users/ncro8394/Documents/projects/seapipe/OUT/staging_manual/sub-IN001/ses-V1/sub-IN001_ses-V1_eeg.xml')
+## Format labels 
+annot = Annotations('/Users/ncro8394/Documents/projects/seapipe/derivatives/staging_manual/sub-IN003/ses-V1/sub-IN003_ses-V1_eeg.xml')
 evts = annot.get_events(name = 'Arou')
 labels = np.zeros(mat.shape[1])
 for e in evts:
     start = int(e['start']*s_freq)
     end = int(e['end']*s_freq)
     labels[start:end] = 1
-np.save('/Users/ncro8394/DeepSleep/data/label_8m/sub-IN001.npy' , labels)
+    
+# Resize array to 16m and save    
+labels = np.reshape(labels, (1, len(labels)))    
+labels = np.concatenate((labels, np.zeros((labels.shape[0], ideal_len-labels.shape[1])) ), axis=1)
+np.save('/Users/ncro8394/DeepSleep/data/label_16m/sub-IN003.npy' , labels)
 
 
 

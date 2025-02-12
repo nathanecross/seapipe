@@ -53,7 +53,7 @@ class FISH:
              segs = None,  cycle_idx = None, frequency = None, 
              adap_bands = 'Fixed', peaks = None,  adap_bw = 4, 
              param_keys = 'all', epoch_dur = 30, Ngo = False, 
-             outfile = 'export_params_log.txt'):
+             logger = create_logger('Export params')):
                            
             '''
                 Listing Individual aNnotated Events (LINE)
@@ -75,19 +75,6 @@ class FISH:
             
             ### 0.a Set up logging
             flag = 0
-            if outfile == True:
-                evt_out = '_'.join(evt_name)
-                today = date.today().strftime("%Y%m%d")
-                now = datetime.now().strftime("%H:%M:%S")
-                logfile = f'{self.log_dir}/export_params_{evt_out}_{today}_log.txt'
-                logger = create_logger_outfile(logfile=logfile, name='Export params')
-                logger.info('')
-                logger.debug(f"-------------- New call of 'Export params' evoked at {now} --------------")
-            elif outfile:
-                logfile = f'{self.log_dir}/{outfile}'
-                logger = create_logger_outfile(logfile=logfile, name='Export params')
-            else:
-                logger = create_logger('Export params')
             
             logger.info('')
             logger.debug(r""" Exporting event parameters...
@@ -595,10 +582,6 @@ class FISH:
                                         if data:
                                                 data = sorted(data, key=lambda x: x['start'])
                                                 outputfile = f'{self.out_dir}/{sub}/{ses}/{sub}_{ses}_{fnamechan}_{segnames[s]}_{event}.csv'
-                                                logger.debug('Writing to ' + outputfile)
-                                                with open(logfile, 'a') as f:
-                                                    print('', file=f) 
-                                                    print('Writing to ' + outputfile, file=f) 
                                                 export_event_params(outputfile, data, 
                                                                     count=len(evts), 
                                                                     density=density)
@@ -615,16 +598,10 @@ class FISH:
                     logger.info('')
                     logger.warning('Event parameter export  finished with WARNINGS. See log for details.')
                 return 
-                
-            # except Exception as e:
-            #         logger.error(e)
-            #         tb = sys.exc_info()[2]
-            #         tbinfo = traceback.format_tb(tb)[0]
-            #         logger.info(tbinfo)
     
                     
     def net(self, chan, evt_name, adap_bands, params = 'all', cat = (1,1,1,1), 
-                  cycle_idx = None, outfile = True):
+                  cycle_idx = None, logger = create_logger('Event dataset')):
         
         '''
             aNnotated Event Tabulation (NET)
@@ -637,19 +614,6 @@ class FISH:
         
         ### 0.a Set up logging
         flag = 0
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_dataset_{evt_name}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-            logger.info('')
-            logger.info(f'-------------- New call evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-        else:
-            logger = create_logger('Event dataset')
-        
         logger.info('')
         logger.debug(r""" Commencing Event Dataset Creation
 
@@ -718,10 +682,10 @@ class FISH:
         # 3. Set variable names and combine with visits 
         if params == 'all':
             variables = ['Count','Density','Duration_mean','Duration_stdv',
-                   'Min_amplitude_mean','Min_amplitude_stdv', 'Max_amplitude_mean',
-                   'Max_amplitude_stdv','Ptp_amplitude_mean', 'Ptp_amplitude_stdev',
-                   'Power_mean','Power_stdev', 'Peak_power_frequency_mean',
-                   'Peak_power_frequency_std']
+                         'Min_amplitude_mean','Min_amplitude_stdv', 'Max_amplitude_mean',
+                         'Max_amplitude_stdv','Ptp_amplitude_mean', 'Ptp_amplitude_stdev',
+                         'Power_mean','Power_stdev', 'Peak_power_frequency_mean',
+                         'Peak_power_frequency_std']
         else:
             variables = params
         

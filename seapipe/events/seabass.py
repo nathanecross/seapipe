@@ -61,7 +61,7 @@ class seabass:
 
     def detect_stages(self, method, qual_thresh = 0.5, invert = False, 
                             filetype = '.edf', 
-                            outfile = 'auto_sleep_staging_log.txt'):
+                            logger = create_logger('Detect sleep stages')):
         
         ''' Automatically detects sleep stages by applying a published 
             prediction algorithm.
@@ -85,19 +85,6 @@ class seabass:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        if outfile == True:
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_stages_{evt_out}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
-        else:
-            logger = create_logger('Detect sleep stages')
         
         logger.info('')
         logger.debug(rf"""Commencing sleep stage detection... 
@@ -253,9 +240,9 @@ class seabass:
         
         ### 3. Check completion status and print
         if flag == 0:
-            logger.debug('Sleep stage detection finished without ERROR.')  
+            logger.debug('Sleep stage detection finished without error.')  
         else:
-            logger.warning('Sleep stage detection finished with WARNINGS. See log for details.')
+            logger.warning(f'Sleep stage detection finished with {flag} WARNINGS. See log for details.')
         
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
         

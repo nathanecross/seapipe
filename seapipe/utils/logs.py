@@ -24,7 +24,11 @@ class CustomFormatter(logging.Formatter):
     format3 = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     format4 = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
 
-    FORMATS = {
+    # Check if colors are supported (i.e., output is a terminal)
+    use_colors = sys.stdout.isatty()
+
+    # Define format maps
+    FORMATS_COLORED = {
         logging.INFO: cyan + format1 + reset,
         logging.DEBUG: grey + format2 + reset,
         logging.WARNING: yellow + format3 + reset,
@@ -32,8 +36,17 @@ class CustomFormatter(logging.Formatter):
         logging.CRITICAL: bold_red + format3 + reset
     }
 
+    FORMATS_PLAIN = {
+        logging.INFO: format1,
+        logging.DEBUG: format2,
+        logging.WARNING: format3,
+        logging.ERROR: format4,
+        logging.CRITICAL: format3
+    }
+
     def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
+        log_fmt = (self.FORMATS_COLORED.get(record.levelno) if self.use_colors 
+                   else self.FORMATS_PLAIN.get(record.levelno))
         formatter = logging.Formatter(log_fmt,"%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 

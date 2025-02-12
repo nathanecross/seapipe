@@ -64,7 +64,7 @@ class SAND:
 
     def detect_artefacts(self, method, invert = False, filetype = '.edf', 
                                win_size = 5,
-                               outfile = 'artefact_detection_log.txt'):
+                               logger = create_logger('Detect artefacts')):
         
         ''' Automatically detects sleep stages by applying a published 
             prediction algorithm.
@@ -88,19 +88,6 @@ class SAND:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        if outfile == True:
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect artefacts' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
-        else:
-            logger = create_logger('Detect artefacts')
         
         logger.info('')
         logger.debug(rf"""Commencing artefact detection... 

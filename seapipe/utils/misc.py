@@ -13,73 +13,127 @@ from datetime import datetime
 from wonambi import Dataset, graphoelement
 from wonambi.attr.annotations import Annotations, create_empty_annotations
 import shutil
+from .logs import create_logger
 
-
-def remove_evts(xml_dir, out_dir, rater, evt_name = None, 
-                part = 'all', visit = 'all'):
+def clean_annots(xml_dir, out_dir, rater, keep_evts = None, subs = 'all', 
+                 sessions = 'all', logger = create_logger('Clean annotations')):
     
-    print('')
-    print(f'Time start: {datetime.now()}')
-    print(f'Removing events from files in directory {xml_dir}')  
-    print(f'Events = {evt_name}')
-    print(f'Saving new annotations files to directory {out_dir}')
-    print('')
+    '''
+        Copies the annotations files from inside xml_dir into out_dir and 
+        removes all annotations from the files.
+        
+    '''
+    
+    logger.debug('')
+    logger.debug(f'Time start: {datetime.now()}')
+    logger.debug(f'Removing events from files in directory {xml_dir}')  
+    logger.debug(f'Keeping events = {keep_evts}')
+    logger.debug(f'Saving new annotations files to directory {out_dir}')
+    logger.debug('')
     
     # Loop through subjects
-    if isinstance(part, list):
+    if isinstance(subs, list):
         None
-    elif part == 'all':
-            part = listdir(xml_dir)
-            part = [ p for p in part if not '.' in p]
+    elif subs == 'all':
+            subs = listdir(xml_dir)
+            subs = [x for x in subs if not '.' in x]
     else:
-        print("ERROR: 'part' must either be an array of subject ids or = 'all' **CHECK**")
+        logger.error("'subs' must either be an array of subject ids or = 'all' **CHECK**")
     
-    if evt_name == None:
-        evt_name = ['spindle']
-    
-    part.sort()                
-    for i, p in enumerate(part):
+    subs.sort()                
+    for i, sub in enumerate(subs):
         # Loop through visits
-        if visit == 'all':
-            visit = listdir(xml_dir + '/' + '/' + p)
-            visit = [x for x in visit if not '.' in x]
-        
-        print(f'Removing events for Subject {p}..')
-        
-        visit.sort()
-        for v, vis in enumerate(visit): 
+        if sessions == 'all':
+            sessions = listdir(xml_dir + '/' + '/' + sub)
+            sessions = [x for x in sessions if not '.' in x]
+        sessions.sort()
+        for v, ses in enumerate(sessions): 
             
             # Define files
-            xdir = xml_dir + '/' + p + '/' + vis + '/'
-            xml_file = [x for x in listdir(xdir) if x.endswith('.xml') if not x.startswith('.')] 
+            xdir = xml_dir + '/' + sub + '/' + ses + '/'
+            xml_files = [x for x in listdir(xdir) if x.endswith('.xml') if not x.startswith('.')] 
             
-            if len(xml_file) == 0:                
-                print(f'WARNING: no xml files found for Subject {p}, skipping..')
-                
+            if len(xml_files) == 0:                
+                logger.warning(f'No xml files found for Subject {sub}, skipping..')
+  
             else:
-            
-                ## Copy annotations file before beginning
-                if not path.exists(out_dir):
-                    mkdir(out_dir)
-                if not path.exists(out_dir + p ):
-                    mkdir(out_dir + p)
-                if not path.exists(out_dir + p + '/' + vis):
-                    mkdir(out_dir + p + '/' + vis)
-                backup = out_dir + p + '/' + vis + '/'
-                backup_file = (f'{backup}{xml_file[0]}')
-                shutil.copy(xdir + xml_file[0], backup_file)
-                            
-                # Import Annotations file
-                annot = Annotations(backup_file, rater_name=rater)
+                for xml_file in xml_files:
+                    ## Copy annotations file before beginning
+                    if not path.exists(out_dir):
+                        mkdir(out_dir)
+                    if not path.exists(out_dir + sub):
+                        mkdir(out_dir + sub)
+                    if not path.exists(out_dir + sub + '/' + ses):
+                        mkdir(out_dir + sub + '/' + ses)
+                    backup = out_dir + sub + '/' + ses + '/'
+                    backup_file = (f'{backup}{xml_file[0]}')
+                    shutil.copy(xdir + xml_file, backup_file)
+                                
+                    # Import Annotations file
+                    annot = Annotations(backup_file, rater_name=rater)
+                    evts = list(set([x['name'] for x in annot.get_events()]))
+                    
+                    logger.debug(f'Removing events for {sub}, {ses}..')
+                    if keep_evts == None:
+                        keep_evts = []
+                    for ev in evts:
+                        if ev not in keep_evts:
+                            annot.remove_event_type(name=ev)
                 
-                ### WHOLE NIGHT ###
-                # Select and read data
-                print('Reading data for ' + p + ', visit ' + vis )
-                
-                for e, ev in enumerate(evt_name):
-                    annot.remove_event_type(name=ev)
-                
-                
+
+def remove_event(annot, evt_name, chan = None, stage = None):
+    
+    ''' Remove event from annotation
+        Workaround function because wonambi.attr.annotations.remove_event()
+        is not working properly (and I couldn't figure out why).
+    '''
+
+    if not chan and not stage:
+        evts = [x for x in annot.get_events(name=evt_name)]
+    elif not stage:
+        evts = [x for x in annot.get_events(name=evt_name) 
+                if chan not in x['chan']]
+    elif not chan:
+        evts = [x for x in annot.get_events(name=evt_name) 
+                if stage not in x['stage']]
+    
+    annot.remove_event_type(name=evt_name)
+    grapho = graphoelement.Graphoelement()
+    grapho.events = evts       
+    grapho.to_annot(annot, evt_name)
+    
+    return
+    
+
+def remove_duplicate_evts(annot, evt_name, chan, stage = None):
+    
+    ''' Removes any events in annotations that are duplicate.
+        Workaround function because wonambi.attr.annotations.remove_event()
+        is not working properly (and I couldn't figure out why).
+    '''
+    evts = annot.get_events(name=evt_name, chan = chan, stage = stage)
+    evts_trim = copy.deepcopy(evts)
+    for e, event in enumerate(evts[:-1]):
+        starttime = event['start']
+        i = 0
+        for ee, eevent in enumerate(evts_trim):
+                if eevent['start'] == starttime:
+                    if i == 0:
+                        None
+                    elif i >0:
+                        del(evts_trim[ee])
+                    i=+1
+    
+    evts = [x for x in annot.get_events(name=evt_name) if chan not in x['chan']]
+    
+    annot.remove_event_type(name=evt_name)
+    grapho = graphoelement.Graphoelement()
+    grapho.events = evts + evts_trim          
+    grapho.to_annot(annot, evt_name)
+    
+    return
+
+
 def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, 
                                cat=(0, 0, 0, 0), stage = None, 
                                evt_name = None, part = 'all', visit = 'all', 
@@ -153,31 +207,6 @@ def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater,
 
     return
 
-
-def remove_duplicate_evts(annot, evt_name, chan, stage = None):
-    
-    '''Workaround function because wonambi.attr.annotations.remove_event()
-        is not working properly (and I couldn't figure out why).
-    '''
-    evts = annot.get_events(name=evt_name, chan = chan, stage = stage)
-    evts_trim = copy.deepcopy(evts)
-    for e, event in enumerate(evts[:-1]):
-        starttime = event['start']
-        i = 0
-        for ee, eevent in enumerate(evts_trim):
-                if eevent['start'] == starttime:
-                    if i == 0:
-                        None
-                    elif i >0:
-                        del(evts_trim[ee])
-                    i=+1
-    
-    evts = [x for x in annot.get_events(name=evt_name) if chan not in x['chan']]
-    
-    annot.remove_event_type(name=evt_name)
-    grapho = graphoelement.Graphoelement()
-    grapho.events = evts + evts_trim          
-    grapho.to_annot(annot, evt_name)
 
 def merge_xmls(in_dirs, out_dir, chan, grp_name, stage = None, evt_name = None, 
                part = 'all', visit = 'all'):
@@ -283,6 +312,7 @@ def merge_xmls(in_dirs, out_dir, chan, grp_name, stage = None, evt_name = None,
                                 annot.add_events(evts)
 
     return
+
 
 def rainbow_merge_evts(xml_dir, out_dir, chan, grp_name, rater, segments = None, 
                        events = None, evt_name = None, part = 'all', 

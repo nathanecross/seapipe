@@ -8,7 +8,9 @@ Created on Mon Jan 29 18:02:41 2024
 from os import listdir, mkdir, path
 from numpy import char, reshape
 from pandas import DataFrame, read_csv, read_excel
-
+from wonambi import Dataset
+from wonambi.attr import Annotations, create_empty_annotations
+from .logs import create_logger
 
 def read_tracking_sheet(filepath, logger):
         
@@ -80,6 +82,80 @@ def select_output_dirs(outpath, out_dir, evt_name=None):
         
     return out_dir
 
+def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.edf',
+                stage_key = None, logger = create_logger('Load stages')):
+    
+    '''
+        Extracts stages from the BIDS formatted dataset, in which
+        staging has been listed in a file *acq-PSGScoring_events.tsv, and
+        saves the information in an annotations file
+    '''
+    flag = 0
+    if not stage_key:
+        stage_key = {0: 'Wake',
+                     1: 'NREM1',
+                     2: 'NREM2',
+                     3: 'NREM3',
+                     4: 'REM'}
+    
+    # Define subs    
+    if subs == 'all':
+        subs = [x for x in listdir(in_dir) if '.' not in x]
+    elif not isinstance(subs, list):  
+        logger.error(f"'subs' must be a list of subject ids or 'all', not {subs}.")
+        return 
+    
+    # Loop through
+    for s, sub in enumerate(subs):
+        
+        # Make subject output directory
+        if not path.exists(f'{xml_dir}/{sub}'):
+            mkdir(f'{xml_dir}/{sub}')
+            
+        # Define sessions
+        subdir = f'{in_dir}/{sub}'
+        if sessions == 'all':
+            sessions = [x for x in listdir(subdir) if '.' not in x]
+        elif not isinstance(sessions, list):  
+            logger.error(f"'sessions' must be a list of session ids or 'all', not {sessions}.")
+            return
+        
+        # Loop through
+        for s, ses in enumerate(sessions):
+            
+            # Make session output directory
+            if not path.exists(f'{xml_dir}/{sub}/{ses}'):
+                mkdir(f'{xml_dir}/{sub}/{ses}')
+                
+            # Load BIDS stage event file
+            datadir = f'{in_dir}/{sub}/{ses}/eeg'
+            stagefile = [x for x in listdir(datadir) if 'acq-PSGScoring_events.tsv' in x][0]
+            stagedf = read_csv(stagefile, sep ='\t' ) 
+            
+            # Create new annotations for staging
+            xml_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_staging.xml'
+            if not path.exists(xml_file):
+                edf_file = [x for x in listdir(datadir) if x.endswith(filetype)][0]
+                dset = Dataset(f'{datadir}/{edf_file}')
+                create_empty_annotations(xml_file, dset)
+                logger.debug(f'Creating annotations file for {sub}, {ses}')
+            else:
+                logger.warning(f'Annotations file exists for {sub}, {ses}, staging will be overwritten.')
+                flag += 1
+            annot = Annotations(xml_file)
+            
+            # Save staging to annotations
+            annot.add_rater('manual')
+            for i in range(0, stagedf.shape[0]):
+                epoch_beg = stagedf.loc[i, 'onset']
+                one_stage = stage_key[stagedf.loc[i, 'staging']]
+                annot.set_stage_for_epoch(epoch_beg, one_stage,
+                                         attr='stage',
+                                         save=False)
+            annot.save()
+    
+    return flag
+
 def check_chans(rootpath, chan, ref_chan, logger):
     if chan is None:
         chan = read_tracking_sheet(f'{rootpath}', logger)
@@ -104,10 +180,43 @@ def check_chans(rootpath, chan, ref_chan, logger):
     else:
         return chan, ref_chan
 
-def load_sessions(sub, ses, rec_dir, flag, logger, verbose=2):
-    # verbose = 0 (error only)
-    # verbose = 1 (warning only)
-    # verbose = 2 (debug)
+def load_sessions(sub, ses, rec_dir = None, flag = 0, 
+                  logger = create_logger("Load Sessions"), verbose = 2):
+    
+    ''' Function to load in sessions available for a subject from a tracking 
+        sheet.
+    
+        Parameters
+        ----------
+                sub : str
+                      The subject id to load channel information for
+                ses : str
+                      The session id to load channel information for. Can be 
+                      set as 'all' if all sessions for that subject are 
+                      desired.
+                rec_dir : str or None (optional)
+                      The path to the BIDS dataset. If ses = 'all', this MUST
+                      be specified.
+                flag : int
+                       the status of error logging
+                logger : Class of logging.Logger
+                         To log output (of course)
+                         see: https://docs.python.org/3/library/logging.html
+                verbose : int
+                        The verbosity of logging.
+                        verbose = 0 (error only)
+                        verbose = 1 (warning only)
+                        verbose = 2 (debug mode)
+        
+        Returns
+        -------
+                flag : int
+                       whether an error occured in loading channel names
+                
+                chanset : dict
+                         Format 'chan_name':'ref_chan' specifying the 
+                         channel and it's associated reference channels.
+    '''
     
     if type(ses) == type(DataFrame()):
         if verbose==2:
@@ -121,6 +230,11 @@ def load_sessions(sub, ses, rec_dir, flag, logger, verbose=2):
                 return flag, None
         ses = [x for x in sub_row['ses']]
     elif type(ses) == str and ses == 'all':
+        if not rec_dir:
+            logger.error("If loading sessions from tracking sheet with ses = 'all', rec_dir MUST be specified.")
+            ses = None
+            flag +=1
+        else:   
             ses = listdir(rec_dir + '/' + sub)
             ses = [x for x in ses if not '.' in x]
     elif not type(ses) == list:
@@ -132,12 +246,52 @@ def load_sessions(sub, ses, rec_dir, flag, logger, verbose=2):
     return flag, ses
 
 
-def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
+def load_channels(sub, ses, chan, ref_chan, flag = 0, 
+                  logger = create_logger("Load Channels"), verbose = 2):
+    
+    ''' Function to load in channels and their references from a tracking sheet.
+    
+        Parameters
+        ----------
+                sub : str
+                      The subject id to load channel information for
+                ses : str
+                      The session id to load channel information for
+                chan : list or DataFrame
+                      The channel names to either load (DataFrame) or 
+                      associate with a reference (list). If a DataFrame, 
+                      the columns 'sub', 'ses', and 'chanset' must exist.
+                ref_chan : list or DataFrame
+                      The ref channel names to either load (DataFrame) or 
+                      associate with a reference (list). If a DataFrame, 
+                      the columns 'sub', 'ses' and 'refset' must exist.
+                flag : int
+                       the status of error logging
+                logger : Class of logging.Logger
+                         To log output (of course)
+                         see: https://docs.python.org/3/library/logging.html
+                verbose : int
+                        The verbosity of logging.
+                        verbose = 0 (error only)
+                        verbose = 1 (warning only)
+                        verbose = 2 (debug mode)
+        
+        Returns
+        -------
+                flag : int
+                       whether an error occured in loading channel names
+                
+                chanset : dict
+                         Format 'chan_name':'ref_chan' specifying the 
+                         channel and it's associated reference channels.
+    '''
+    
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
     
-    if type(chan) == type(DataFrame()):
+    # 1. Extract relevant cells from tracking sheet
+    if isinstance(chan, DataFrame):
         if verbose==2:
             logger.debug("Reading channel names from tracking file")
         # Search participant
@@ -154,12 +308,8 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
                 logger.warning(f"Session {ses} not found in column 'ses' in tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
-        # Search channel
-        chans = chans.filter(regex='chanset')
-        chans = chans.filter(regex='^((?!rename).)*$')
-        chans = chans.filter(regex='^((?!peaks).)*$')
-        chans = chans.filter(regex='^((?!invert).)*$')
-        
+        # Extract channels
+        chans = search_chans(chans)
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
@@ -169,7 +319,7 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     else:
         chans = chan
     
-    if type(ref_chan) == type(DataFrame()):
+    if isinstance(ref_chan, DataFrame):
         if verbose==2:
             logger.debug("Reading reference channel names from tracking file ")
         ref_chans = ref_chan[ref_chan['sub']==sub]
@@ -190,31 +340,23 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             if verbose>0:
                 logger.warning(f"No reference channel set found in tracking file for {sub}, {ses}. Progressing without re-referencing...")
             ref_chans = []
-    elif ref_chan:
+    elif isinstance(ref_chan, list):
         ref_chans = ref_chan
     else:
         ref_chans = []
     
-    if type(chans) == list:
-        if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
+    if isinstance(chans, list):
+        if isinstance(ref_chans, DataFrame) and len(ref_chans.columns) >1:
             chan = ref_chan[ref_chan['sub']==sub]
             chan = chan[chan['ses']==ses]
-            chan = chan.filter(regex='chanset')
-            chan = chan.filter(regex='^((?!rename).)*$')
+            chan = search_chans(chan)
             ref_chan=[]
             for c in chans:
                 ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
             ref_chan = [char.split(x, sep=', ').tolist() for x in ref_chan]
-            
             chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
             
-        elif type(ref_chans) == DataFrame:
-            # ref_chans = ref_chans.to_numpy()[0]
-            # ref_chans = ref_chans.astype(str)
-            # ref_chans = char.split(ref_chans, sep=', ')
-            # ref_chans = [x for y in ref_chans for x in y]
-            # chanset = {chn:ref_chans for chn in chans}    
-
+        elif isinstance(ref_chans, DataFrame):
             ref_chans = ref_chans.to_numpy()[0]
             ref_chans = ref_chans.astype(str)
             ref_chans_all = []
@@ -228,17 +370,19 @@ def load_channels(sub, ses, chan, ref_chan, flag, logger, verbose=2):
                         ref_chans_all.append(x)
             ref_chans = [x for x in ref_chans_all if not x=='']
             chanset = {chn:ref_chans for chn in chans} 
-            
+        
+        elif isinstance(ref_chans, list):
+            chanset = {chn:ref_chans for chn in chans}
         else:
             chanset = {chn:[] for chn in chans}
     
-    elif type(chans) == type(DataFrame()):
+    elif isinstance(chans, DataFrame):
         if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
             logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             flag+=1
             return flag, None
-        elif type(ref_chans) == DataFrame:
+        elif isinstance(ref_chans, DataFrame):
             ref_chans = ref_chans.to_numpy()[0]
             ref_chans = ref_chans.astype(str)
             ref_chans_all = []
@@ -295,8 +439,7 @@ def rename_channels(sub, ses, chan, logger):
         if len(chans.columns) == 0:
             return None
         # Search channels
-        oldchans = chans.filter(regex='chanset')
-        oldchans = oldchans.filter(regex='^((?!_).)*$') # filter out "_"
+        oldchans = search_chans(chans)
         chans = chans.filter(regex='^((?!invert).)*$')
         oldchans = oldchans.dropna(axis=1, how='all')
         if len(oldchans.columns) == 0:
@@ -318,6 +461,9 @@ def rename_channels(sub, ses, chan, logger):
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.warning(f"Using original channel names for {sub}, {ses}...")
                 return None
+        else:
+            oldchans_to_be_renamed = oldchans
+            oldchans_to_be_kept = oldchans
         
         # Split cells in tracking
         # OLD Channels to be renamed
@@ -449,8 +595,7 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         if type(ref_chans) == DataFrame and len(ref_chans.columns) >1:
             chan = ref_chan[ref_chan['sub']==sub]
             chan = chan[chan['ses']==ses]
-            chan = chan.filter(regex='chanset')
-            chan = chan.filter(regex='^((?!rename).)*$')
+            chan = search_chans(chan)
             ref_chan=[]
             for c in chans:
                 ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
@@ -583,10 +728,7 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
         logger.info('-' * 10)
         return 'error'
     
-    chans = track.filter(regex='chanset')
-    chans = chans.filter(regex='^((?!rename).)*$')
-    chans = chans.filter(regex='^((?!peaks).)*$')
-    chans = chans.filter(regex='^((?!invert).)*$')
+    chans = search_chans(track)
     chans = chans.dropna(axis=1, how='all')
     peaks = track.filter(regex='peaks')
     peaks = peaks.dropna(axis=1, how='all')
@@ -650,10 +792,7 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
         return None
     
     # Search channel
-    chans = track.filter(regex='chanset')
-    chans = chans.filter(regex='^((?!rename).)*$')
-    chans = chans.filter(regex='^((?!peaks).)*$')
-    chans = chans.filter(regex='^((?!invert).)*$')
+    chans = search_chans(track)
     chans = chans.dropna(axis=1, how='all')
     peaks = track.filter(regex='peaks')
     peaks = peaks.dropna(axis=1, how='all')
@@ -759,12 +898,9 @@ def read_inversion(sub, ses, invert, chan, logger):
             return None
         
         # Search channel
-        chans = chans.filter(regex='chanset')
         inversion = chans.filter(regex='invert')
         inversion = inversion.dropna(axis=1, how='all')
-        chans = chans.filter(regex='^((?!rename).)*$')
-        chans = chans.filter(regex='^((?!peaks).)*$')
-        chans = chans.filter(regex='^((?!invert).)*$')
+        chans = search_chans(chans)
         chans = chans.dropna(axis=1, how='all')
         
         if len(inversion.columns) == 0:
@@ -794,40 +930,48 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
-    
+    logger.debug(f"Attempting to infer reference channel for {sub}, {ses} from tracking sheet...")
     if isinstance(chan, DataFrame):
         # Search participant
         chans = chan[chan['sub']==sub]
         if len(chans.columns) == 0:
+            if verbose>1:
+                logger.debug(f"'{sub}' not found in tracking sheet.")
             return None
         # Search session
         chans = chans[chans['ses']==ses]
         if len(chans.columns) == 0:
+            if verbose>1:
+                logger.debug(f"{ses} for {sub} not found in tracking sheet.")
             return None
-        # Search channels
-        oldchans = chans.filter(regex='chanset')
-        oldchans = oldchans.filter(regex='^((?!rename).)*$')
-        oldchans = oldchans.filter(regex='^((?!peaks).)*$')
-        chans = chans.filter(regex='^((?!invert).)*$')
+        # Search chansets (names in edf)
+        oldchans = search_chans(chans)
         oldchans = oldchans.dropna(axis=1, how='all')
         if len(oldchans.columns) == 0:
+            if verbose>1:
+                logger.debug(f"'Chanset' for {sub} {ses} empty or not found in tracking sheet (reference cannot be inferred).")
             return None
+        # Search chansets (new names for output)
         newchans = chans.filter(regex='rename')
         newchans = newchans.dropna(axis=1, how='all')
         if len(newchans.columns) == 0:
+            if verbose>1:
+                logger.debug(f"Column 'newchans' empty or not found in tracking sheet, so cannot infer reference channels true name.")
             return None
     else:
         return None
     
+    # Infer ref chan name from oldchans:newchans mapping
     if isinstance(oldchans, DataFrame):
         if isinstance(newchans, DataFrame) and len(newchans.columns) != len(oldchans.columns):
-            if verbose>1:
-                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
-                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-                logger.warning(f"Using original channel names for {sub}, {ses}...")
+            if verbose>0:
+                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets.")
+                if verbose > 1:
+                    logger.debug("For info on how to rename channels, refer to documentation:")
+                    logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             return None
         
-        oldchans=oldchans.to_numpy() 
+        oldchans = oldchans.to_numpy() 
         oldchans = oldchans.astype(str)
         oldchans = char.split(oldchans[0], sep=', ')
         oldchans = [x for y in oldchans for x in y]
@@ -841,18 +985,30 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
         if len(oldchans) == len(newchans):
             ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF'][0]
             if len(ref_chan) < 1:
+                if verbose>1:
+                    logger.debug(f"No channels named '_REF' in tracking sheet, so cannot infer reference channel.")
                 return None
         else:
-            logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.warning(f"Using original channel names for {sub}, {ses}...")
+            if verbose>0:
+                logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names.")
+                if verbose > 1:
+                    logger.debug("For info on how to rename channels, refer to documentation:")
+                    logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             return None
     else:
         return None
     
     return ref_chan
-        
     
+    
+def search_chans(chans):
+
+    chans = chans.filter(regex='chanset')
+    chans = chans.filter(regex='^((?!rename).)*$')
+    chans = chans.filter(regex='^((?!peaks).)*$')
+    chans = chans.filter(regex='^((?!invert).)*$')    
+    
+    return chans
     
     
 

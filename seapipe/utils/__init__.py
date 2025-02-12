@@ -12,8 +12,9 @@ from .logs import (CustomFormatter, CustomLogfileFormatter, create_logger,
                    create_logger_empty, create_logger_basic, 
                    create_logger_outfile)
 from .process import parallel
-from .misc import (remove_evts, remove_duplicate_evts, merge_xmls, 
-                   rainbow_merge_evts, rename_evts, laplacian_mne, 
-                   notch_mne, notch_mne2, bandpass_mne, csv_stage_import)
+from .misc import (clean_annots, remove_event, remove_duplicate_evts, 
+                   remove_duplicate_evts, merge_xmls, rainbow_merge_evts, 
+                   rename_evts, laplacian_mne, notch_mne, notch_mne2, 
+                   bandpass_mne, csv_stage_import)
 from .splitter import extract_grouped_markers
 

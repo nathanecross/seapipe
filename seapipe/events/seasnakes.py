@@ -17,7 +17,7 @@ from datetime import datetime, date
 from pandas import DataFrame
 from ..utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, read_inversion, load_sessions)
-from ..utils.misc import remove_duplicate_evts
+from ..utils.misc import remove_duplicate_evts, remove_event
 
 
 class seasnakes:
@@ -59,7 +59,7 @@ class seasnakes:
 
     def detect_slowosc(self, method, cat, cycle_idx = None, duration = (0.5, 3), 
                        average_channels = False, invert = False, filetype = '.edf', 
-                       outfile = 'detect_slowosc_log.txt'):
+                       logger = create_logger('Detect slow oscillations')):
         
         ''' Detect slow oscillations
         
@@ -89,20 +89,6 @@ class seasnakes:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        if outfile == True:
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
-        else:
-            logger = create_logger('Detect slow oscillations')
-        
         logger.info('')
         logger.debug(r"""Commencing slow oscillation detection... 
                      
@@ -240,13 +226,15 @@ class seasnakes:
                         detection = DetectSlowWave(meth, duration=duration)
                         detection.invert = inversion
 
-                        ## k. Run detection and save to Annotations file
+                        ## k. Remove any previous events on channel
+                        remove_event(annot, meth, chan = None, stage = None)
+                        
+                        ## l. Run detection and save to Annotations file
                         if cat[0] == 1 and cat[1] == 0:
                             for s, seg in enumerate(segments):
                                 logger.debug(f'Detecting events in stage {self.stage[s]}')
-                                evt_name = meth 
                                 event = detection(seg['data']) # detect events
-                                event.to_annot(annot, evt_name) # write events to annotations file
+                                event.to_annot(annot, meth) # write events to annotations file
                                 if len(event.events) == 0:
                                     logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
                             now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
@@ -259,9 +247,8 @@ class seasnakes:
                             for s, seg in enumerate(segments):
                                 logger.debug('Detecting events in cycle {} of {}, stages: {}'.format(s + 1, 
                                       len(segments),self.stage))
-                                evt_name = meth 
                                 event = detection(seg['data']) # detect events
-                                event.to_annot(annot, evt_name) # write events to annotations file
+                                event.to_annot(annot, meth) # write events to annotations file
                                 if len(event.events) == 0:
                                     logger.warning(f'No events detected by {meth} for {sub}, {ses}')
                             now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
@@ -271,16 +258,16 @@ class seasnakes:
                                                                               'File':backup_file,
                                                                               'Updated':now}
                         
-                        # l. Remove any duplicate detected slow oscillations on channel 
-                        remove_duplicate_evts(annot, evt_name=meth, chan=f'{ch} ({self.grp_name})')
+                        # m. Remove any duplicate detected slow oscillations on channel 
+                        #remove_duplicate_evts(annot, evt_name=meth, chan=f'{ch} ({self.grp_name})')
                         
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
-            logger.debug('Slow oscillation detection finished without ERROR.')  
+            logger.debug('Slow oscillation detection finished without error.')  
         else:
             logger.info('')
-            logger.warning('Slow oscillation finished with WARNINGS. See log for details.')
+            logger.warning(f'Slow oscillation finished with {flag} WARNINGS. See log for details.')
         
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
         

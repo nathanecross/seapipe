@@ -64,7 +64,7 @@ class whales:
 
     def whale_it(self, method, cat, cycle_idx = None, adap_bands = False, 
                        adap_bw = 4, duration = (0.5, 3), 
-                       filetype = '.edf', outfile = 'detect_spindles_log.txt'):
+                       filetype = '.edf', logger = create_logger('Detect spindles')):
         
         '''
         Runs one (or multiple) automatic spindle detection algorithms and saves the 
@@ -91,20 +91,6 @@ class whales:
         
         ### 0.a Set up logging
         flag = 0
-        if outfile == True:
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_spindles_{evt_out}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
-        else:
-            logger = create_logger('Detect spindles')
-        
         logger.info('')
         logger.debug(r"""Commencing spindle detection... 
                      
@@ -263,11 +249,10 @@ class whales:
                         ## k. Run detection and save to Annotations file
                         for s, seg in enumerate(segments):
                             if cat[0] == 1:
-                                logger.debug('Detecting events in stage {}'.format(
-                                             self.stage[s]))
+                                stage_cycle = f"Stage {self.stage[s]}"  
                             else:
-                                logger.debug('Detecting events in cycle {} of {}, stage: {}'.format(
-                                             s + 1, len(segments),self.stage[s]))
+                                stage_cycle = f"Cycle {seg['cycle'][2]}, Stage {seg['stage']}"
+                            logger.debug(f'Detecting events in {stage_cycle}')
                             spindle = detection(seg['data']) # detect spindles
                             if adap_bands == 'Fixed':
                                 evt_name = meth 
@@ -275,66 +260,31 @@ class whales:
                                 evt_name = f'{meth}_adap'
                             spindle.to_annot(annot, evt_name) # write spindles to annotations file
                             if len(spindle.events) == 0:
-                                logger.warning(f'No events detected by {meth} for {sub}, {ses}')    
-                        now = datetime.now().strftime("%m-%d-%Y, %H:%M:%S")
-                        # if cat[0] == 1:
-                        #     self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                        #                                               'Stage':self.stage,
-                        #                                               'Cycle':'All',
-                        #                                               'File':backup_file,
-                        #                                               'Updated':now}
-                        # else:
-                        #     self.tracking['spindle'][sub][ses][ch] = {'Method':meth,
-                        #                                               'Stage':self.stage,
-                        #                                               'Cycle':list(range(1,len(segments))),
-                        #                                               'File':backup_file,
-                        #                                               'Updated':now}
+                                logger.warning(f'No events detected by {meth} for {sub}, {ses}, {stage_cycle}')    
                         
                         # l. Remove any duplicate detected spindles on channel 
                         remove_duplicate_evts(annot, evt_name=evt_name, chan=f'{ch} ({self.grp_name})')
                         
         ### 3. Check completion status and print
         if flag == 0:
-            logger.debug('Spindle detection finished without ERROR.')  
+            logger.debug('Spindle detection finished without error.')  
         else:
-            logger.warning('Spindle detection finished with WARNINGS. See log for details.')
+            logger.warning(f'Spindle detection finished with {flag} WARNINGS. See log for details.')
         
         #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
         
         return 
     
-    
-    '''
-                     method, chan, rater, stage, ref_chan, grp_name, 
-                              keyword, cs_thresh, min_duration, s_freq, 
-                              frequency = (11, 16), 
-                              duration= (0.5, 3), evt_type='spindle', weights = None,
-                               
-                              outfile='export_params_log.txt', filetype = '.edf'
-    '''
-    
+
     
     def whales(self, method, merge_type, chan, rater, stage, ref_chan, grp_name, keyword,
-                     cs_thresh, min_duration, s_freq=None, frequency=(11, 16), 
-                     duration= (0.5, 3), evt_out = 'spindle', weights=None, 
-                     outfile='spindle_optimisation_log.txt', filetype = '.edf'):
+                     cs_thresh, min_duration, s_freq = None, frequency = (11, 16), 
+                     duration= (0.5, 3), evt_out = 'spindle', weights = None,  
+                     filetype = '.edf', 
+                     logger = create_logger('Detect spindles (WHALES)')):
         
-        ### 0.a Set up logging
+
         flag = 0
-        if outfile == True:
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_spindles_WHALES_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
-        else:
-            logger = create_logger('Detect spindles (WHALES)')
-        
         logger.info('')
         logger.debug(rf""" Whaling it... 
                      
@@ -352,6 +302,7 @@ class whales:
                         
                         
                         Combining events using method: {merge_type}
+                        Consesus threshold = {cs_thresh}
                         
                         """,)
 
@@ -417,7 +368,7 @@ class whales:
                     if not path.exists(backup_file):
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
-                        logger.warning(f'Annotations file already exists for {sub}, {ses}, new events will be written into the same annotations file.')
+                        logger.warning(f'Annotations file already exists for {sub}, {ses}, new events will be written into the same annotations file. Any existing events labelled {evt_out} will be overwritten.')
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
                     break
@@ -444,6 +395,8 @@ class whales:
                     
                     logger.debug(f'Combining events for {sub}, {ses}, {ch}')
                     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+                    remove_duplicate_evts(annot, evt_name=evt_out, 
+                                          chan=f'{ch} ({self.grp_name})')
                     
                     # if merge_type == 'consensus':
                     #     logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')
@@ -459,7 +412,12 @@ class whales:
                     #         if st or fin:
                     #             cons.events.remove(pair[0])
                     #     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
-
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.debug('Spindle merging (WHALES) finished without error.')  
+        else:
+            logger.warning(f'Spindle merging (WHALES) finished with {flag} WARNINGS. See log for details.')
+        
         return 
     
 

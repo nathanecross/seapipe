@@ -73,7 +73,7 @@ class pacats:
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
                  peaks = None, adap_bw = 4, invert = False, progress=True,
-                 outfile = 'event_coupling_log.txt'):
+                 logger = create_logger('Phase-amplitude coupling')):
 
         '''
         P.A.C.A.T.S
@@ -137,21 +137,8 @@ class pacats:
         surrogates = pac_list[1]
         corrections = pac_list[2]
     
-        ### 0.a Set up logging
         tracking = self.tracking
         flag = 0
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_coupling_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Phase Amplitude Coupling' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-        else:
-            logger = create_logger('Phase-amplitude coupling')
         
         logger.info('')
         logger.debug(rf"""Commencing phase-amplitude coupling pipeline... 
