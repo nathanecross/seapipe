@@ -8,7 +8,7 @@ Overview
 
 Seapipe provides some automatic sleep staging algorithms:
 
-1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>/`_`
+1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>/`_
 2.  'Sleep ECG' - TO DO
 
 
@@ -24,7 +24,7 @@ Functions to automatically score staging
 
    project.detect_sleep_stages()
 |
-    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/staging/`` and write in the detected stages. 
+    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/derivatives/staging/`` and write in the detected stages. 
 |
 
 
@@ -56,12 +56,12 @@ Detect stages
     **xml_dir** *(str)*
         * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input :ref:`Annotations files<Annotations file>`. 
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
     **out_dir** *(str)*
         * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., ``Ray2015``)
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/spindle/``
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/spindle/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
@@ -157,7 +157,7 @@ Detect stages
                 This assumes there is only one rater per Annotations file (``.xml``) 
                 !! make sure you don't have multiple raters!!
     
-            * Entering a list of rater names (e.g., ``[<Rater1>, <Rater2>]``) will only save detected events on this rater in the Annotations file
+            * Entering a list of rater names (e.g., ``['Rater1', 'Rater2']``) will only save detected events on this rater in the Annotations file
 
     **invert** *(NoneType or logical)*
         * Option to invert polarity
@@ -176,7 +176,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a logfile *detect_spindles_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+            * Default is ``True`` which will create a logfile *detect_spindles_{method}_{datetime}_log.txt* in ``<root_dir>/derivatives/audit/logs/``
 
             * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             

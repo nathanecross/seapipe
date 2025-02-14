@@ -5,7 +5,7 @@ Phase Amplitude Coupling
 
 Overview
 ------------
-TODO
+
 Phase amplitude coupling (PAC) is a phenomenon where the amplitude of a high-frequency oscillation statistically changes in relation to the phase of a low-frequency oscillation. 
 It is a well-studied interaction between brain oscillations in different frequency bands (e.g. slow oscillations and the spindle *sigma* frequency band).
 There is no convention yet of how to calculate phase-amplitude coupling.

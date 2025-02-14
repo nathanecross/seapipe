@@ -8,26 +8,23 @@ Created on Mon Jul 31 13:36:12 2023
 from copy import deepcopy
 from datetime import datetime
 from os import listdir, mkdir, path, rename, walk
-from numpy import array, delete, zeros
+from numpy import array, delete
 from pandas import DataFrame, read_csv
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from .logs import create_logger
-from .load import load_channels, rename_channels
+from .load import load_channels, rename_channels, read_tracking_sheet
 
 
-def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False, 
-                  logger = None):
+def check_dataset(rootpath, outfile = False, filetype = '.edf', 
+                  tracking = False, logger = create_logger("Audit")):
     
-    """Audits the directory specified by <in_dir> to check if the dataset is
-    BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
-    files there are per participant.
-    You can specify  an optional output filename that will contain the printout.
+    """ Audits the directory specified by <in_dir> to check if the dataset is
+        BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
+        files there are per participant.
+        You can specify  an optional output filename that will contain the printout.
     """
     
-    
-    if not logger:
-        logger = create_logger("Audit")
     
     datapath = path.join(rootpath, 'DATA')
     if not path.exists(datapath):
@@ -36,68 +33,75 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf', tracking = False
     
     logger.debug(f'Checking dataset in directory: {datapath}')
     
-    # Extract participants inside <indir>
+    # Extract participants to check
     if not tracking:
-        part = [x for x in listdir(datapath) if path.isdir(path.join(datapath, x))]
-        part.sort()
+        subs = [x for x in listdir(datapath) if path.isdir(path.join(datapath, x))]
+        subs.sort()
     else:
-        logger.debug(f'Reading participant names from {tracking}')
-        part = read_csv(f'{rootpath}/{tracking}' , sep='\t')
-        part = part['sub'].drop_duplicates()
-    part.sort()
+        logger.debug('Reading participant list from tracking sheet.')
+        tracking = read_tracking_sheet(rootpath, logger)
+        subs = tracking['sub'].drop_duplicates()
+    subs.sort()
     
-    nsd = []
-    nedf = []
-    bids = []
+    # Initialise certain reporting metrics
+    nsd = [] #num subject dirs
+    nedf = [] #num subject files
+    bids = [] 
     finalbids = 0
     filesize = 0
     
-    for pt in part:
+    if isinstance(filetype, str):
+        filetype = [filetype]
+    
+    for sub in subs:
         
-        real_files = [x for x in listdir(path.join(datapath, pt))if not x.startswith('.')]
-        dirs = [x for x in real_files if path.isdir(path.join(datapath, pt, x))]
-        files = [x for x in real_files if path.isfile(path.join(datapath, pt, x))]
+        real_files = [x for x in listdir(path.join(datapath, sub)) if not x.startswith('.')]
+        sessions = [x for x in real_files if path.isdir(path.join(datapath, sub, x))]
+        files = [x for x in real_files if path.isfile(path.join(datapath, sub, x))]
         
-        nsd.append(len(dirs))
+        nsd.append(len(sessions))
         annots = 0
         edfs = 0
         
-        if len(dirs) < 1:
+        if len(sessions) < 1:
             finalbids += 1
             if len(files) > 0:
                 nedf.append(len([x for x in files if filetype in x]))
-                logger.critical(f'{pt} has 0 sessions directories.\n')
+                logger.critical(f"{sub} doesn't have sessions directories.\n")
+                logger.info('Check documentation for how to setup data in BIDS:')
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
             else:
-                logger.critical(f'{pt} has no files\n')
+                logger.critical(f'{sub} has no files\n')
         else:
-            for dr in dirs:
-                try:
-                    eeg_dir = path.join(datapath, pt, dr, 'eeg')
+            for ses in sessions:
+                eeg_dir = path.join(datapath, sub, ses, 'eeg')
+                if path.exists(eeg_dir):
                     real_files = [x for x in listdir(eeg_dir) if not x.startswith('.')]
-                    dirs2 = [x for x in real_files if path.isdir(path.join(eeg_dir, x))]
-                    files2 = [x for x in real_files if path.isfile(path.join(eeg_dir, x))]
-                    if len(dirs2) < 1:
-                        if len(files2) == 1:
-                            annots += len([x for x in files2 if '.xml' in x])
-                            edfs += len([x for x in files2 if filetype in x])
-                            filesize += sum([path.getsize(path.join(eeg_dir, x)) for x in files2 if filetype in x])
-                        elif len(files2) > 1:
-                            finalbids += 1
-                            logger.critical(f'BIDS incompatibility. >1 file found for {pt}, {dr}. There should only be 1 recording per session directory\n')
-                        else:
-                            logger.warning(f'{pt}, {dr} has no files\n')
-                except:
+                    files = [f for f in real_files if any(ft in f for ft in filetype)]
+                    if len(files) == 1:
+                        edfs += 1
+                        filesize += sum([path.getsize(path.join(eeg_dir, f)) for f in files if any(ft in f for ft in filetype)])
+                    elif len(files) > 1:
+                        finalbids += 1
+                        logger.critical(f'BIDS incompatibility. >1 recording file found for {sub}, {ses}. There should only be 1 recording per session directory\n')
+                    else:
+                        logger.warning(f'{sub}, {ses} has no files\n')
+                else:
                     finalbids += 1
-                    logger.critical(f"BIDS incompatibility. No 'eeg' directory found for {pt}, {dr}\n")
+                    logger.critical(f"BIDS incompatibility. No 'eeg' directory found for {sub}, {ses}\n")
+                    logger.info('Check documentation for how to setup data in BIDS:')
+                    logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                    logger.info('-' * 10)
             
-        bids.append(all([len(dirs2) < 1 for dirs2 in dirs]))
+        bids.append(all([len(dirs2) < 1 for dirs2 in sessions]))
         nedf.append(edfs)
     
     if len(set(nsd)) > 1:
         logger.warning('Not all participants have the same number of sessions\n')
     
     subdirs = DataFrame({'BIDS?': bids, '#sessions': nsd, '#recordings': nedf},
-                        index=part)
+                        index=subs)
     subdirs[''] = ['!!' if c1 != c2 
                    else '!!' if c1 == 0 
                    else '!!' if c2 == 0 

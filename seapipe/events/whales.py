@@ -132,10 +132,10 @@ class whales:
         for i, sub in enumerate(subs):
             if not sub in self.tracking['spindle'].keys():
                 self.tracking['spindle'][sub] = {}
+            
             # b. Begin loop through sessions
             flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
                                      logger, verbose=2)   
-            
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
@@ -154,9 +154,7 @@ class whales:
                 
                 ## d. Load annotations
                 xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                #try:
-                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
-                logger.debug(xml_file)
+                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')][0]
                 # Copy annotations file before beginning
                 if not path.exists(self.out_dir):
                     mkdir(self.out_dir)
@@ -165,15 +163,11 @@ class whales:
                 if not path.exists(self.out_dir + '/' + sub + '/' + ses):
                     mkdir(self.out_dir + '/' + sub + '/' + ses)
                 backup = self.out_dir + '/' + sub + '/' + ses + '/'
-                backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                backup_file = (f'{backup}{sub}_{ses}.xml')
                 if not path.exists(backup_file):
-                    shutil.copy(xdir + xml_file[0], backup_file)
+                    shutil.copy(xdir + xml_file, backup_file)
                 else:
                     logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                #except:
-                #logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
-                #flag+=1
-                #break
                 
                 # Read annotations file
                 annot = Annotations(backup_file, rater_name=self.rater)
@@ -278,7 +272,7 @@ class whales:
 
     
     def whales(self, method, merge_type, chan, rater, stage, ref_chan, grp_name, keyword,
-                     cs_thresh, min_duration, s_freq = None, frequency = (11, 16), 
+                     cs_thresh, s_freq = None, 
                      duration= (0.5, 3), evt_out = 'spindle', weights = None,  
                      filetype = '.edf', 
                      logger = create_logger('Detect spindles (WHALES)')):
@@ -364,13 +358,15 @@ class whales:
                     if not path.exists(self.out_dir + '/' + sub + '/' + ses):
                         mkdir(self.out_dir + '/' + sub + '/' + ses)
                     backup = self.out_dir + '/' + sub + '/' + ses + '/'
-                    backup_file = (f'{backup}{sub}_{ses}_spindle.xml')
+                    backup_file = (f'{backup}{sub}_{ses}.xml')
                     if not path.exists(backup_file):
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
                         logger.warning(f'Annotations file already exists for {sub}, {ses}, new events will be written into the same annotations file. Any existing events labelled {evt_out} will be overwritten.')
+                        flag += 1
                 except:
                     logger.warning(f' No input annotations file in {xdir}')
+                    flag += 1
                     break
                 
                 # Read annotations file
@@ -387,16 +383,23 @@ class whales:
                 for c, ch in enumerate(chanset):
                     all_events = []
                     for m in method:
-                        all_events.append(annot.get_events(name = m, 
-                                                           chan = f'{ch} ({grp_name})'))
-                    cons = consensus(all_events, cs_thresh, s_freq, 
-                                     min_duration = min_duration,
-                                     weights = weights)
+                        evts = annot.get_events(name = m, chan = f'{ch} ({grp_name})')
+                        if len(evts) == 0:
+                            logger.warning(f'No events: {m} found for {sub}, {ses} on {ch}')
+                        all_events.append(evts)
                     
-                    logger.debug(f'Combining events for {sub}, {ses}, {ch}')
-                    cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
-                    remove_duplicate_evts(annot, evt_name=evt_out, 
-                                          chan=f'{ch} ({self.grp_name})')
+                    if any(len(x)==0 for x in all_events):
+                        logger.warning(f'Skipping {sub}, {ses}, {ch}')
+                        flag += 1
+                    else:
+                        logger.debug(f'Combining events for {sub}, {ses}, {ch}')
+                        cons = consensus(all_events, cs_thresh, s_freq, 
+                                         min_duration = duration[0],
+                                         weights = weights)
+
+                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+                        remove_duplicate_evts(annot, evt_name=evt_out, 
+                                              chan=f'{ch} ({self.grp_name})')
                     
                     # if merge_type == 'consensus':
                     #     logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')

@@ -598,10 +598,17 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             chan = search_chans(chan)
             ref_chan=[]
             for c in chans:
-                ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
+                ref_link = [ref_chans[ref_chans.columns[x]].iloc[0] for x, y 
+                                           in enumerate(chan) if c in chan[y].iloc[0]]
+                if len(ref_link) > 1:
+                    ref_chan.append(ref_link[0])
             ref_chan = [char.split(x, sep=', ').tolist() for x in ref_chan]
             
-            chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
+            if len(ref_chan) > 0:
+                chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) 
+                           else ref_chan[i] for i,chn in enumerate(chans)}
+            else:
+                chanset = {chn:ref_chan for chn in chans}
             
         elif type(ref_chans) == DataFrame:
             ref_chans = ref_chans.to_numpy()[0]

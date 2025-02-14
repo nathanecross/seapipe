@@ -10,6 +10,7 @@ from os import listdir, mkdir, path, remove, walk
 from pandas import DataFrame, read_csv
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
+from seapipe.events.remora import remora
 from seapipe.events.seasnakes import seasnakes
 from seapipe.events.seabass import seabass
 from seapipe.events.sand import SAND
@@ -30,7 +31,6 @@ from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_she
 ## TO DO:
 #   - adapt load channels to be flexible for non-equivalent refsets and chansets
 #   - add in log for detection whether auto, fixed or adapted bands was run
-#   - add selection of subs to be readable from 'tracking.tsv'
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
 #  ** create catch for errors in tracking sheet around ',' (chans, adap_bands etc.)
@@ -75,7 +75,8 @@ class pipeline:
 
     """
         
-    def __init__(self, indir, outfile = False, filetype = '.edf'):
+    def __init__(self, indir, tracking = False, outfile = False, 
+                       filetype = '.edf'):
         
         self.rootpath = indir
         self.datapath = indir + '/DATA'
@@ -85,12 +86,13 @@ class pipeline:
         self.outfile = outfile
         if not path.exists(f'{self.outpath}/audit'):
             mkdir(f'{self.outpath}/audit')
-        self.audit_init = check_dataset(self.rootpath, self.outfile, filetype)
-        
         self.tracking = {}
-        self.track(subs='all', ses='all', 
-                   step=['staging','spindle','slowwave','pac','sync','psa'],
-                   show=False, log=False)
+        self.audit_init = check_dataset(self.rootpath, self.outfile, filetype,
+                                        tracking)
+        self.track(subs = 'all', ses = 'all', 
+                   step = ['staging','spindle','slowwave','pac','sync','psa'],
+                   show = False, log = False)
+        
     
     #--------------------------------------------------------------------------
     '''
@@ -892,8 +894,7 @@ class pipeline:
                      chan = None, ref_chan = None, rater = None, 
                      stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                      cycle_idx = None, s_freq = None, keyword = None, 
-                     min_duration = 0.3, frequency = None, adap_bands = 'Fixed', 
-                     adap_bw = 4, peaks = None, duration =( 0.5, 3),
+                     duration =(0.5, 3),
                      reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                      outfile = True):
         
@@ -906,6 +907,7 @@ class pipeline:
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
+       
         elif outfile:
             logfile = f'{log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
@@ -949,12 +951,87 @@ class pipeline:
             return
         
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                         grp_name, stage, frequency, rater, subs, sessions, 
-                         reject_artf, self.tracking) 
+                         grp_name, stage, frequency = None, rater = rater, 
+                         subs = subs, sessions = sessions, 
+                         reject_artf = reject_artf, tracking = self.tracking) 
         spindle.whales(method, merge_type, chan, rater, stage, ref_chan, grp_name, 
-                       keyword, cs_thresh, min_duration, s_freq, 
-                       frequency, duration, evt_out, weights,
+                       keyword, cs_thresh, s_freq, duration, evt_out, weights,
                        filetype, logger)
+    
+    
+    def detect_rems(self, xml_dir = None, out_dir = None, subs = 'all', 
+                          sessions = 'all', filetype = '.edf', 
+                          method = ['YASA'], chan = None,
+                          ref_chan = None, rater = None, grp_name = 'eeg', 
+                          stage = ['REM'], cycle_idx = None, 
+                          amplitude = (50, 325), duration = (0.3, 1.5),
+                          reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                          average_channels = False, outfile = True):
+        
+        # Set up logging
+        log_dir = self.outpath + '/audit/logs'
+        if outfile == True:
+            evt_out = '_'.join(method)
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H%M%S")
+            logfile = f'{log_dir}/detect_rems_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Detect eye movements (REMS)')
+            logger.info('')
+            logger.info(f"-------------- New call of 'Detect rapid eye movements' evoked at {now} --------------")
+            
+        elif outfile:
+            logfile = f'{log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Detect Detect REMS')
+        else:
+            logger = create_logger('Detect Detect REMS')
+        
+        logger.info('')
+        logger.debug("Commencing REMS detection pipeline.")
+        logger.info('')
+        
+        # Set input/output directories
+        in_dir = self.datapath
+        if not path.exists(log_dir):
+            mkdir(log_dir)
+        if not xml_dir:
+            xml_dir = f'{self.outpath}/staging'   
+        logger.debug(f'Input annotations being read from: {xml_dir}')
+        if not out_dir:
+            out_dir = f'{self.outpath}/rems'    
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output annotations being saved to: {out_dir}')
+        
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+            
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+    
+        # Check annotations directory exists, run detection
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            logger.critical('REMS detection finished with ERRORS. See log for details.')
+        else:   
+           REMS = remora(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+                         rater, grp_name, reject_artf, subs, sessions)
+           
+           REMS.detect_rems(method, amplitude, duration, stage, cycle_idx, 
+                            filetype, logger)
+           try:
+               self.tracking = self.tracking | REMS.tracking
+           except:
+               self.tracking = {**self.tracking, **REMS.tracking}
+        return
     
     #--------------------------------------------------------------------------
     '''

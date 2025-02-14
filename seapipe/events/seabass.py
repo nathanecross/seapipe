@@ -8,27 +8,18 @@ Created on Sat Aug 10 18:40:35 2024
 
 
 from os import listdir, mkdir, path
-import shutil
 from wonambi import Dataset 
 from wonambi.attr import Annotations, create_empty_annotations
-from wonambi.detect import DetectSlowWave
-from wonambi.trans import fetch
 import mne
 import yasa
-from xml.etree.ElementTree import Element, SubElement, tostring, parse
-from numpy import array, nan
 from copy import deepcopy
-from datetime import datetime, date
-from pandas import DataFrame
-from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, load_sessions, load_stagechan, load_emg, 
-                          load_eog, read_inversion, rename_channels)
-from ..utils.misc import remove_duplicate_evts
+from ..utils.logs import create_logger
+from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
  
 
 class seabass:
     
-    """ Sleep Events Analysis Basic Automated Sleep Staging (SEABASS)
+    """ Sleep Events Analysis Basic Automated Sleep Staging (S.E.A.B.A.S.S)
 
         This module runs automated sleep staging with the option of using
         previously published staging algorithms:
@@ -68,7 +59,8 @@ class seabass:
         
             Creates a new annotations file if one doesn't already exist.
         
-        INPUTS:
+            Parameters
+            ----------
             
             method      ->   str of name of automated detection algorithm to 
                              detect staging with. Currently only 'Vallat2021' 
@@ -82,7 +74,6 @@ class seabass:
         
         '''
         
-        ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
         
