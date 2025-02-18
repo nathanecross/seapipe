@@ -30,7 +30,7 @@ class remora:
         
     """   
     
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, eog_chan, 
+    def __init__(self, rec_dir, xml_dir, out_dir, eog_chan, 
                  ref_chan = None, rater = None, grp_name = 'eeg',
                  reject_artf = ['Artefact', 'Arou', 'Arousal'],
                  subs='all', sessions='all', 
@@ -39,7 +39,6 @@ class remora:
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
-        self.log_dir = log_dir
         self.eog_chan = eog_chan
         self.ref_chan = ref_chan
         self.rater = rater

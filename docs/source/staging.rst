@@ -8,7 +8,7 @@ Overview
 
 Seapipe provides some automatic sleep staging algorithms:
 
-1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>/`_
+1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>`_
 2.  'Sleep ECG' - TO DO
 
 

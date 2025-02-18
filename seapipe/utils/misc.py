@@ -619,6 +619,49 @@ def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     annot = Annotations(xml_file)
     annot.import_staging(hypno_file, 'alice', rater_name=rater, rec_start=dataset.header['start_time'])
     
+
+def infer_eeg(dset, logger = create_logger('Infer EEG')):
+    
+    ''' This function reads a recording file (e.g. edf) and searches for likely
+        EEG channel names. IF the EEG channels are not easly identifiable from
+        the edf, then nothing is returned. IF there are multiple (>2) options,
+        then the channels will be QC'd and the channels with the best quality 
+        will be returned. #NOTE: Central channels will be given highest priority.
+    '''
+    
+    h = dset.header
+    
+    # 1. Look for central channels first
+    eeg = [x for x in h['chan_name'] if any(l in x for l in ['C1', 'C2', 'C3',
+                                                             'C4', 'C5', 'C6',
+                                                             'Cz', 'CZ'])]  
+    
+    # 2. If no central channels, look for frontal:
+    if len(eeg) == 0:
+        eeg = [x for x in h['chan_name'] if any(l in x for l in ['F1', 'F2', 'F3',
+                                                                 'F4', 'F5', 'F6',
+                                                                 'Fz', 'FZ'])]          
+    # 3. Look for any channels names beginning with E
+    if len(eeg) == 0:
+        eeg = [x for x in h['chan_name'] if 'E' in x if not 
+                                                any(l in x for l in ['EMG', 
+                                                                     'ECG',
+                                                                     'EOG',
+                                                                     'Chin',
+                                                                     ])]
+               
+
+    # If still nothing or when all electrode names contain 'E' (e.g. EGI nets) 
+    if len(eeg) == 0 or len(eeg) > 10:
+        logger.error('Unable to determine EEG channels from recording. EEG names must be explicitly specified.')
+        logger.info('Check documentation for how to specify channels:')
+        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+        logger.info('-' * 10)
+        return None
+    else:
+        eeg = choose_best_eeg(eeg, dset, 1, logger)
+            
+    return eeg 
     
     
 def infer_eog(dset, logger = create_logger('Infer EOG')):
@@ -659,6 +702,36 @@ def infer_eog(dset, logger = create_logger('Infer EOG')):
         eyes = roc + loc
             
     return eyes    
+
+def infer_emg(dset, logger = create_logger('Infer EMG')):
+    
+    ''' This function reads a recording file (e.g. edf) and searches for likely
+        EOG channel names. IF the EOG channels are not easly identifiable from
+        the edf, then nothing is returned. IF there are multiple (>2) options,
+        then the channels will be QC'd and the channels with the best quality 
+        will be returned.
+    '''
+    
+    h = dset.header
+    
+    # First and most obvious EMG name
+    emg = [x for x in h['chan_name'] if any(l in x for l in ['EMG', 
+                                                             'Chin', 
+                                                             'CHIN'])]  
+     
+    
+    # If still nothing or when all electrode names contain 'E' (e.g. EGI nets) 
+    if len(emg) == 0 or len(emg) > 6:
+        logger.error('Unable to determine EMG channels from recording. EOG names must be explicitly specified.')
+        logger.info('Check documentation for how to specify channels:')
+        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+        logger.info('-' * 10)
+        return None
+
+    elif len(emg) > 1:
+        emg = choose_best_emg(emg, dset, 1, logger)
+            
+    return emg  
         
 ### Quality Control Checks    
 def gini(x, w = None):
@@ -847,4 +920,9 @@ def choose_best_emg(chans, dset, num = 1, logger = create_logger('QC EMG')):
     idx = winners.sum(axis = 1).nlargest(num).index.to_list()
     emg_name = [chans[x] for x in idx]
     print(f'Best EMG channel based on auto-QC is: {emg_name}')
+    
+    return emg_name
+
+
+
     

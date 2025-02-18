@@ -165,7 +165,7 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf'):
                     rename(src, dst)
                 
                 # XMLs
-                odir = '/'.join(in_dir.split('/')[0:-1]) + '/OUT/'
+                odir = '/'.join(in_dir.split('/')[0:-1]) + '/derivatives/'
                 if not path.exists(odir):
                     mkdir(odir)
                 odir = f'{odir}/staging_manual/'

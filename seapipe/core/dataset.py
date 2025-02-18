@@ -86,6 +86,9 @@ class pipeline:
         self.outfile = outfile
         if not path.exists(f'{self.outpath}/audit'):
             mkdir(f'{self.outpath}/audit')
+        self.log_dir = self.outpath + '/audit/logs/'
+        if not path.exists(self.log_dir):
+            mkdir(self.log_dir)
         self.tracking = {}
         self.audit_init = check_dataset(self.rootpath, self.outfile, filetype,
                                         tracking)
@@ -262,16 +265,15 @@ class pipeline:
         '''
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/load_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Load sleep stages')
             logger.info('')
             logger.info(f"-------------- New call of 'Load sleep stages' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Load sleep stages')
         else:
             logger = create_logger('Load sleep stages')
@@ -312,16 +314,15 @@ class pipeline:
                              filetype = '.edf', outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_power_spectrum_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_power_spectrum_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Power spectrum')
             logger.info('')
             logger.info(f"-------------- New call of 'Power spectrum' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Power spectrum')
         else:
             logger = create_logger('Power spectrum')
@@ -330,11 +331,20 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
+        
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'   
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+
         if not out_dir:
             out_dir = f'{self.outpath}/powerspectrum' 
         if not path.exists(out_dir):
@@ -370,25 +380,18 @@ class pipeline:
             general_opts['suffix'] = f"{frequency_opts['frequency'][0]}-{frequency_opts['frequency'][1]}Hz"
         
         # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-        else:   
-            spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                                grp_name, stage, cat, rater, cycle_idx, subs, 
-                                sessions, self.tracking)
-                    
-            spectrum.powerspec_it(general_opts, frequency_opts, filter_opts, 
-                                  epoch_opts, event_opts, norm, norm_opts, 
-                                  filetype, logger) 
-            
-            try:
-                self.tracking = self.tracking | spectrum.tracking
-            except:
-                self.tracking = {**self.tracking, **spectrum.tracking}
+        spectrum = Spectrum(in_dir, xml_dir, out_dir, chan, ref_chan, 
+                            grp_name, stage, cat, rater, cycle_idx, subs, 
+                            sessions, self.tracking)
+                
+        spectrum.powerspec_it(general_opts, frequency_opts, filter_opts, 
+                              epoch_opts, event_opts, norm, norm_opts, 
+                              filetype, logger) 
+        
+        try:
+            self.tracking = self.tracking | spectrum.tracking
+        except:
+            self.tracking = {**self.tracking, **spectrum.tracking}
             
         return 
         
@@ -405,7 +408,7 @@ class pipeline:
     
     
     '''
-    def detect_sleep_stages(self, xml_dir = None, out_dir = None, 
+    def detect_sleep_stages(self, out_dir = None, 
                                   subs = 'all', sessions = 'all', filetype = '.edf', 
                                   method = 'Vallat2021', qual_thresh = 0.5,
                                   eeg_chan = None, ref_chan = None, 
@@ -413,16 +416,15 @@ class pipeline:
                                   rater = None, invert = False, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
         else:
             logger = create_logger('Detect sleep stages')
@@ -430,13 +432,8 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
-        if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'  
-        logger.debug(f'Input annotations being read from: {xml_dir}')
         if not out_dir:
-            out_dir = f'{self.outpath}/staging'    
+            out_dir = f'{self.outpath}/staging_auto'    
         if not path.exists(out_dir):
             mkdir(out_dir)
         logger.debug(f'Output annotations being saved to: {out_dir}')
@@ -464,44 +461,34 @@ class pipeline:
             return
     
         # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('')
-            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
-        else:   
-           stages = seabass(in_dir, xml_dir, out_dir, log_dir, eeg_chan, 
-                            ref_chan, eog_chan, emg_chan, rater, subs, sessions, 
-                            self.tracking) 
-           stages.detect_stages(method, qual_thresh, invert, filetype, 
-                                outfile, logger)
-           try:
-               self.tracking = self.tracking | stages.tracking
-           except:
-               self.tracking = {**self.tracking, **stages.tracking}
+        stages = seabass(in_dir, out_dir, eeg_chan, ref_chan, eog_chan, emg_chan, 
+                         rater, subs, sessions, self.tracking) 
+        stages.detect_stages(method, qual_thresh, invert, filetype, logger)
+        try:
+            self.tracking = self.tracking | stages.tracking
+        except:
+            self.tracking = {**self.tracking, **stages.tracking}
         return
     
     
     def detect_artefacts(self, xml_dir = None, out_dir = None, 
                                subs = 'all', sessions = 'all', filetype = '.edf', 
                                method = 'yasa_std', win_size = 5,
-                               eeg_chans = None, ref_chan = None, 
+                               eeg_chans = None, ref_chans = None, 
                                eog_chan = None, emg_chan = None, 
-                               rater = None, invert = False, outfile = True):
+                               rater = None, grp_name = 'eeg', stage = None,
+                               outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_artefacts_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_artefacts_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect artefacts' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
         else:
             logger = create_logger('Detect artefacts')
@@ -509,13 +496,21 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'   
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+            
         if not out_dir:
-            out_dir = f'{self.outpath}/staging'    
+            out_dir = select_input_dirs(self.outpath, xml_dir, 'staging')   
         if not path.exists(out_dir):
             mkdir(out_dir)
         logger.debug(f'Output annotations being saved to: {out_dir}')
@@ -529,37 +524,20 @@ class pipeline:
             sessions = read_tracking_sheet(self.rootpath, logger)
         
         # Set channels
-        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chan, logger)
+        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chans, 
+                                          logger)
         
-        # Check inversion
-        if invert == None:
-            invert = check_chans(self.rootpath, None, False, logger)
-        elif type(invert) != bool:
-            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
-            logger.info('')
-            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
-            return
     
         # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('')
-            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
-        else:   
-           artefacts = SAND(in_dir, xml_dir, out_dir, log_dir, eeg_chans, 
-                            ref_chan, eog_chan, emg_chan, rater, subs, sessions, 
-                            self.tracking) 
-           artefacts.detect_artefacts(method, invert, filetype, win_size, logger)
-       
-           try:
-               self.tracking = self.tracking | artefacts.tracking
-           except:
-               self.tracking = {**self.tracking, **artefacts.tracking}
+        artefacts = SAND(in_dir, xml_dir, out_dir, eeg_chans, ref_chan, eog_chan, 
+                         emg_chan, rater, grp_name, subs, sessions, self.tracking) 
+        artefacts.detect_artefacts(method, filetype, win_size, stage,
+                                   logger)
+    
+        try:
+            self.tracking = self.tracking | artefacts.tracking
+        except:
+            self.tracking = {**self.tracking, **artefacts.tracking}
         return
         
         
@@ -577,27 +555,34 @@ class pipeline:
                                     outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_specparams_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_specparams_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect spectral peaks')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spectral peaks' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect spectral peaks')
         else:
             logger = create_logger('Detect spectral peaks')
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'  
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+            
         if not out_dir:
             out_dir = f'{self.outpath}/fooof' 
         if not path.exists(out_dir):
@@ -618,40 +603,33 @@ class pipeline:
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
-        # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-        else:   
-            spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
-                                ref_chan, grp_name, stage, cat, rater, 
-                                cycle_idx, subs, sessions, self.tracking)
+        # Run detection
+        spectrum = Spectrum(in_dir, xml_dir, out_dir, chan, 
+                            ref_chan, grp_name, stage, cat, rater, 
+                            cycle_idx, subs, sessions, self.tracking)
+        
+        if not general_opts:
+            general_opts = default_general_opts()
+        if not frequency_opts:
+            frequency_opts = default_frequency_opts()
+        if not filter_opts:
+            filter_opts = default_filter_opts()
+        if not epoch_opts:
+            epoch_opts = default_epoch_opts()  
+        if not event_opts:
+            event_opts = default_event_opts()
+        if not fooof_opts:
+            fooof_opts = default_fooof_opts() 
             
-            if not general_opts:
-                general_opts = default_general_opts()
-            if not frequency_opts:
-                frequency_opts = default_frequency_opts()
-            if not filter_opts:
-                filter_opts = default_filter_opts()
-            if not epoch_opts:
-                epoch_opts = default_epoch_opts()  
-            if not event_opts:
-                event_opts = default_event_opts()
-            if not fooof_opts:
-                fooof_opts = default_fooof_opts() 
-                
-            fooof_opts['bands_fooof'] = [frequency]
-            
-            # Set suffix for output filename
-            if not suffix:
-                general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
-            
-            spectrum.fooof_it(general_opts, frequency_opts, filter_opts, 
-                              epoch_opts, event_opts, fooof_opts, 
-                              filetype, logger)  
+        fooof_opts['bands_fooof'] = [frequency]
+        
+        # Set suffix for output filename
+        if not suffix:
+            general_opts['suffix'] = f'{frequency[0]}-{frequency[1]}Hz'
+        
+        spectrum.fooof_it(general_opts, frequency_opts, filter_opts, 
+                          epoch_opts, event_opts, fooof_opts, 
+                          filetype, logger)  
                 
         return 
     
@@ -666,17 +644,16 @@ class pipeline:
                                        average_channels = False, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_slowosc_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
         else:
             logger = create_logger('Detect slow oscillations')
@@ -687,11 +664,19 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'   
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         if not out_dir:
             out_dir = f'{self.outpath}/slowwave'    
         if not path.exists(out_dir):
@@ -723,24 +708,17 @@ class pipeline:
         # Format concatenation
         cat = (1,1,1,1)
     
-        # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('SO detection finished with ERRORS. See log for details.')
-        else:   
-           SO = seasnakes(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                            grp_name, stage, rater, subs, sessions, 
-                            self.tracking, reject_artf) 
-           SO.detect_slowosc(method, cat, cycle_idx, duration, 
-                                  average_channels, invert, filetype, logger)
-           try:
-               self.tracking = self.tracking | SO.tracking
-           except:
-               self.tracking = {**self.tracking, **SO.tracking}
+        # Run detection
+        SO = seasnakes(in_dir, xml_dir, out_dir, chan, ref_chan, 
+                         grp_name, stage, rater, subs, sessions, 
+                         self.tracking, reject_artf) 
+        SO.detect_slowosc(method, cat, cycle_idx, duration, 
+                               average_channels, invert, filetype, logger)
+        try:
+            self.tracking = self.tracking | SO.tracking
+        except:
+            self.tracking = {**self.tracking, **SO.tracking}
+        
         return
     
     
@@ -756,17 +734,16 @@ class pipeline:
                               outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_spindles_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_spindles_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
         else:
             logger = create_logger('Detect spindles')
@@ -777,12 +754,20 @@ class pipeline:
         logger.info('')
         
         # Set input/output directories
-        in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
+        in_dir = self.datapath   
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging' 
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         if not out_dir:
             for met in method:
                 out_dir = select_output_dirs(self.outpath, out_dir, met)  
@@ -865,25 +850,19 @@ class pipeline:
                                            stage = stage, cycle_idx = cycle_idx,
                                            concat_cycle=concat_cycle, 
                                            concat_stage=True)
-        # Check annotations directory exists, run detection
+       
+        # Run detection
         self.track(step='fooof', show = False, log = False)
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('Spindle detection finished with ERRORS. See log for details.')
-        else:   
-           spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
-                            chan, ref_chan, grp_name, stage, frequency, rater, 
-                            subs, sessions, reject_artf, self.tracking) 
-           spindle.whale_it(method, cat, cycle_idx, adap_bands, adap_bw, 
-                            duration, filetype, logger)
-           try:
-               self.tracking = self.tracking | spindle.tracking
-           except:
-               self.tracking = {**self.tracking, **spindle.tracking}
+        spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, 
+                         chan, ref_chan, grp_name, stage, frequency, rater, 
+                         subs, sessions, reject_artf, self.tracking) 
+        spindle.whale_it(method, cat, cycle_idx, adap_bands, adap_bw, 
+                         duration, filetype, logger)
+        try:
+            self.tracking = self.tracking | spindle.tracking
+        except:
+            self.tracking = {**self.tracking, **spindle.tracking}
+            
         return
     
     
@@ -899,17 +878,16 @@ class pipeline:
                      outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_spindles_WHALES_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_spindles_WHALES_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
        
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
         else:
             logger = create_logger('Detect spindles (WHALES)')
@@ -920,10 +898,9 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         xml_dir = select_input_dirs(self.outpath, xml_dir, 'spindle') 
         logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         if not out_dir:
             out_dir = xml_dir  
         if not path.exists(out_dir):
@@ -950,7 +927,7 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
-        spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+        spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, 
                          grp_name, stage, frequency = None, rater = rater, 
                          subs = subs, sessions = sessions, 
                          reject_artf = reject_artf, tracking = self.tracking) 
@@ -969,18 +946,17 @@ class pipeline:
                           average_channels = False, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs'
         if outfile == True:
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{log_dir}/detect_rems_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_rems_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect eye movements (REMS)')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect rapid eye movements' evoked at {now} --------------")
             
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect Detect REMS')
         else:
             logger = create_logger('Detect Detect REMS')
@@ -991,11 +967,19 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'   
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         if not out_dir:
             out_dir = f'{self.outpath}/rems'    
         if not path.exists(out_dir):
@@ -1013,24 +997,17 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
     
-        # Check annotations directory exists, run detection
-        if not path.exists(xml_dir):
-            logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
-            logger.info('Check documentation for how to set up staging data:')
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            logger.critical('REMS detection finished with ERRORS. See log for details.')
-        else:   
-           REMS = remora(in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
-                         rater, grp_name, reject_artf, subs, sessions)
-           
-           REMS.detect_rems(method, amplitude, duration, stage, cycle_idx, 
-                            filetype, logger)
-           try:
-               self.tracking = self.tracking | REMS.tracking
-           except:
-               self.tracking = {**self.tracking, **REMS.tracking}
+        # Run detection
+        REMS = remora(in_dir, xml_dir, out_dir, chan, ref_chan, 
+                      rater, grp_name, reject_artf, subs, sessions)
+        
+        REMS.detect_rems(method, amplitude, duration, stage, cycle_idx, 
+                         filetype, logger)
+        try:
+            self.tracking = self.tracking | REMS.tracking
+        except:
+            self.tracking = {**self.tracking, **REMS.tracking}
+            
         return
     
     #--------------------------------------------------------------------------
@@ -1059,12 +1036,20 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        log_dir = self.outpath + '/audit/logs/'
-        if not path.exists(log_dir):
-            mkdir(log_dir)
+            
         if not xml_dir:
-            xml_dir = f'{self.outpath}/staging'  
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging') 
+            
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         if not out_dir:
             out_dir = f'{self.outpath}/spindle'    
         if not path.exists(out_dir):
@@ -1129,18 +1114,17 @@ class pipeline:
                   progress = True, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             pha = f'{frequency_phase[0]}-{frequency_phase[1]}'
             amp = f'{frequency_amplitude[0]}-{frequency_amplitude[1]}'
-            logfile = f'{log_dir}/pac_{pha}_{amp}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
             logger.info('')
             logger.info(f"-------------- New call of 'Phase-amplitude coupling' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
         else:
             logger = create_logger('Phase-amplitude coupling')
@@ -1149,12 +1133,19 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        log_dir = self.outpath + '/audit/logs/'
-        if not path.exists(log_dir):
-            mkdir(log_dir) 
+        
         if not xml_dir:
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name) 
-        logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:    
+            logger.debug(f'Input annotations being read from: {xml_dir}')
         
         # Check subs
         if not subs:
@@ -1205,7 +1196,7 @@ class pipeline:
             logger.debug(f'Output being saved to: {xml_dir}')
                 
             cat = (int(concat_cycle),int(concat_stage),0,0)
-            Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
+            Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, 
                               chan, ref_chan, grp_name, stage, rater, 
                               subs, sessions, reject_artf,
                               self.tracking)
@@ -1222,7 +1213,7 @@ class pipeline:
                 mkdir(out_dir)
             logger.debug(f'Output being saved to: {xml_dir}')
             cat = (int(concat_cycle),int(concat_stage),1,1)
-            Pacats = pacats(self.rootpath, in_dir, xml_dir, out_dir, log_dir, 
+            Pacats = pacats(self.rootpath, in_dir, xml_dir, out_dir, 
                             chan, ref_chan, grp_name, stage, rater, subs, sessions, 
                             reject_artf, self.tracking)
             Pacats.pac_it(cycle_idx, cat, nbins, filter_opts, epoch_opts, 
@@ -1257,26 +1248,24 @@ class pipeline:
                                  times = None, rater = None, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{log_dir}/export_sleep_macro_stats_{today}_log.txt'
+            logfile = f'{self.log_dir}/export_sleep_macro_stats_{today}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
             logger.info('')
             logger.info(f"-------------- New call of 'Export macro stats' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
         else:
             logger = create_logger('Export macro stats')
 
         
         # Set input/output directories
-        if not path.exists(log_dir):
-            mkdir(log_dir)
         xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
         logger.debug(f'Input annotations being read from: {xml_dir}')
+        
         out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
         logger.debug(f'Output being saved to: {out_dir}')
         
@@ -1288,39 +1277,37 @@ class pipeline:
                    show=False, log=True)
         
         sleepstats.export_sleepstats(xml_dir, out_dir, subs, sessions, 
-                                     rater, times, log_dir, logger)
+                                     rater, times, logger)
         return
     
     def macro_dataset(self, xml_dir = None, out_dir = None, 
                       subs = 'all', sessions = 'all', outfile = True):
          
          # Set input/output directories
-         log_dir = self.outpath + '/audit/logs/'
          if outfile == True:
              today = date.today().strftime("%Y%m%d")
              now = datetime.now().strftime("%H:%M:%S")
-             logfile = f'{log_dir}/export_sleep_macro_stats_{today}_log.txt'
+             logfile = f'{self.log_dir}/export_sleep_macro_stats_{today}_log.txt'
              logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
              logger.info('')
              logger.info(f"-------------- New call of 'Macro dataset' evoked at {now} --------------")
          elif outfile:
-             logfile = f'{log_dir}/{outfile}'
+             logfile = f'{self.log_dir}/{outfile}'
              logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
          else:
              logger = create_logger('Export macro stats')
-         if not path.exists(log_dir):
-             mkdir(log_dir)
          if not path.exists(self.outpath + '/datasets/'):
              mkdir(self.outpath + '/datasets/')
          out_dir = self.outpath + '/datasets/macro/'
          
          xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
          logger.debug(f'Input annotations being read from: {xml_dir}')
+         
          out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
          logger.debug(f'Output being save to: {out_dir}')
          
          sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
-                                 subs, sessions, log_dir, logger)
+                                 subs, sessions, logger)
          return
     
     def export_eventparams(self, evt_name, frequency = None,
@@ -1335,26 +1322,22 @@ class pipeline:
                                  average_channels = False, outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             evt_out = '_'.join(evt_name)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{log_dir}/export_params_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Export params')
             logger.info('')
             logger.debug(f"-------------- New call of 'Export params' evoked at {now} --------------")
         elif outfile:
-            logfile = f'{log_dir}/{outfile}'
+            logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Export params')
         else:
             logger = create_logger('Export params')
         
         # Set input/output directories
         in_dir = self.datapath
-        if not path.exists(log_dir):
-            mkdir(log_dir)
-        
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
             evts = [evt_name]
@@ -1364,11 +1347,12 @@ class pipeline:
             logger.error(TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed."))
             return
         for evt_name in evts:
+            
             out_dir = select_output_dirs(self.outpath, out_dir, evt_name)
             logger.debug(f'Output being save to: {out_dir}')
+            
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
             logger.debug(f'Input annotations being read from: {xml_dir}')
-            
             
             # Check annotations directory exists
             if not path.exists(xml_dir):
@@ -1397,7 +1381,7 @@ class pipeline:
             cat = (int(concat_cycle),int(concat_stage),1,1)
             
             # Run line
-            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, ref_chan, grp_name, 
+            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, grp_name, 
                               stage, rater, subs, sessions, self.tracking) 
             fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
                       peaks, adap_bw, params, epoch_dur, Ngo, logger)
@@ -1412,14 +1396,13 @@ class pipeline:
                             params = 'all', outfile = True):
         
         # Set up logging
-        log_dir = self.outpath + '/audit/logs/'
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_dataset_{evt_name}_{today}_log.txt'
+            logfile = f'{self.log_dir}/event_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Event dataset')
             logger.info('')
-            logger.info(f'-------------- New call evoked at {now} --------------')
+            logger.info(f'-------------- New call of Event dataset evoked at {now} --------------')
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Event dataset')
@@ -1447,8 +1430,6 @@ class pipeline:
             
             # Set input/output directories
             in_dir = self.datapath
-            if not path.exists(log_dir):
-                mkdir(log_dir)
             if not out_dir:    
                 if not path.exists(self.outpath + '/datasets/'):
                     mkdir(self.outpath + '/datasets/')
@@ -1475,7 +1456,7 @@ class pipeline:
                 chan = [chan]
             
         
-            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
+            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
                               stage, subs = subs, sessions = sessions) 
             fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, logger)
         
@@ -1490,13 +1471,23 @@ class pipeline:
                           params = 'all', outfile=True):
         
         # Set up logging
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/PAC_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
+            logger.info('')
+            logger.info(f'-------------- New call of PAC dataset evoked at {now} --------------')
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
+        else:
+            logger = create_logger('PAC dataset')
         logger = create_logger('PAC dataset')
         
         # Set input/output directories
         in_dir = self.datapath
-        log_dir = self.outpath + '/audit/logs/'
-        if not path.exists(log_dir):
-            mkdir(log_dir)
+
         if not out_dir:
             if not path.exists(self.outpath + '/datasets/'):
                 mkdir(self.outpath + '/datasets/')
@@ -1530,8 +1521,6 @@ class pipeline:
             logger.info('-' * 10)
             return
 
-        
-
         # Format chan
         if isinstance(chan, str):
             chan = [chan]
@@ -1540,12 +1529,12 @@ class pipeline:
         if stage == None:
             stage = ['NREM2','NREM3']
             
-        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, log_dir, chan, None, grp_name, 
+        fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
                           stage, subs = subs, sessions = sessions) 
         fish.pac_summary(chan, evt_name, adap_bands_phase, frequency_phase, 
                               adap_bands_amplitude, frequency_amplitude,
-                              params = 'all',
-                              cat = cat, cycle_idx = None, outfile = True)
+                              params = 'all', cat = cat, cycle_idx = None, 
+                              logger = logger)
         
         return
 
@@ -1560,6 +1549,18 @@ class pipeline:
                                 event_opts = None, outfile=True):
         
         # Set up logging
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/powerspec_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Power spectrum dataset')
+            logger.info('')
+            logger.info(f'-------------- New call of Power spectrum dataset evoked at {now} --------------')
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Power spectrum dataset')
+        else:
+            logger = create_logger('Power spectrum dataset')
         logger = create_logger('Power spectrum dataset')
         
         # Set input/output directories

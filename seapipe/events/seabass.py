@@ -15,7 +15,7 @@ import yasa
 from copy import deepcopy
 from ..utils.logs import create_logger
 from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
- 
+from ..utils.misc import infer_eeg, infer_eog, infer_emg
 
 class seabass:
     
@@ -28,15 +28,12 @@ class seabass:
         
     """   
     
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, eeg_chan, ref_chan,
+    def __init__(self, rec_dir, out_dir, eeg_chan, ref_chan,
                  eog_chan, emg_chan, rater = None, subs='all', sessions='all', 
                  tracking = None):
         
         self.rec_dir = rec_dir
-        self.xml_dir = xml_dir
         self.out_dir = out_dir
-        self.log_dir = log_dir
-        
         self.eeg_chan = eeg_chan
         self.ref_chan = ref_chan
         self.eog_chan = eog_chan
@@ -98,7 +95,7 @@ class seabass:
         ### 1. First we check the directories
         # a. Check for output folder, if doesn't exist, create
         if path.exists(self.out_dir):
-                logger.debug("Output directory: " + self.out_dir + " exists")
+                logger.debug(f"Output directory: {self.out_dir} exists")
         else:
             mkdir(self.out_dir)
         
@@ -127,19 +124,53 @@ class seabass:
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'slowosc':{}} 
                 
-                # Load chans
+                # Define recording
+                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                try:
+                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)][0]
+                except:
+                    logger.warning(f'No input {filetype} file in {rdir}')
+                    flag += 1
+                    break
+                
+                # Load EEG
+                dset = Dataset(rdir + edf_file)
                 pflag = deepcopy(flag)
                 flag, chanset = load_stagechan(sub, ses, self.eeg_chan, self.ref_chan,
                                               flag, logger)
                 if flag - pflag > 0:
-                    logger.warning(f'Skipping {sub}, {ses}...')
-                    break
-                eeg_chan = [x for x in chanset]
-                ref_chan = chanset[eeg_chan[0]]
+                    logger.debug('Inferring EEG from recording instead...')
+                    eeg_chan = infer_eeg(dset, logger)
+                    ref_chan = []
+                    if not eeg_chan:
+                        logger.warning(f'Skipping {sub}, {ses}...')
+                        break
+                else:    
+                    eeg_chan = [x for x in chanset]
+                    ref_chan = chanset[eeg_chan[0]]
+                
+                # Load EMG
+                pflag = deepcopy(flag)
                 flag, emg_chan = load_emg(sub, ses, self.eeg_chan, 
                                     flag, logger)
+                if flag - pflag > 0:
+                    logger.debug('Inferring EMG from recording instead...')
+                    emg_chan = infer_emg(dset, logger)
+                    if not emg_chan:
+                        logger.warning(f'Skipping {sub}, {ses}...')
+                        break
+                
+                # Load EOG
+                pflag = deepcopy(flag)
                 flag, eog_chan = load_eog(sub, ses, self.eeg_chan,
                                     flag, logger)
+                if flag - pflag > 0:
+                    logger.debug('Inferring EOG from recording instead...')
+                    eog_chan = infer_eog(dset, logger)
+                    if not eog_chan:
+                        logger.warning(f'Skipping {sub}, {ses}...')
+                        break
+                              
                 if not isinstance(eeg_chan, list):
                     eeg_chan = [eeg_chan]
                 if not isinstance(ref_chan, list):
@@ -150,28 +181,25 @@ class seabass:
                     emg_chan = [emg_chan]
                 
                 ## c. Load recording
-                rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
                 try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
                     chans = eeg_chan + ref_chan + eog_chan + emg_chan
                     chans = [x for x in chans if x]
-                    raw = mne.io.read_raw_edf(rdir + edf_file[0], 
+                    raw = mne.io.read_raw_edf(rdir + edf_file, 
                                               include = chans,
                                               preload=True, verbose = False)
                 except Exception as e:
-                    logger.warning(f' No input {filetype} file in {rdir}, {repr(e)}')
+                    logger.warning(f'Error loading {filetype} file in {rdir}, {repr(e)}')
                     flag += 1
                     break
                 
                 # d. Load/create for annotations file
-                if not path.exists(self.xml_dir + '/' + sub):
-                    mkdir(self.xml_dir + '/' + sub)
-                if not path.exists(self.xml_dir + '/' + sub + '/' + ses):
-                     mkdir(self.xml_dir + '/' + sub + '/' + ses)
-                xdir = self.xml_dir + '/' + sub + '/' + ses
+                if not path.exists(f'{self.out_dir}/{sub}'):
+                    mkdir(f'{self.out_dir}/{sub}')
+                if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
+                     mkdir(f'{self.out_dir}/{sub}/{ses}')
+                xdir = f'{self.out_dir}/{sub}/{ses}'
                 xml_file = f'{xdir}/{sub}_{ses}_eeg.xml'
                 if not path.exists(xml_file):
-                    dset = Dataset(rdir + edf_file[0])
                     create_empty_annotations(xml_file, dset)
                     logger.debug(f'Creating annotations file for {sub}, {ses}')
                 else:

@@ -27,7 +27,7 @@ class FISH:
     '''
     
     
-    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, rater = None,
                  subs = 'all', sessions = 'all', tracking = None):
         
@@ -35,8 +35,6 @@ class FISH:
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
-        self.log_dir = log_dir
-        
         self.chan = chan
         self.ref_chan = ref_chan
         self.grp_name = grp_name
@@ -813,7 +811,7 @@ class FISH:
                           adap_bands_amplitude = 'Fixed', 
                           frequency_amplitude = (11, 16),
                           params = 'all', cat = (1,1,1,1), cycle_idx = None, 
-                          outfile = True):
+                          logger = create_logger('PAC dataset')):
         
         
         '''
@@ -827,18 +825,6 @@ class FISH:
         
         ### 0.a Set up logging
         flag = 0
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_dataset_{evt_name}_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
-            logger.info('')
-            logger.info(f'-------------- New call evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
-        else:
-            logger = create_logger('PAC dataset')
         
         logger.info('')
         logger.debug(r""" Commencing PAC Dataset Creation

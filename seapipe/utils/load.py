@@ -5,6 +5,7 @@ Created on Mon Jan 29 18:02:41 2024
 
 @author: ncro8394
 """
+from itertools import chain
 from os import listdir, mkdir, path
 from numpy import char, reshape
 from pandas import DataFrame, read_csv, read_excel
@@ -32,7 +33,8 @@ def read_tracking_sheet(filepath, logger):
     
         return track
 
-def select_input_dirs(outpath, xml_dir, evt_name=None):
+def select_input_dirs(outpath, xml_dir, evt_name=None, 
+                      logger = create_logger('Select inputs')):
     if not xml_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
                         'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
@@ -41,17 +43,30 @@ def select_input_dirs(outpath, xml_dir, evt_name=None):
                         'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
                         'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
             xml_dir = f'{outpath}/spindle'
+            
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004','slowwave',
                           'slowosc','SO']:
             xml_dir = f'{outpath}/slowwave'
-        elif evt_name in ['macro']:
-            xml_dir = f'{outpath}/staging'
-        elif evt_name is None:
-            xml_dir = f'{outpath}/staging'
+            
         elif evt_name in ['event_pac']:
             xml_dir = f'{outpath}/event_pac'
+            
         elif evt_name in ['pac']:
-            xml_dir = f'{outpath}/pac'
+            xml_dir = f'{outpath}/pac' 
+            
+        elif evt_name in ['staging', 'macro', None]:
+            xml_dir = [x for x in listdir(outpath) if 'staging' in x]
+            
+            if len(xml_dir) > 1:
+                xml_dir = [x for x in xml_dir if 'manual' in x]
+                
+            if len(xml_dir) == 1:
+                xml_dir = f'{outpath}/{xml_dir[0]}'
+                logger.warning(f">1 derivatives directories have 'staging' in the name. Will default to {xml_dir}")
+                
+            else:
+                logger.critical(" 'xml_dir' wasn't specified and it cannot be determined from inside the derivatives directory. Please specify manually.") 
+                xml_dir = ''
         else:
             xml_dir = f'{outpath}/{evt_name}'
         
@@ -451,8 +466,8 @@ def rename_channels(sub, ses, chan, logger):
     else:
         return None  
     
-    if type(oldchans) == type(DataFrame()):
-        if type(newchans) == DataFrame and len(newchans.columns) != len(oldchans.columns):
+    if isinstance(oldchans,DataFrame):
+        if isinstance(newchans,DataFrame) and len(newchans.columns) != len(oldchans.columns):
             try:
                 oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
                 oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
@@ -481,7 +496,7 @@ def rename_channels(sub, ses, chan, logger):
                     chancell.append(x)
             chancell = [x for x in chancell if not x=='']
             oldchans_all.append(chancell)       
-        oldchans_to_be_renamed = oldchans_all[0]
+        oldchans_to_be_renamed = list(chain(*oldchans_all))
         
         # OLD Channels to be kept
         oldchans_to_be_kept = oldchans_to_be_kept.to_numpy() 
@@ -498,7 +513,7 @@ def rename_channels(sub, ses, chan, logger):
                     chancell.append(x)
             chancell = [x for x in chancell if not x=='']
             oldchans_all.append(chancell)       
-        oldchans_to_be_kept = oldchans_all[0]
+        oldchans_to_be_kept = list(chain(*oldchans_all))
         
         if type(newchans) == DataFrame:
             newchans = newchans.to_numpy() 
@@ -515,7 +530,7 @@ def rename_channels(sub, ses, chan, logger):
                         chancell.append(x)
                 chancell = [x for x in chancell if not x=='']
                 newchans_all.append(chancell)       
-            newchans = newchans_all[0]
+            newchans = list(chain(*newchans_all))
         
         if len(oldchans_to_be_renamed) == len(newchans):
             newchans = {chn:newchans[i] for i,chn in enumerate(oldchans_to_be_renamed)}

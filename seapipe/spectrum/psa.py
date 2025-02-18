@@ -166,14 +166,13 @@ class Spectrum:
     See individual functions for other attribute descriptions.
     """ 
     
-    def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, cat, rater = None, cycle_idx = None,
                  subs = 'all', sessions = 'all', tracking = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
-        self.log_dir = log_dir
         
         self.subs = subs
         self.sessions = sessions

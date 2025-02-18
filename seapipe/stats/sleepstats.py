@@ -14,13 +14,11 @@ from wonambi.attr import Annotations
 from ..utils.logs import create_logger, create_logger_outfile
                         
 def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all', 
-               rater = None,  times = None, log_dir = None, 
+               rater = None,  times = None, 
                logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging
     flag = 0
-    if not log_dir:
-        log_dir = out_dir
     logger.info('')
     
     ## 1. Get lights on & lights off file
@@ -142,14 +140,11 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
 
 
 def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all',
-                         log_dir = None, logger = create_logger('Export macro stats')):
+                         logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging
     flag = 0
-    if not log_dir:
-        log_dir = out_dir
-    logger.info('')
-    
+    logger.info('')    
     
     # 1. Get subjects
     if isinstance(subs, list):

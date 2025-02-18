@@ -72,7 +72,7 @@ def pac_method(method, surrogate, correction, list_methods=False):
 
 class octopus:
 
-    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
+    def __init__(self, rootpath, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs = 'all', 
                  sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                  tracking = None):
@@ -81,8 +81,6 @@ class octopus:
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
-        self.log_dir = log_dir
-        
         self.chan = chan
         self.ref_chan = ref_chan
         self.grp_name = grp_name
