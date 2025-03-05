@@ -40,8 +40,9 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
                         'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
                         'FASST', 'FASST2', 'Concordia','UCSD','spindle_adap', 
                         'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
-                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
-                        'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
+                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 
+                        'Lacourse2018_adap', 'FASST_adap', 'FASST2_adap', 
+                        'Concordia_adap','UCSD_adap']:
             xml_dir = f'{outpath}/spindle'
             
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004','slowwave',
@@ -59,36 +60,56 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
             
             if len(xml_dir) > 1:
                 xml_dir = [x for x in xml_dir if 'manual' in x]
+                logger.warning(f">1 derivatives directories have 'staging' in the "
+                               f"name. Will default to {xml_dir}")
                 
             if len(xml_dir) == 1:
                 xml_dir = f'{outpath}/{xml_dir[0]}'
-                logger.warning(f">1 derivatives directories have 'staging' in the name. Will default to {xml_dir}")
-                
+
             else:
-                logger.critical(" 'xml_dir' wasn't specified and it cannot be determined from inside the derivatives directory. Please specify manually.") 
+                logger.critical(" 'xml_dir' wasn't specified and it cannot be "
+                                "determined from inside the derivatives directory. "
+                                "Please specify manually.") 
                 xml_dir = ''
         else:
             xml_dir = f'{outpath}/{evt_name}'
         
     return xml_dir
 
-def select_output_dirs(outpath, out_dir, evt_name=None):
+def select_output_dirs(outpath, out_dir, evt_name=None, 
+                      logger = create_logger('Select outputs')):
             
     if not out_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
                         'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
                         'FASST', 'FASST2', 'Concordia','UCSD','spindle_adap', 
                         'Ferrarelli2007_adap', 'Nir2011_adap', 'Martin2013_adap', 
-                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 'Lacourse2018_adap', 
-                        'FASST_adap', 'FASST2_adap', 'Concordia_adap','UCSD_adap']:
+                        'Moelle2011_adap', 'Wamsley2012_adap', 'Ray2015_adap', 
+                        'Lacourse2018_adap', 'FASST_adap', 'FASST2_adap', 
+                        'Concordia_adap','UCSD_adap']:
             out_dir = f'{outpath}/spindle'
         elif evt_name in ['Ngo2015','Staresina2015','Massimini2004','slowwave',
                           'slowosc','SO']:
             out_dir = f'{outpath}/slowwave'
-        elif evt_name in ['macro']:
-            out_dir = f'{outpath}/staging'
         elif evt_name in ['pac']:
             out_dir = f'{outpath}/pac'
+            
+        elif evt_name in ['staging', 'macro', None]:
+            out_dir = [x for x in listdir(outpath) if 'staging' in x]
+            
+            if len(out_dir) > 1:
+                out_dir = [x for x in out_dir if 'manual' in x]
+                
+            if len(out_dir) == 1:
+                out_dir = f'{outpath}/{out_dir[0]}'
+                logger.warning(f">1 derivatives directories have 'staging' in "
+                               f"the name. Will default to {out_dir}")
+                
+            else:
+                logger.critical(" 'xml_dir' wasn't specified and it cannot be "
+                                "determined from inside the derivatives directory. "
+                                "Please specify manually.") 
+                xml_dir = ''    
         else:
             out_dir = f'{outpath}/{evt_name}'
     
@@ -155,7 +176,8 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                 create_empty_annotations(xml_file, dset)
                 logger.debug(f'Creating annotations file for {sub}, {ses}')
             else:
-                logger.warning(f'Annotations file exists for {sub}, {ses}, staging will be overwritten.')
+                logger.warning(f"Annotations file exists for {sub}, {ses}, staging "
+                               "will be overwritten.")
                 flag += 1
             annot = Annotations(xml_file)
             
@@ -175,17 +197,21 @@ def check_chans(rootpath, chan, ref_chan, logger):
     if chan is None:
         chan = read_tracking_sheet(f'{rootpath}', logger)
         if not isinstance(chan, DataFrame) and chan == 'error':
-            logger.error("Channels haven't been defined, and there was an error reading the tracking file.")
+            logger.error("Channels haven't been defined, and there was an error "
+                         "reading the tracking file.")
             logger.info('')
-            logger.info('Check documentation for how to set up channel data: https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
         
     if ref_chan is None:
         ref_chan = read_tracking_sheet(f'{rootpath}', logger)
         if not isinstance(ref_chan, DataFrame) and ref_chan == 'error':
-            logger.warning("Reference channels haven't been defined, and there was an error reading the tracking file.")
+            logger.warning("Reference channels haven't been defined, and there "
+                           "was an error reading the tracking file.")
             logger.info('')
-            logger.info('Check documentation for how to set up channel data: https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
             logger.warning('No re-referencing will be performed prior to analysis.')
             ref_chan = None
@@ -240,20 +266,23 @@ def load_sessions(sub, ses, rec_dir = None, flag = 0,
         sub_row = ses[ses['sub']==sub]
         if sub_row.size == 0:
             if verbose>0:
-                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file.")
+                logger.warning(f"Participant {sub} not found in column 'sub' in "
+                               "tracking file.")
                 flag+=1
                 return flag, None
         ses = [x for x in sub_row['ses']]
     elif type(ses) == str and ses == 'all':
         if not rec_dir:
-            logger.error("If loading sessions from tracking sheet with ses = 'all', rec_dir MUST be specified.")
+            logger.error("If loading sessions from tracking sheet with ses = 'all', "
+                         "rec_dir MUST be specified.")
             ses = None
             flag +=1
         else:   
             ses = listdir(rec_dir + '/' + sub)
             ses = [x for x in ses if not '.' in x]
     elif not type(ses) == list:
-        logger.error("'sessions' must be set to None,'all' or a list of sub ids. For session setup options, refer to documentation:")
+        logger.error("'sessions' must be set to None,'all' or a list of sub ids. "
+                     "For session setup options, refer to documentation:")
         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
         flag+=1
         return flag, None
@@ -313,14 +342,16 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant {sub} not found in column 'sub' in"
+                               f" tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session {ses} not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session {ses} not found in column 'ses' in "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Extract channels
@@ -328,7 +359,8 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No channel set found in tracking file for {sub}, {ses}, skipping...")
+                logger.warning("No channel set found in tracking file for "
+                               f"{sub}, {ses}, skipping...")
             flag+=1
             return flag, None
     else:
@@ -340,20 +372,24 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
         ref_chans = ref_chan[ref_chan['sub']==sub]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning("Participant not found in column 'sub' in "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans[ref_chans['ses']==ses]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning("Session not found in column 'ses' in tracking "
+                               f"file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans.filter(regex='refset')
         ref_chans = ref_chans.dropna(axis=1, how='all')
         if len(ref_chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No reference channel set found in tracking file for {sub}, {ses}. Progressing without re-referencing...")
+                logger.warning("No reference channel set found in tracking "
+                               f"file for {sub}, {ses}. Progressing without "
+                               "re-referencing...")
             ref_chans = []
     elif isinstance(ref_chan, list):
         ref_chans = ref_chan
@@ -367,9 +403,11 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
             chan = search_chans(chan)
             ref_chan=[]
             for c in chans:
-                ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
+                ref_chan.append([ref_chans[ref_chans.columns[x]].iloc[0] for 
+                                 x, y in enumerate(chan) if c in chan[y].iloc[0]][0])
             ref_chan = [char.split(x, sep=', ').tolist() for x in ref_chan]
-            chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else ref_chan[i] for i,chn in enumerate(chans)}
+            chanset = {chn:[ref_chan[i]] if isinstance(ref_chan[i],str) else 
+                       ref_chan[i] for i,chn in enumerate(chans)}
             
         elif isinstance(ref_chans, DataFrame):
             ref_chans = ref_chans.to_numpy()[0]
@@ -393,7 +431,11 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
     
     elif isinstance(chans, DataFrame):
         if type(ref_chans) == DataFrame and len(ref_chans.columns) != len(chans.columns):
-            logger.error(f"There must be the same number of channel sets and reference channel sets in 'tracking file, but for {sub}, {ses}, there were {len(chans.columns)} channel sets and {len(ref_chans.columns)} reference channel sets. For channel setup options, refer to documentation:")
+            logger.error("There must be the same number of channel sets and "
+                         "reference channel sets in 'tracking file, but for "
+                         f"{sub}, {ses}, there were {len(chans.columns)} channel "
+                         f"sets and {len(ref_chans.columns)} reference channel sets. "
+                         "For channel setup options, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             flag+=1
             return flag, None
@@ -412,7 +454,7 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
                         refcell.append(x)
                 refcell = [x for x in refcell if not x=='']
                 ref_chans_all.append(refcell)
-            
+            ref_chans = [x for x in ref_chans_all if not x=='']
         
         chans = chans.to_numpy()[0]
         chans = chans.astype(str)
@@ -428,14 +470,16 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
                     chancell.append(x)
             chancell = [x for x in chancell if not x=='']
             chans_all.append(chancell)
+        chans = chans_all
 
-        if len(ref_chans_all)>0:
-            chanset = {key:ref_chans_all[i] for i,chn in enumerate(chans_all) for key in chn}
+        if len(ref_chans)>0:
+            chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
         else:
-            chanset = {key:[] for i,chn in enumerate(chans_all) for key in chn}
+            chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
         
     else:
-        logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
+        logger.error("The variable 'chan' should be a [list] or definied in the "
+                     "'chanset' column of tracking file - NOT a string.")
         flag+=1
         return flag, None
     
@@ -472,7 +516,12 @@ def rename_channels(sub, ses, chan, logger):
                 oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
                 oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
             except:
-                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets. For info on how to rename channels, refer to documentation:")
+                logger.warning(f"There must be the same number of channel sets "
+                               "and channel rename sets in tracking file, but "
+                               f"for {sub}, {ses}, there were {len(oldchans.columns)} "
+                               f"channel sets and {len(newchans.columns)} channel "
+                               "rename sets. For info on how to rename channels, "
+                               "refer to documentation:")
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.warning(f"Using original channel names for {sub}, {ses}...")
                 return None
@@ -537,7 +586,11 @@ def rename_channels(sub, ses, chan, logger):
             n = {x:x for x in oldchans_to_be_kept}
             newchans = n | newchans
         else:
-            logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names. For info on how to rename channels, refer to documentation:")
+            logger.warning(f"There must be the same number of original channel "
+                           f"names and new renamed channels in tracking file, "
+                           f"but for {sub}, {ses}, there were {len(oldchans)} old "
+                           f"channel and {len(newchans)} new channel names. For "
+                           "info on how to rename channels, refer to documentation:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.warning(f"Using original channel names for {sub}, {ses}...")
             return None
@@ -559,14 +612,16 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant {sub} not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant {sub} not found in column 'sub' in "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session {ses} not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session {ses} not found in column 'ses' in "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -574,7 +629,8 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}, skipping...")
+                logger.warning(f"No stagechan found in tracking file for {sub}, "
+                               f"{ses}, skipping...")
             flag+=1
             return flag, None
     else:
@@ -586,20 +642,23 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         ref_chans = ref_chan[ref_chan['sub']==sub]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant not found in column 'sub' in tracking "
+                               f"file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans[ref_chans['ses']==ses]
         if ref_chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session not found in column 'ses' in tracking "
+                               f"file for {sub}, {ses}.")
             flag+=1
             return flag, None
         ref_chans = ref_chans.filter(regex='refset')
         ref_chans = ref_chans.dropna(axis=1, how='all')
         if len(ref_chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No reference channel set found in tracking file for {sub}, {ses}. Progressing without re-referencing...")
+                logger.warning(f"No reference channel set found in tracking file "
+                               f"for {sub}, {ses}. Progressing without re-referencing...")
             ref_chans = []
     elif ref_chan:
         ref_chans = ref_chan
@@ -638,7 +697,9 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         
         if type(ref_chans) == DataFrame:
             if len(ref_chans.columns) != len(chans.columns):
-                logger.warning(f"There were >2 reference channel sets in 'tracking' file for {sub}, {ses}, we will just use the first set for automatic staging.")
+                logger.warning(f"There were >2 reference channel sets in 'tracking' "
+                               f"file for {sub}, {ses}, we will just use the "
+                               "first set for automatic staging.")
                 ref_chans = ref_chans.iloc[:,0]
                 
             ref_chans = ref_chans.to_numpy()[0]
@@ -661,7 +722,8 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
             chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
         
     else:
-        logger.error("The variable 'chan' should be a [list] or definied in the 'chanset' column of tracking file - NOT a string.")
+        logger.error("The variable 'chan' should be definied in the 'chanset' "
+                     "column of tracking file or a [list] - NOT a string.")
         flag+=1
         return flag, None
     
@@ -680,14 +742,16 @@ def load_eog(sub, ses, chan, flag, logger, verbose=2):
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Participant not found in column 'sub' in "
+                               f"the tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning(f"Session not found in column 'ses' in the tracking "
+                               f"file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -695,7 +759,8 @@ def load_eog(sub, ses, chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No stagechan found in tracking file for {sub}, {ses}...")
+                logger.warning("No stagechan found in tracking file for "
+                               f"{sub}, {ses}...")
             flag+=1
             return flag, []
         chans = [x for x in chans['eog']]
@@ -716,14 +781,16 @@ def load_emg(sub, ses, chan, flag, logger, verbose=2):
         chans = chan[chan['sub']==sub]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+                logger.warning("Participant not found in column 'sub' in the "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search session
         chans = chans[chans['ses']==ses]
         if chans.size == 0:
             if verbose>0:
-                logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+                logger.warning("Session not found in column 'ses' in the "
+                               f"tracking file for {sub}, {ses}.")
             flag+=1
             return flag, None
         # Search channel
@@ -745,7 +812,8 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
         track = read_tracking_sheet(rootpath, logger)
     except:
         logger.error("Error reading tracking sheet. Check that it isn't open.")
-        logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
+        logger.info("For info how to use adap_bands = 'Manual' in detections, "
+                    "refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error'
@@ -756,13 +824,17 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
     peaks = peaks.dropna(axis=1, how='all')
     
     if len(peaks.columns) == 0:
-        logger.error("No spectral peaks have been provided in tracking file. Peaks will need to be detected.")
-        logger.info("Check documentation for how to use adap_bands = 'Manual' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.error("No spectral peaks have been provided in tracking file. "
+                     "Peaks will need to be detected.")
+        logger.info("Check documentation for how to use adap_bands = 'Manual' "
+                    "in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error'
     elif len(peaks.columns) != len(chans.columns):
-        logger.error("There must be the same number of channel sets and spectral peaks sets in tracking file")
-        logger.info("Check documentation for how to use adap_bands = 'Manual' in detections: https://seapipe.readthedocs.io/en/latest/index.html")
+        logger.error("There must be the same number of channel sets and spectral "
+                     "peaks sets in tracking file")
+        logger.info("Check documentation for how to use adap_bands = 'Manual' "
+                    "in detections: https://seapipe.readthedocs.io/en/latest/index.html")
         return 'error'
     
     sub = {}
@@ -771,13 +843,16 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
             chs = reshape(char.split(str(row), sep=', '), (1,1))[0][0]
             pks = reshape(char.split(str(peaks.iloc[r,c]), sep=', '), (1,1))[0][0]  
             if len(chs) != len(pks) and 'nan' not in (pks):
-                logger.warning(f"For {track['sub'][r]}, {track['ses'][r]} the number of channels provided ({len(chs)}) != the number of spectral peaks ({len(pks)}).")
+                logger.warning(f"For {track['sub'][r]}, {track['ses'][r]} the "
+                               f"number of channels provided ({len(chs)}) != the "
+                               f"number of spectral peaks ({len(pks)}).")
                 if not track['sub'][r] in sub.keys():
                     sub[track['sub'][r]] = [track['ses'][r]]
                 else:
                     sub[track['sub'][r]].append(track['ses'][r])
             elif 'nan' in (pks) and 'nan' not in (chs):
-                logger.warning(f"For {track['sub'][r]}, {track['ses'][r]} no peaks have been provided.")
+                logger.warning(f"For {track['sub'][r]}, {track['ses'][r]} no "
+                               "peaks have been provided.")
                 if not track['sub'][r] in sub.keys():
                     sub[track['sub'][r]] = [track['ses'][r]]
                 else:
@@ -798,19 +873,22 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
         track = read_tracking_sheet(rootpath, logger)
     except:
         logger.error("Error reading tracking sheet. Check that it isn't open.")
-        logger.info("For info how to use adap_bands = 'Manual' in detections, refer to documentation:")
+        logger.info("For info how to use adap_bands = 'Manual' in detections, "
+                    "refer to documentation:")
         logger.info(" https://seapipe.readthedocs.io/en/latest/index.html")
         logger.info('-' * 10)
         return 'error'
 
     track = track[track['sub']==sub]
     if len(track.columns) == 0:
-        logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+        logger.warning(f"Participant not found in column 'sub' in tracking file "
+                       "for {sub}, {ses}.")
         return None
     # Search session
     track = track[track['ses']==ses]
     if len(track.columns) == 0:
-        logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+        logger.warning("Session not found in column 'ses' in tracking file for "
+                       f"{sub}, {ses}.")
         return None
     
     # Search channel
@@ -854,7 +932,9 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
         freq = (peaks[chans.index(chan)] - adap_bw/2, 
             peaks[chans.index(chan)] + adap_bw/2)
     except:
-        logger.warning('Inconsistent number of peaks and number of channels listed in tracking sheet for {sub}, {ses}. Will use Fixed frequency bands instead...')
+        logger.warning('Inconsistent number of peaks and number of channels '
+                       'listed in tracking sheet for {sub}, {ses}. Will use '
+                       'Fixed frequency bands instead...')
         freq = None
     
     return freq
@@ -874,10 +954,12 @@ def load_adap_bands(tracking, sub, ses, ch, stage, band_limits, adap_bw, logger)
     files = [x for x in files if band_limits in x['Bandwidth']]
 
     if len(files) == 0:
-        logger.warning(f'No specparams export file found for {sub}, {ses}, {ch}, {stage}, {band_limits}.')
+        logger.warning(f"No specparams export file found for {sub}, {ses}, {ch}," 
+                       f"{stage}, {band_limits}.")
         return None
     elif len(files) > 1:
-        logger.warning(f'>1 specparams export files found for {sub}, {ses}, {ch}, {stage}, {band_limits} ?')
+        logger.warning(f">1 specparams export files found for {sub}, {ses}, {ch}, "
+                       f"{stage}, {band_limits} ?")
         return None
     else:
         file = files[0]['File']
@@ -891,7 +973,8 @@ def load_adap_bands(tracking, sub, ses, ch, stage, band_limits, adap_bw, logger)
     if len(df.columns) == 3:
         peak = df.filter(regex='CF').values[0][0]
     elif len(df.columns) == 0: 
-        logger.warning(f'No peaks found in export file for {sub}, {ses}, {ch}, {stage}, {band_limits}.')
+        logger.warning(f"No peaks found in export file for {sub}, {ses}, {ch}, "
+                       f"{stage}, {band_limits}.")
         return None
     else:
         BW = df.filter(regex='BW')
@@ -911,12 +994,14 @@ def read_inversion(sub, ses, invert, chan, logger):
         # Search participant
         chans = invert[invert['sub']==sub]
         if len(chans.columns) == 0:
-            logger.warning(f"Participant not found in column 'sub' in tracking file for {sub}, {ses}.")
+            logger.warning(f"Participant not found in column 'sub' in tracking "
+                           f"file for {sub}, {ses}.")
             return None
         # Search session
         chans = chans[chans['ses']==ses]
         if len(chans.columns) == 0:
-            logger.warning(f"Session not found in column 'ses' in tracking file for {sub}, {ses}.")
+            logger.warning(f"Session not found in column 'ses' in tracking file "
+                           f"for {sub}, {ses}.")
             return None
         
         # Search channel
@@ -926,7 +1011,8 @@ def read_inversion(sub, ses, invert, chan, logger):
         chans = chans.dropna(axis=1, how='all')
         
         if len(inversion.columns) == 0:
-            logger.warning(f"No inversion info found in tracking file for {sub}, {ses}.")
+            logger.warning(f"No inversion info found in tracking file for "
+                           f"{sub}, {ses}.")
             return None
 
         chans = chans.to_numpy()[0]
@@ -943,7 +1029,9 @@ def read_inversion(sub, ses, invert, chan, logger):
             inversion = inversion[chans.index(chan)]
             return inversion
         else:
-            logger.warning(f"Error reading inversion info for {sub}, {ses}, {chan} - check documentation for how to provide information for inversion:")
+            logger.warning(f"Error reading inversion info for {sub}, {ses}, {chan} "
+                           "- check documentation for how to provide information "
+                           "for inversion:")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             return None
     
@@ -952,7 +1040,8 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
-    logger.debug(f"Attempting to infer reference channel for {sub}, {ses} from tracking sheet...")
+    logger.debug(f"Attempting to infer reference channel for {sub}, {ses} from "
+                 "tracking sheet...")
     if isinstance(chan, DataFrame):
         # Search participant
         chans = chan[chan['sub']==sub]
@@ -971,14 +1060,16 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
         oldchans = oldchans.dropna(axis=1, how='all')
         if len(oldchans.columns) == 0:
             if verbose>1:
-                logger.debug(f"'Chanset' for {sub} {ses} empty or not found in tracking sheet (reference cannot be inferred).")
+                logger.debug(f"'Chanset' for {sub} {ses} empty or not found in "
+                             "tracking sheet (reference cannot be inferred).")
             return None
         # Search chansets (new names for output)
         newchans = chans.filter(regex='rename')
         newchans = newchans.dropna(axis=1, how='all')
         if len(newchans.columns) == 0:
             if verbose>1:
-                logger.debug(f"Column 'newchans' empty or not found in tracking sheet, so cannot infer reference channels true name.")
+                logger.debug(f"Column 'newchans' empty or not found in tracking "
+                             "sheet, so cannot infer reference channels true name.")
             return None
     else:
         return None
@@ -987,7 +1078,10 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
     if isinstance(oldchans, DataFrame):
         if isinstance(newchans, DataFrame) and len(newchans.columns) != len(oldchans.columns):
             if verbose>0:
-                logger.warning(f"There must be the same number of channel sets and channel rename sets in tracking file, but for {sub}, {ses}, there were {len(oldchans.columns)} channel sets and {len(newchans.columns)} channel rename sets.")
+                logger.warning(f"There must be the same number of channel sets "
+                               "and channel rename sets in tracking file, but "
+                               f"for {sub}, {ses}, there were {len(oldchans.columns)} "
+                               f"channel sets and {len(newchans.columns)} channel rename sets.")
                 if verbose > 1:
                     logger.debug("For info on how to rename channels, refer to documentation:")
                     logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
@@ -1008,11 +1102,15 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
             ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF'][0]
             if len(ref_chan) < 1:
                 if verbose>1:
-                    logger.debug(f"No channels named '_REF' in tracking sheet, so cannot infer reference channel.")
+                    logger.debug(f"No channels named '_REF' in tracking sheet, "
+                                 "so cannot infer reference channel.")
                 return None
         else:
             if verbose>0:
-                logger.warning(f"There must be the same number of original channel names and new renamed channels in tracking file, but for {sub}, {ses}, there were {len(oldchans)} old channel and {len(newchans)} new channel names.")
+                logger.warning(f"There must be the same number of original channel "
+                               "names and new renamed channels in tracking file, "
+                               f"but for {sub}, {ses}, there were {len(oldchans)} "
+                               f"old channel and {len(newchans)} new channel names.")
                 if verbose > 1:
                     logger.debug("For info on how to rename channels, refer to documentation:")
                     logger.info('https://seapipe.readthedocs.io/en/latest/index.html')

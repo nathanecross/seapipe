@@ -249,8 +249,25 @@ class pipeline:
 
         return   
 
-    def make_bids(self, subs = 'all', origin = 'SCN'):
-        make_bids(self.datapath, subs, origin)
+    def make_bids(self, subs = 'all', origin = 'SCN', filetype = '.edf',
+                  outfile = True):
+        # Set up logging
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H%M%S")
+            logfile = f'{self.log_dir}/make_bids_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Make bids')
+            logger.info('')
+            logger.info(f"-------------- New call of 'Load sleep stages' evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Make bids')
+        else:
+            logger = create_logger('Make bids')
+        logger.info('')
+        logger.debug('Formatting dataset into BIDS.')
+        
+        make_bids(self.datapath, subs, origin, filetype)
         
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude)
@@ -337,7 +354,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -453,9 +471,11 @@ class pipeline:
         if invert == None:
             invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
-            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.critical("The argument 'invert' must be set to either: "
+                            f"'True', 'False' or 'None'; but it was set as {invert}.")
             logger.info('')
-            logger.info('Check documentation for how to set up staging data: https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info("Check documentation for how to set up staging data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
             logger.critical('Sleep stage detection finished with ERRORS. See log for details.')
             return
@@ -473,10 +493,11 @@ class pipeline:
     
     def detect_artefacts(self, xml_dir = None, out_dir = None, 
                                subs = 'all', sessions = 'all', filetype = '.edf', 
-                               method = 'yasa_std', win_size = 5,
+                               method = 'seapipe', win_size = 5,
                                eeg_chans = None, ref_chans = None, 
-                               eog_chan = None, emg_chan = None, 
-                               rater = None, grp_name = 'eeg', stage = None,
+                               eog_chan = None, label = 'allchans',
+                               rater = None, grp_name = 'eeg', 
+                               stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                outfile = True):
         
         # Set up logging
@@ -501,7 +522,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -530,9 +552,10 @@ class pipeline:
     
         # Check annotations directory exists, run detection
         artefacts = SAND(in_dir, xml_dir, out_dir, eeg_chans, ref_chan, eog_chan, 
-                         emg_chan, rater, grp_name, subs, sessions, self.tracking) 
-        artefacts.detect_artefacts(method, filetype, win_size, stage,
+                         rater, grp_name, subs, sessions, self.tracking) 
+        artefacts.detect_artefacts(method, label,  win_size,  filetype, stage,
                                    logger)
+                                   
     
         try:
             self.tracking = self.tracking | artefacts.tracking
@@ -575,7 +598,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -669,7 +693,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -698,7 +723,8 @@ class pipeline:
         if invert == None:
             invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
-            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.critical(f"The argument 'invert' must be set to either: 'True', "
+                            f"'False' or 'None'; but it was set as {invert}.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -760,7 +786,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -796,18 +823,21 @@ class pipeline:
         else:
             cat = (0,0,1,1)
             if not cycle_idx:
-                logger.error("'concat_cycle' is set to false, but 'cycle_idx' = None. Set cycle_idx to a list of integers to use cycles properly.")
+                logger.error("'concat_cycle' is set to false, but 'cycle_idx' = None. "
+                             "Set cycle_idx to a list of integers to use cycles properly.")
                 logger.info("Check documentation for how to mark and use sleep cycles:")
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 return
                 
         # Check for adapted bands
         if adap_bands == 'Fixed':
-            logger.debug('Detection using FIXED frequency bands has been selected (adap_bands = Fixed)')
+            logger.debug("Detection using FIXED frequency bands has been selected "
+                         "(adap_bands = Fixed)")
             if not frequency:
                 frequency = (11,16)
         elif adap_bands == 'Manual':
-            logger.debug('Detection using ADAPTED (user-provided) frequency bands has been selected (adap_bands = Manual)')
+            logger.debug("Detection using ADAPTED (user-provided) frequency bands "
+                         "has been selected (adap_bands = Manual)")
             logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
             flag = check_adap_bands(self.rootpath, subs, sessions, chan, logger)
             if flag == 'error':
@@ -815,15 +845,19 @@ class pipeline:
                 return
             elif flag == 'review':
                 logger.info('')
-                logger.warning(f"Some spectral peak entries in 'tracking.tsv' are inconsistent or missing. In these cases, detection will revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
+                logger.warning("Some spectral peak entries in 'tracking.tsv' are "
+                               "inconsistent or missing. In these cases, detection will "
+                               f"revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
                 logger.info('')
         elif adap_bands == 'Auto': 
             if not frequency:
                 frequency = (9,16)           
-            logger.debug('Detection using ADAPTED (automatic) frequency bands has been selected (adap_bands = Auto)')
+            logger.debug("Detection using ADAPTED (automatic) frequency bands has "
+                         "been selected (adap_bands = Auto)")
             self.track(subs, sessions, step = 'fooof', show = False, log = False)
             if not type(chan) == type(DataFrame()):
-                logger.critical("For adap_bands = Auto, the argument 'chan' must be 'None' and specfied in 'tracking.csv'")
+                logger.critical("For adap_bands = Auto, the argument 'chan' must "
+                                "be 'None' and specfied in 'tracking.csv'")
                 logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
             else:
@@ -841,7 +875,8 @@ class pipeline:
                 logger.critical('Spindle detection finished with ERRORS. See log for details.')
                 return
             elif flag == 'review':
-                logger.debug('Spectral peaks have not been found for all subs, analysing the spectral parameters prior to spindle detection..')
+                logger.debug("Spectral peaks have not been found for all subs, "
+                             "analysing the spectral parameters prior to spindle detection..")
                 for (sub,ses) in zip(pk_sub,pk_ses):
                     self.detect_spectral_peaks(subs = [sub], 
                                            sessions = [ses], 
@@ -972,7 +1007,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1042,7 +1078,8 @@ class pipeline:
             
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1071,7 +1108,8 @@ class pipeline:
         if invert == None:
             invert = check_chans(self.rootpath, chan, False, logger)
         elif type(invert) != bool:
-            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.critical("The argument 'invert' must be set to either: "
+                            f"'True', 'False' or 'None'; but it was set as {invert}.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1082,7 +1120,9 @@ class pipeline:
         
         
         if not evt_type:
-            logger.warning('No event type (evt_type) has been specified. Spectrogram will be run on epochs instead. This may take some time...')
+            logger.warning("No event type (evt_type) has been specified. "
+                           "Spectrogram will be run on epochs instead. "
+                           "This may take some time...")
         
         event_spectrogram(self, in_dir, xml_dir, out_dir, subs, sessions, stage, 
                                 cycle_idx, chan, ref_chan, rater, grp_name, 
@@ -1139,7 +1179,8 @@ class pipeline:
 
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been run or hasn't been converted correctly.")
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1180,7 +1221,8 @@ class pipeline:
         if invert == None:
             invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
-            logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+            logger.critical("The argument 'invert' must be set to either: "
+                            f"'True', 'False' or 'None'; but it was set as {invert}.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1205,7 +1247,7 @@ class pipeline:
                            frequency_opts, event_opts, filetype, idpac, evt_name, 
                            min_dur, adap_bands_phase, frequency_phase, 
                            adap_bands_amplitude, frequency_amplitude, 
-                           adap_bw, invert, progress, outfile)
+                           adap_bw, invert, progress, logger)
         else: #PACATS
             if not out_dir:
                 out_dir = f'{self.outpath}/pac'  
@@ -1245,7 +1287,9 @@ class pipeline:
     
     def export_macro_stats(self, xml_dir = None, out_dir = None, 
                                  subs = 'all', sessions = 'all', 
-                                 times = None, rater = None, outfile = True):
+                                 times = None, rater = None, 
+                                 arousal_name = ['Arousal', 'Arou'], 
+                                 outfile = True):
         
         # Set up logging
         if outfile == True:
@@ -1272,12 +1316,11 @@ class pipeline:
         # Set channels
         times, ref_chan = check_chans(self.rootpath, None, True, logger)
         
-        self.track(subs=subs, ses=sessions, 
-                   step=['staging'],
-                   show=False, log=True)
+        self.track(subs = subs, ses = sessions, step = ['staging'], show = False, 
+                   log = True)
         
         sleepstats.export_sleepstats(xml_dir, out_dir, subs, sessions, 
-                                     rater, times, logger)
+                                     rater, times, arousal_name, logger)
         return
     
     def macro_dataset(self, xml_dir = None, out_dir = None, 
@@ -1357,7 +1400,8 @@ class pipeline:
             # Check annotations directory exists
             if not path.exists(xml_dir):
                 logger.info('')
-                logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+                logger.critical(f"{xml_dir} doesn't exist. Event detection has not "
+                                "been run or an incorrect event type has been selected.")
                 logger.info('Check documentation for how to run a pipeline:')
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.info('-' * 10)
@@ -1416,7 +1460,8 @@ class pipeline:
         elif isinstance(evt_name, list):
             evts = evt_name
         else:
-            logger.error(TypeError(f"'evt_name' can only be a str or a list of str, but {type(evt_name)} was passed."))
+            logger.error(TypeError("'evt_name' can only be a str or a list of str, "
+                                   f"but {type(evt_name)} was passed."))
             logger.info('Check documentation for how to create an event_dataset:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1442,7 +1487,8 @@ class pipeline:
             logger.debug(f'Input annotations being read from: {xml_dir}')
             if not path.exists(xml_dir):
                 logger.info('')
-                logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+                logger.critical(f"{xml_dir} doesn't exist. Event detection has not "
+                                "been run or an incorrect event type has been selected.")
                 logger.info('Check documentation for how to run a pipeline:')
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.info('-' * 10)
@@ -1515,7 +1561,8 @@ class pipeline:
         logger.debug(f'Input annotations being read from: {xml_dir}')
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. PAC detection has not been run or an incorrect type has been selected.")
+            logger.critical(f"{xml_dir} doesn't exist. PAC detection has not been "
+                            "run or an incorrect type has been selected.")
             logger.info('Check documentation for how to run a pipeline:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
@@ -1580,7 +1627,8 @@ class pipeline:
         logger.debug(f'Input annotations being read from: {xml_dir}')
         if not path.exists(xml_dir):
             logger.info('')
-            logger.critical(f"{xml_dir} doesn't exist. Event detection has not been run or an incorrect event type has been selected.")
+            logger.critical(f"{xml_dir} doesn't exist. Event detection has not "
+                            "been run or an incorrect event type has been selected.")
             logger.info('Check documentation for how to run a pipeline:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)

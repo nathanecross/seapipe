@@ -102,7 +102,7 @@ class octopus:
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
                  adap_bw = 4, invert = False, progress=True,
-                 outfile = 'detect_event_pac_log.txt'):
+                 logger = create_logger('Phase-amplitude coupling')):
 
         '''
         O.C.T.O.P.U.S
@@ -170,18 +170,7 @@ class octopus:
         ### 0.a Set up logging
         tracking = self.tracking
         flag = 0
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_coupling_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Phase Amplitude Coupling' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-        else:
-            logger = create_logger('Phase-amplitude coupling')
+        
         
         logger.info('')
         logger.debug(rf"""Commencing phase-amplitude coupling pipeline... 

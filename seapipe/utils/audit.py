@@ -8,7 +8,7 @@ Created on Mon Jul 31 13:36:12 2023
 from copy import deepcopy
 from datetime import datetime
 from os import listdir, mkdir, path, rename, walk
-from numpy import array, delete
+from numpy import array, delete, where
 from pandas import DataFrame, read_csv
 from wonambi import Dataset
 from wonambi.attr import Annotations
@@ -28,7 +28,9 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf',
     
     datapath = path.join(rootpath, 'DATA')
     if not path.exists(datapath):
-        logger.error(f'PATH: {datapath} does not exist. Check documentation for how to arrange data:\nhttps://seapipe.readthedocs.io/en/latest/index.html\n')
+        logger.error(f"PATH: {datapath} does not exist. Check documentation for "
+                     "how to arrange data:"
+                     "\nhttps://seapipe.readthedocs.io/en/latest/index.html\n")
         return DataFrame()
     
     logger.debug(f'Checking dataset in directory: {datapath}')
@@ -81,15 +83,19 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf',
                     files = [f for f in real_files if any(ft in f for ft in filetype)]
                     if len(files) == 1:
                         edfs += 1
-                        filesize += sum([path.getsize(path.join(eeg_dir, f)) for f in files if any(ft in f for ft in filetype)])
+                        filesize += sum([path.getsize(path.join(eeg_dir, f)) for
+                                         f in files if any(ft in f for ft in filetype)])
                     elif len(files) > 1:
                         finalbids += 1
-                        logger.critical(f'BIDS incompatibility. >1 recording file found for {sub}, {ses}. There should only be 1 recording per session directory\n')
+                        logger.critical("BIDS incompatibility. >1 recording file "
+                                        f"found for {sub}, {ses}. There should only "
+                                        "be 1 recording per session directory\n")
                     else:
                         logger.warning(f'{sub}, {ses} has no files\n')
                 else:
                     finalbids += 1
-                    logger.critical(f"BIDS incompatibility. No 'eeg' directory found for {sub}, {ses}\n")
+                    logger.critical("BIDS incompatibility. No 'eeg' directory found "
+                                    f"for {sub}, {ses}\n")
                     logger.info('Check documentation for how to setup data in BIDS:')
                     logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                     logger.info('-' * 10)
@@ -190,6 +196,94 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf'):
                     
                     dst = f'{odir}/sub-{newfile}_ses-{ses}_eeg.xml'
                     rename(src, dst)
+    
+    
+    if origin=='Woolcock':
+        
+        if subs == 'all':
+            subs = [x for x in listdir(in_dir) if '.' not in x]
+        
+        # Loop subjects
+        for s, sub in enumerate(subs):
+            
+            # Check for preceeding 'sub-' label
+            newsub = f'sub-{sub}' if not 'sub' in sub else sub
+            
+            # Update name of subject directory
+            src = f'{in_dir}/{sub}'
+            dst = f'{in_dir}/{newsub}'
+            rename(src, dst)
+            
+            # Loop sessions
+            sess = [x for x in listdir(dst) if '.' not in x]
+            for s, ses in enumerate(sess):
+                
+                # Check for preceeding 'sub-' label
+                newses = f'ses-{ses}' if not 'ses' in ses else ses
+                
+                # Update name of session directory
+                src = f'{in_dir}/{newsub}/{ses}'
+                newdir = f'{in_dir}/{newsub}/{newses}/'
+                rename(src, newdir)
+                
+
+                # Make derivatives, staging, <sub>, <ses> folders
+                odir = '/'.join(in_dir.split('/')[0:-1]) + '/derivatives/'
+                if not path.exists(odir):
+                    mkdir(odir)
+                odir = f'{odir}/staging_manual/'
+                if not path.exists(odir):
+                    mkdir(odir)
+                odir = f'{odir}/{newsub}/'
+                if not path.exists(odir):
+                    mkdir(odir)
+                odir = f'{odir}/{newses}/'
+                if not path.exists(odir):
+                    mkdir(odir)
+                
+                # Move XMLs to derivatives 
+                files = [x for x in listdir(newdir) if not x.startswith('.')]
+                mkdir(f'{in_dir}/{newsub}/{newses}/eeg')
+                for f, file in enumerate(files):
+                    src = f'{newdir}/{file}'
+                    
+                    # Rename files
+                    file_parts = file.split('_')
+                    if len(file_parts) > 1:
+                        
+                        sub_ind = [i for i,x in enumerate(file_parts) if
+                                    'sub' in x]
+                        if len(sub_ind) < 1:
+                            sub_ind = None
+                        else:
+                            sub_ind = sub_ind[0]
+                        
+                        ses_ind = [i for i,x in enumerate(file_parts) if
+                                    'ses' in x]
+                        if len(ses_ind) < 1:
+                            ses_ind = None
+                        else:
+                            ses_ind = ses_ind[0]
+                        
+                        if sub_ind is None:
+                            file_parts.insert(0, 'sub_')
+                        if ses_ind is None:
+                            file_parts[sub_ind + 1] = newses 
+                        else:
+                            file_parts[ses_ind] = newses
+                        newfile = '_'.join(file_parts)    
+                    else:
+                        ext = file.split('.')[-1]
+                        newfile = f'{newsub}_{newses}_task-psg_eeg.{ext}' 
+                        
+                    if '.xml' in newfile:
+                        dst = f'{odir}/{newfile}'
+                    else:
+                        dst = f'{newdir}/eeg/{newfile}'
+                    rename(src, dst)
+    
+    # Finally check dataset
+    check_dataset('/'.join(in_dir.split('/')[0:-1]), filetype)
                     
 def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
     

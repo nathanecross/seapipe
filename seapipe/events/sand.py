@@ -15,10 +15,30 @@ from wonambi.trans import fetch
 import mne
 from scipy.signal import find_peaks, peak_widths
 import yasa
-from numpy import array, multiply
+from numpy import (array, concatenate, convolve, cumsum, full, multiply, nan, 
+                   ones, repeat, roll, where, zeros)
 from copy import deepcopy
 from ..utils.logs import create_logger
-from ..utils.load import load_channels, load_sessions
+from ..utils.load import load_channels, load_sessions, rename_channels
+from ..utils.misc import merge_events, reconstruct_stitches, remove_duplicate_evts
+
+
+def detect_above_zero_regions(signal):
+    # Find transitions
+    starts = where(diff(signal.astype(int)) >0)[0] + 1
+    ends = where(diff(signal.astype(int)) <0)[0] + 1
+
+    # Edge case: If signal starts above 0
+    if signal[0]:
+        starts = insert(starts, 0, 0)
+    
+    # Edge case: If signal ends above 0
+    if signal[-1]:
+        ends = append(ends, len(signal))
+
+    return list(zip(starts, ends))    
+    
+
 
 class SAND:
     
@@ -33,7 +53,7 @@ class SAND:
     """   
     
     def __init__(self, rec_dir, xml_dir, out_dir, eeg_chan, ref_chan,
-                 eog_chan, emg_chan, rater = None, grp_name = 'eeg', 
+                 eog_chan, rater = None, grp_name = 'eeg', 
                  subs='all', sessions='all', tracking = None):
         
         self.rec_dir = rec_dir
@@ -42,7 +62,6 @@ class SAND:
         self.eeg_chan = eeg_chan
         self.ref_chan = ref_chan
         self.eog_chan = eog_chan
-        self.emg_chan = emg_chan
         self.rater = rater
         self.grp_name = grp_name
         
@@ -54,8 +73,8 @@ class SAND:
         self.tracking = tracking
 
 
-    def detect_artefacts(self, method, filetype = '.edf', 
-                               win_size = 5, 
+    def detect_artefacts(self, method, label = "allchans", win_size = 5,
+                               filetype = '.edf', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                logger = create_logger('Detect artefacts')):
         
@@ -81,7 +100,11 @@ class SAND:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        
+        if label == "allchans":
+            chan_msg = "All channels at once."
+        else:
+            chan_msg = "Each channel individually."
+            
         logger.info('')
         logger.debug(rf"""Commencing artefact detection... 
                      
@@ -104,6 +127,8 @@ class SAND:
                     (S.A.N.D)
 
                     Method: {method}
+                    
+                    Applying to: {chan_msg} 
                     
                                                     """,)
         ### 1. First we check the directories
@@ -155,17 +180,19 @@ class SAND:
                     logger.warning(f'Skipping {sub}, {ses}...')
                     break
                 
-                # Check if references are the same for each channel
-                chans = [[x for x in chanset]]
-                ref_chans = {tuple(val) for val in chanset.values()}
-                # If not, setup for running per channel
-                if len(ref_chans) > 1:
-                    logger.debug(f'Channel:reference pairings are unique for {sub}, {ses}. Detecting artefact per channel.')
-                    ref_chans = [list(tuple(val)) for val in chanset.values()]
-                    chans = chans[0]
-                else:
-                    ref_chans = [list(tup) for tup in ref_chans]
+                newchans = rename_channels(sub, ses, self.eeg_chan, logger) 
                 
+                # Check if applying to all channels or chan-by-chan
+                if label == "allchans":
+                    # Check if references are the same for each channel
+                    ref_chans = {tuple(val) for val in chanset.values()}
+                    # If not, setup for running per channel
+                    if len(ref_chans) > 1:
+                        logger.warning("Channel setup 'all_chans' was set 'True', but "
+                                       f"Channel:Reference pairings are unique for {sub}, "
+                                       f"{ses}. Therefore, we'll detect artefacts PER CHANNEL.")
+                        flag += 1
+                        label = "individual"
 
                 # d. Load/create for annotations file
                 if not path.exists(self.xml_dir + '/' + sub):
@@ -177,11 +204,14 @@ class SAND:
                 if not path.exists(xml_file):
                     dset = Dataset(rdir + edf_file)
                     create_empty_annotations(xml_file, dset)
-                    logger.warning(f'No annotations file exists. Creating annotations file for {sub}, {ses} and detecting Artefacts WITHOUT hypnogram.')
+                    logger.warning(f"No annotations file exists. Creating" 
+                                   f"annotations file for {sub}, {ses} and" 
+                                   "detecting Artefacts WITHOUT hypnogram.")
                     annot = Annotations(xml_file)
                     hypno = None
                 else:
-                    logger.debug(f'Annotations file exists for {sub}, {ses}, staging will be used for Artefact detection.')
+                    logger.debug(f'Annotations file exists for {sub}, {ses},'
+                                 'staging will be used for Artefact detection.')
 
                     # Extract hypnogram
                     annot = Annotations(xml_file)
@@ -198,17 +228,18 @@ class SAND:
                     hypno = array([int(stage_key[x]) for x in hypno])
                 
                 
-                for chan, ref in zip(chans, ref_chans):
+                for chan in chanset:
+                    logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
 
                     if 'yasa' in method:     
                         
                         ## c. Load recording
                         try:
                             raw = mne.io.read_raw_edf(rdir + edf_file, 
-                                                      include = chan + ref,
+                                                      include = chan + chanset[chan],
                                                       preload=True, verbose = False)
                             
-                            mne.set_eeg_reference(raw, ref_channels = ref)
+                            mne.set_eeg_reference(raw, ref_channels = chanset[chan])
                                                   
                             s_freq = raw.info["sfreq"]
                         except Exception as e:
@@ -250,121 +281,199 @@ class SAND:
                         properties = peak_widths(art_up, peaks[0])
                         times = [x for x in zip(properties[2],properties[3])]
         
-                        # Convert to wonambi annotations format
-                        evts = []
-                        for x in times:
-                            evts.append({'name':'Artefact_covar',
-                                  'start':x[0]/s_freq,
-                                  'end':x[1]/s_freq,
-                                  'chan':[''],
-                                  'stage':'',
-                                  'quality':'Good',
-                                  'cycle':''})
-                            
-                        # Add to annotations file
-                        grapho = graphoelement.Graphoelement()
-                        grapho.events = evts          
-                        grapho.to_annot(annot)
-    
-    
-    
-                    elif 'Cross2025' in method:
+                    elif 'seapipe' in method:
                         
+                        logger.debug('Loading Data..')
                         
-                        # Convert raw data to array 
+                        # Get data 
                         dset = Dataset(rdir + edf_file)
+                        s_freq = int(dset.header['s_freq'])
                         segments = fetch(dset, annot, cat = (1,1,1,1), 
                                          stage=stage)
-                        segments.read_data(chan, ref_chan=ref, 
+                        
+                        # Save stitches (to recompute times later)
+                        stitches = segments[0]['times']
+                        
+                        # Read data
+                        segments.read_data(chan, ref_chan = chanset[chan], 
                                            grp_name=self.grp_name)
+                        data = segments[0]['data'].data[0]
                         
-                        # Create mask
-                        
-                        
-                        # Convert raw data to array    
-                        # data = raw.to_data_frame()
-                        # inds = [x for x in data if x in chan]
-                        # data = data[inds].T
-                        # chan_ind = data.index.to_list()
-                        
-                        
-                        
-                        dat = transform_signal(data, s_freq, 'high_butter', 
+                        # Filter data above 40Hz
+                        dat = transform_signal(data[0], s_freq, 'high_butter', 
                                          method_opt={'freq':40,
                                                      'order':3})
                         
-                        dat2 = transform_signal(dat[0], s_freq, 'moving_covar', 
-                                         method_opt = {'dur':5,'step':3},
-                                         dat2 = dat[1])
+
+                        ## Step 1. Detect flatlines in data
+                        logger.debug("Detecting flatlines...")
+                        # Align the filtered data back to the raw EEG recording
+                        dat_full = reconstruct_stitches(dat, stitches, s_freq,
+                                                        replacement=nan)
                         
-                        threshold = percentile(dat[0], 95)
+                        # Let's setup a function to detect flatlines
+                        def detect_flatlines(ts, s_freq, tolerance=1e-5, min_length=5):
+                            diffs = abs(diff(ts))
+                            is_flat = diffs < tolerance
                         
-                        dat2[dat2<threshold] = 0
-                        dat2[dat2>threshold] = 1
+                            # Find indices where flatlines start and stop
+                            change_points = where(diff(concatenate(([False], 
+                                                                     is_flat, 
+                                                                     [False]))))[0]
+                            starts, ends = change_points[::2], change_points[1::2]
                         
-                        def detect_above_zero_regions(signal):
-                            # Find transitions
-                            starts = where(diff(signal.astype(int)) >0)[0] + 1
-                            ends = where(diff(signal.astype(int)) <0)[0] + 1
+                            # Filter out short flatlines and adjust for s_freq offset
+                            flatlines = [(max(0, start - int(s_freq / 4)), min(len(ts), 
+                                                                               end + int(s_freq / 4))) 
+                                         for start, end in zip(starts, ends) if 
+                                         (end - start) >= min_length]
                         
-                            # Edge case: If signal starts above 0
-                            if signal[0]:
-                                starts = insert(starts, 0, 0)
+                            return flatlines 
+                        flatlines = detect_flatlines(dat_full, s_freq)
+                        
+                        
+                        ## Step 2. Find large shifts in fast frequencies (>40Hz)
+                        logger.debug("Detecting movement artefacts...")
+                        # Mask out negative values
+                        dat[dat<0] = 0
+                        
+                        # Calculate sliding RMS
+                        dat = transform_signal(dat, s_freq, 'moving_rms',
+                                         method_opt = {'dur':win_size,
+                                                       'step':1})
+                        
+                        # Put back all the samples that were averaged within the window 
+                        dat = repeat(dat, s_freq)
+
+                        # Filter (smooth) the RMS
+                        dat = transform_signal(dat, s_freq, 'low_butter', 
+                                         method_opt={'freq':0.5,
+                                                     'order':3})
+
+                        # Align this filtered data back to the raw EEG recording 
+                        dat_reconstructed = reconstruct_stitches(dat, 
+                                                                  stitches, 
+                                                                  s_freq)
+                        
+                        # Threshold and detect artefact 'events'
+                        threshold = percentile(dat, 95)
+                        dat_reconstructed[dat_reconstructed<threshold] = 0
+                        dat_reconstructed[dat_reconstructed>threshold] = 1
+                        movements = detect_above_zero_regions(dat_reconstructed)
+                        
+                        
+                        ## TODO: Step 3. Let's look for sharp slow waves in REM
+                        # if 'REM' in stage:
+                        #     logger.debug("Detecting eye movement artefacts in REM...")
+                        #     segments = fetch(dset, annot, cat = (1,1,1,1), 
+                        #                      stage=['REM'])
                             
-                            # Edge case: If signal ends above 0
-                            if signal[-1]:
-                                ends = append(ends, len(signal))
+                        #     # Save stitches (to recompute times later)
+                        #     stitches = segments[0]['times']
+                        #     # Read data
+                        #     segments.read_data(chan, ref_chan=ref, 
+                        #                        grp_name=self.grp_name)
+                        #     data = segments[0]['data'].data[0]
+                            
+                        #     # Filter (smooth) the RMS
+                        #     dat = transform_signal(data[3], s_freq, 'low_butter', 
+                        #                      method_opt={'freq':5,
+                        #                                  'order':3})
+                            
+                        #     dat = transform_signal(dat, s_freq, 'moving_sd',
+                        #                      method_opt = {'dur':3,
+                        #                                    'step':1})
+                            
+                        #     # Put back all the samples that were averaged within the window 
+                        #     dat = repeat(dat, s_freq)
+                            
+                            
+                        #     # Align this filtered data back to the raw EEG recording
+                        #     dat_reconstructed = reconstruct_stitches(dat, 
+                        #                                               stitches, 
+                        #                                               s_freq)
+                            
+                            
+                        #     # Threshold and detect artefact 'events'
+                        #     threshold = 50
+                        #     dat_reconstructed[dat_reconstructed<50] = 0
+                        #     dat_reconstructed[dat_reconstructed>50] = 1
+                        #     REMS = detect_above_zero_regions(dat_reconstructed)
+                            
+
+                        ## Step 4. Combine all artefact types
+                        times = flatlines + movements
                         
-                            return list(zip(starts, ends))
-                                                
-                        times = detect_above_zero_regions(dat2)
+                        times = merge_segments(times)
+                        
+                        # Convert times back into seconds for annotations
+                        times = [(x / s_freq, y / s_freq) for x, y in times]
+
                         
                         # Convert to wonambi annotations format
-                        evts = []
-                        for x in times:
-                            evts.append({'name':'Artefact_Cross',
-                                  'start':float(x[0]*3),
-                                  'end':float(x[1]*3),
-                                  'chan':[''],
-                                  'stage':'',
-                                  'quality':'Good',
-                                  'cycle':''})
-                            
-                        # Add to annotations file
-                        grapho = graphoelement.Graphoelement()
-                        grapho.events = evts          
-                        grapho.to_annot(annot)
-                            
+
                     else:
-                        logger.error("Currently the only method that is functioning is 'yasa_std' or 'yasa_covar.")
+                        logger.critical("Currently the only methods that are" 
+                                        " functioning include:"
+                                        "\n'yasa_std', 'yasa_covar', or 'seapipe'."
+                                        ) 
+                        return
                     
-                    # ### get cycles
-                    # if self.cycle_idx is not None:
-                    #     all_cycles = annot.get_cycles()
-                    #     cycle = [all_cycles[i - 1] for i in self.cycle_idx if i <= len(all_cycles)]
-                    # else:
-                    #     cycle = None
+                    # Save events to Annotations file
+                    if label == "allchans":
+                        chan_name = ['']
+                    else:
+                        chan_name = [chan]
+                    evts = []
+                    for x in times:
+                        evts.append({'name':'Artefact',
+                              'start':float(x[0]),
+                              'end':float(x[1]),
+                              'chan':chan_name,
+                              'stage':'',
+                              'quality':'Good',
+                              'cycle':''})
+                        
+                    # Add to annotations file
+                    grapho = graphoelement.Graphoelement()
+                    grapho.events = evts          
+                    grapho.to_annot(annot)
                     
-                    # ### if event channel only, specify event channels
-                    # # 4.d. Channel setup
-                    # flag, chanset = load_channels(sub, ses, self.chan, 
-                    #                               self.ref_chan, flag, logger)
-                    # if not chanset:
-                    #     flag+=1
-                    #     break
-                    # newchans = rename_channels(sub, ses, self.chan, logger)
-    
-                    # # get segments
-                    # for c, ch in enumerate(chanset):
-                    #     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
-                    #     segments = fetch(dset, annot, cat = cat,  
-                    #                      stage = self.stage, cycle=cycle,  
-                    #                      epoch = epoch_opts['epoch'], 
-                    #                      epoch_dur = epoch_opts['epoch_dur'], 
-                    #                      epoch_overlap = epoch_opts['epoch_overlap'], 
-                    #                      epoch_step = epoch_opts['epoch_step'], 
-                    #                      reject_epoch = epoch_opts['reject_epoch'], 
-                    #                      reject_artf = epoch_opts['reject_artf'],
-                    #                      min_dur = epoch_opts['min_dur'])
-                    
+                merge_events(annot, 'Artefact')
+                remove_duplicate_evts(annot, 'Artefact')
+
         return
+    
+    
+    
+def merge_segments(segments):
+    """
+    Merges overlapping or adjacent segments in a list of (start, end) tuples.
+
+    Parameters:
+      segments (list of tuples): List of (start, end) index pairs.
+
+    Returns:
+      list of tuples: Merged (start, end) segments.
+    """
+    if not segments:
+        return []
+
+    # Sort segments by start time
+    segments.sort()
+
+    # Initialize merged list with the first segment
+    merged = [segments[0]]
+
+    for start, end in segments[1:]:
+        prev_start, prev_end = merged[-1]
+
+        if start <= prev_end:  # Overlapping or adjacent segments
+            merged[-1] = (prev_start, max(prev_end, end))  # Merge them
+        else:
+            merged.append((start, end))  # No overlap, add as new segment
+
+    return merged
+    
+    
+    

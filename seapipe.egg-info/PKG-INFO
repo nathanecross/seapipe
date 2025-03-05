@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: seapipe
-Version: 0.4.6
+Version: 0.4.8
 Summary: A package pipeline for Sleep Events Analysis of EEG data.
 Home-page: https://github.com/nathanecross/seapipe
 Author: Nathan E. Cross

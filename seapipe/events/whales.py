@@ -215,7 +215,9 @@ class whales:
                     else:
                         logchan = chanset[ch]
                         
-                    logger.debug(f"Running detection using frequency bands: {round(freq[0],2)}-{round(freq[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                    logger.debug(f"Running detection using frequency bands: "
+                                 f"{round(freq[0],2)}-{round(freq[1],2)} Hz for "
+                                 f"{sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # h. Read data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
@@ -384,7 +386,7 @@ class whales:
                         evts = annot.get_events(name = m, chan = f'{ch} ({grp_name})')
                         if len(evts) == 0:
                             logger.warning(f'No events: {m} found for {sub}, {ses} on {ch}')
-                        all_events.append(evts)
+                        all_events.append(sorted(evts, key=lambda d: d['end']))
                     
                     if any(len(x)==0 for x in all_events):
                         logger.warning(f'Skipping {sub}, {ses}, {ch}')
@@ -396,23 +398,9 @@ class whales:
                                          weights = weights)
 
                         cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
-                        remove_duplicate_evts(annot, evt_name=evt_out, 
+                        remove_duplicate_evts(annot, evt_name = evt_out, 
                                               chan=f'{ch} ({self.grp_name})')
                     
-                    # if merge_type == 'consensus':
-                    #     logger.debug(f'Coming to a consensus for {sub}, {ses}, {ch}')
-                    #     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})') # save consensus event
-                    # elif merge_type == 'addition':
-                    #     logger.debug(f'Adding spindle events for {sub}, {ses}, {ch}')
-                    #     ac_events = deepcopy(cons.events)
-                    #     all_events = [x for y in all_events for x in y]
-                        
-                    #     for pair in product(all_events, ac_events):
-                    #         st = pair[1]['start'] < pair[0]['start'] < pair[1]['end']
-                    #         fin = pair[1]['start'] < pair[0]['end'] < pair[1]['end']
-                    #         if st or fin:
-                    #             cons.events.remove(pair[0])
-                    #     cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
         ### 3. Check completion status and print
         if flag == 0:
             logger.debug('Spindle merging (WHALES) finished without error.')  

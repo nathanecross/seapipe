@@ -478,6 +478,7 @@ class FISH:
                                                                 count=len(evts), 
                                                                 density=density)
                                             logger.debug('Writing to ' + outputfile) 
+                                
                                 ### PER CYCLE ###
                                 elif model == 'per_cycle': 
                                     for cy, cycc in enumerate(cycle_idx):

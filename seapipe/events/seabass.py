@@ -151,7 +151,7 @@ class seabass:
                 
                 # Load EMG
                 pflag = deepcopy(flag)
-                flag, emg_chan = load_emg(sub, ses, self.eeg_chan, 
+                flag, emg_chan = load_emg(sub, ses, self.emg_chan, 
                                     flag, logger)
                 if flag - pflag > 0:
                     logger.debug('Inferring EMG from recording instead...')
@@ -162,7 +162,7 @@ class seabass:
                 
                 # Load EOG
                 pflag = deepcopy(flag)
-                flag, eog_chan = load_eog(sub, ses, self.eeg_chan,
+                flag, eog_chan = load_eog(sub, ses, self.eog_chan,
                                     flag, logger)
                 if flag - pflag > 0:
                     logger.debug('Inferring EOG from recording instead...')

@@ -14,7 +14,7 @@ from wonambi.attr import Annotations
 from ..utils.logs import create_logger, create_logger_outfile
                         
 def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all', 
-               rater = None,  times = None, 
+               rater = None,  times = None, arousal_name = ['Arousal', 'Arou'],
                logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging
@@ -57,12 +57,17 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
             sub_ses[sub] = sessions
     elif sessions == 'all':
         for sub in subs:
-            session = next(walk(f'{xml_dir}/{sub}'))[1]
+            try:
+                session = next(walk(f'{xml_dir}/{sub}'))[1]
+            except Exception as e:
+                logger.critical(f"{xml_dir}/{sub} either doesn't exist or is empty.")
+                return
+    
             session.sort()
             sub_ses[sub] = session
     else:
         logger.info('')
-        logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
+        logger.critical("'sessions' must either be a list of Session IDs or = 'all' ")
         return
     
     for s, sub in enumerate(sub_ses): #for each participant...
@@ -77,11 +82,14 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
             xml_file = [x for x in listdir(xml_dir +  '/' + sub + '/' + ses ) 
                         if x.endswith('.xml') if not x.startswith('.')]    
             if len(xml_file) == 0:                
-                logger.warning(f'No sleep staging file found for {sub}, {ses}. Skipping..')
+                logger.warning(f"No sleep staging file found for {sub}, {ses}. "
+                               "Skipping..")
                 flag+=1
                 break
             elif len(xml_file) > 1:
-                logger.warning(f"> 1 sleep staging file was found for {sub}, visit {ses} - to select the correct file you must define the variable 'keyword'. Skipping..")
+                logger.warning(f"> 1 sleep staging file was found for {sub}, "
+                               f"visit {ses} - to select the correct file you "
+                               "must define the variable 'keyword'. Skipping..")
                 flag+=1
                 break
             else:
@@ -90,12 +98,18 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 # Search for sub and ses in tracking sheet
                 l_times = times[times['sub']==sub]
                 if l_times.size == 0:
-                    logger.warning(f"Participant not found in column 'sub' in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    logger.warning(f"Participant not found in column 'sub' in "
+                                   f"'tracking.tsv' for {sub}, {ses}. This is "
+                                   "required for LightsOFF and LightsON times. "
+                                   "Skipping...")
                     flag +=1
                     break
                 l_times = l_times[l_times['ses']==ses]
                 if l_times.size == 0:
-                    logger.warning(f"Session not found in column 'ses' in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    logger.warning(f"Session not found in column 'ses' in "
+                                   f"'tracking.tsv' for {sub}, {ses}. This is "
+                                   "required for LightsOFF and LightsON times. "
+                                   "Skipping...")
                     flag +=1
                     break
                 
@@ -103,7 +117,8 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 lights_off = l_times['loff']
                 lights_off = asarray(lights_off.dropna())
                 if lights_off.size == 0:
-                    logger.warning(f"Lights Off time not found in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    logger.warning(f"Lights Off time not found in 'tracking.tsv' "
+                                   f"for {sub}, {ses}. Skipping...")
                     flag +=1
                     break
                 else:
@@ -116,7 +131,8 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 lights_on = l_times['lon']
                 lights_on = asarray(lights_on.dropna())
                 if lights_on.size == 0:
-                    logger.warning(f"Lights On time not found in 'tracking.tsv' for {sub}, {ses}. Skipping...")
+                    logger.warning(f"Lights On time not found in 'tracking.tsv' "
+                                   "for {sub}, {ses}. Skipping...")
                     flag +=1
                     break
                 else:
@@ -125,21 +141,36 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                     else:
                         lights_on = lights_on.astype(float64)[0]
                 
+                
+                # Export sleep stats
                 annot = Annotations(xml_file_path, rater_name=rater)
                 annot.export_sleep_stats(f'{out_dir}/{sub}/{ses}/{sub}_{ses}_sleepstats.csv', 
                                          lights_off, lights_on)
                 
-                
+                # Export Arousal density (if exists)
+                xml_file = [file for file in listdir(f'{xml_dir}/{sub}/{ses}/') if 
+                             '.xml' in file][0]
+                annot = Annotations(f'{xml_dir}/{sub}/{ses}/{xml_file}')
+
+                try:
+                    file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_arousals.csv' 
+                    annot.export_events(file, evt_type = arousal_name,
+                                        stage = ['NREM1', 'NREM2', 'NREM3', 'REM']) 
+                except:
+                    logger.warning(f'Error exporting arousals for {sub}, {ses}.')
+                    flag += 1
+ 
     ### 3. Check completion status and print
     if flag == 0:
         logger.debug('Macro statistics export finished without ERROR.')  
     else:
-        logger.warning('Macro statistics export finished with WARNINGS. See log for details.')
+        logger.warning(f'Macro statistics export finished with {flag}+ WARNINGS. See log for details.')
     
     return   
 
 
-def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all',
+def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all', 
+                         arousal_name = ['Arousal', 'Arou'],
                          logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging
@@ -204,14 +235,14 @@ def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 df.loc[sub, f'TSP_min_{ses}'] =             round(float(data['Value 2']['Total sleep period']),3)
                 df.loc[sub, f'TST_min_{ses}'] =             round(float(data['Value 2']['Total sleep time']),3)
                 df.loc[sub, f'SE_%tsp_{ses}'] =             round(float(data['Value 1']['Sleep efficiency']),3)
-                df.loc[sub, f'N1_min_{ses}'] =              round(float(data['Value 2']['N1 duration']),3)
-                df.loc[sub, f'N2_min_{ses}'] =              round(float(data['Value 2']['N2 duration']),3)
-                df.loc[sub, f'N3_min_{ses}'] =              round(float(data['Value 2']['N3 duration']),3)
+                df.loc[sub, f'NREM1_min_{ses}'] =              round(float(data['Value 2']['N1 duration']),3)
+                df.loc[sub, f'NREM2_min_{ses}'] =              round(float(data['Value 2']['N2 duration']),3)
+                df.loc[sub, f'NREM3_min_{ses}'] =              round(float(data['Value 2']['N3 duration']),3)
                 df.loc[sub, f'REM_min_{ses}'] =             round(float(data['Value 2']['REM duration']),3)
                 df.loc[sub, f'W_%tsp_{ses}'] =              round(float(data['Value 1']['W % TSP']),3)
-                df.loc[sub, f'N1_%tsp_{ses}'] =             round(float(data['Value 1']['N1 % TSP']),3)
-                df.loc[sub, f'N2_%tsp_{ses}'] =             round(float(data['Value 1']['N2 % TSP']),3)
-                df.loc[sub, f'N3_%tsp_{ses}'] =             round(float(data['Value 1']['N3 % TSP']),3)
+                df.loc[sub, f'NREM1_%tsp_{ses}'] =             round(float(data['Value 1']['N1 % TSP']),3)
+                df.loc[sub, f'NREM2_%tsp_{ses}'] =             round(float(data['Value 1']['N2 % TSP']),3)
+                df.loc[sub, f'NREM3_%tsp_{ses}'] =             round(float(data['Value 1']['N3 % TSP']),3)
                 df.loc[sub, f'REM_%tsp_{ses}'] =            round(float(data['Value 1']['REM % TSP']),3)
                 df.loc[sub, f'SSI_{ses}'] =                 round(float(data['Value 1']['Switch index H']),3)
                 df.loc[sub, f'SFI_{ses}'] =                 round(float(data['Value 1']['Sleep fragmentation index H']),3)
@@ -222,8 +253,28 @@ def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 df.loc[sub, f'SL_toNREM_10m_min_{ses}'] =   round(float(data['Value 2']['Sleep latency to consolidated NREM, 10 min']),3)
                 df.loc[sub, f'SL_toN3_5m_min_{ses}'] =      round(float(data['Value 2']['Sleep latency to consolidated N3, 5 min']),3)
                 df.loc[sub, f'SL_toN3_10m_min_{ses}'] =     round(float(data['Value 2']['Sleep latency to consolidated N3, 10 min']),3)
-
-        df.to_csv(f'{out_dir}/{ses}_macro.csv', sep=',', index=True, index_label='ID')
+                
+                
+                ## add Arousal density
+                arou_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_arousals.csv' 
+                if not path.exists(arou_file):
+                    logger.warning(f"No (exported) arousal data found for {sub}, {ses}. ")
+                    flag += 1
+                    continue
+                else:
+                    #TST
+                    arou = read_csv(arou_file, sep = ',', skiprows=[0], delimiter=None)
+                    df.loc[sub, f'Arousal_index_TST_{ses}'] = round(float(arou.shape[0]/(df.loc[sub, f'TST_min_{ses}'])*60),3)                                        
+                    #REM
+                    arou_rem = arou[arou['Stage']=="REM"]
+                    df.loc[sub, f'Arousal_index_REM_{ses}'] = round(float(arou_rem.shape[0]/(df.loc[sub, f'REM_min_{ses}'])*60),3)
+                    #NREM
+                    arou_nrem = arou[arou['Stage'].str.contains("NREM", na=False)]
+                    NREM_dur = df.loc[sub, f'NREM1_min_{ses}'] + df.loc[sub, f'NREM2_min_{ses}'] + df.loc[sub, f'NREM3_min_{ses}']
+                    df.loc[sub, f'Arousal_index_NREM_{ses}'] = round(float(arou_nrem.shape[0]/(NREM_dur)*60),3)
+                    
+        if df.shape[1]>0: #only save dataframe if it is not empty
+            df.to_csv(f'{out_dir}/{ses}_macro.csv', sep=',', index=True, index_label='ID')
         
     ### 3. Check completion status and print
     logger.info('')

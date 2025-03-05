@@ -18,75 +18,9 @@ from wonambi.attr.annotations import Annotations, create_empty_annotations
 from scipy.signal import find_peaks, periodogram
 import shutil
 from sleepecg import detect_heartbeats
+from .logs import create_logger
 
-
-
-def clean_annots(xml_dir, out_dir, rater, keep_evts = None, subs = 'all', 
-                 sessions = 'all', logger = create_logger('Clean annotations')):
-    
-    '''
-        Copies the annotations files from inside xml_dir into out_dir and 
-        removes all annotations from the files.
-        
-    '''
-    
-    logger.debug('')
-    logger.debug(f'Time start: {datetime.now()}')
-    logger.debug(f'Removing events from files in directory {xml_dir}')  
-    logger.debug(f'Keeping events = {keep_evts}')
-    logger.debug(f'Saving new annotations files to directory {out_dir}')
-    logger.debug('')
-    
-    # Loop through subjects
-    if isinstance(subs, list):
-        None
-    elif subs == 'all':
-            subs = listdir(xml_dir)
-            subs = [x for x in subs if not '.' in x]
-    else:
-        logger.error("'subs' must either be an array of subject ids or = 'all' **CHECK**")
-    
-    subs.sort()                
-    for i, sub in enumerate(subs):
-        # Loop through visits
-        if sessions == 'all':
-            sessions = listdir(xml_dir + '/' + '/' + sub)
-            sessions = [x for x in sessions if not '.' in x]
-        sessions.sort()
-        for v, ses in enumerate(sessions): 
-            
-            # Define files
-            xdir = xml_dir + '/' + sub + '/' + ses + '/'
-            xml_files = [x for x in listdir(xdir) if x.endswith('.xml') if not x.startswith('.')] 
-            
-            if len(xml_files) == 0:                
-                logger.warning(f'No xml files found for Subject {sub}, skipping..')
-  
-            else:
-                for xml_file in xml_files:
-                    ## Copy annotations file before beginning
-                    if not path.exists(out_dir):
-                        mkdir(out_dir)
-                    if not path.exists(out_dir + sub):
-                        mkdir(out_dir + sub)
-                    if not path.exists(out_dir + sub + '/' + ses):
-                        mkdir(out_dir + sub + '/' + ses)
-                    backup = out_dir + sub + '/' + ses + '/'
-                    backup_file = (f'{backup}{xml_file[0]}')
-                    shutil.copy(xdir + xml_file, backup_file)
-                                
-                    # Import Annotations file
-                    annot = Annotations(backup_file, rater_name=rater)
-                    evts = list(set([x['name'] for x in annot.get_events()]))
-                    
-                    logger.debug(f'Removing events for {sub}, {ses}..')
-                    if keep_evts == None:
-                        keep_evts = []
-                    for ev in evts:
-                        if ev not in keep_evts:
-                            annot.remove_event_type(name=ev)
                 
-
 def remove_event(annot, evt_name, chan = None, stage = None):
     
     ''' Remove event from annotation
@@ -109,9 +43,9 @@ def remove_event(annot, evt_name, chan = None, stage = None):
     grapho.to_annot(annot, evt_name)
     
     return
-    
 
-def remove_duplicate_evts(annot, evt_name, chan, stage = None):
+
+def remove_duplicate_evts(annot, evt_name, chan = None, stage = None):
     
     ''' Removes any events in annotations that are duplicate.
         Workaround function because wonambi.attr.annotations.remove_event()
@@ -138,6 +72,75 @@ def remove_duplicate_evts(annot, evt_name, chan, stage = None):
     grapho.to_annot(annot, evt_name)
     
     return
+
+
+def merge_events(annot, evt_name, chan = None, stage = None, segments = None):
+    
+    ''' Merges any events in annotations that are overlapping in time.
+        # NOTE: This merges events with the SAME NAME ONLY. To merge 2 or more
+                event types, use the function merge_2_events()
+    '''
+    
+    evts = annot.get_events(name=evt_name, chan = chan, stage = stage)
+    merged_events = []
+    
+    removed = []
+    for e, event in enumerate(evts):
+        if e not in removed:
+            evts_trim = [item for i, item in enumerate(evts) if i != e]
+        
+            matches = ( [x for x in evts_trim if 
+                         x['start'] <= event['start'] <= x['end']] +
+                        [x for x in evts_trim if 
+                         x['start'] <= event['end'] <= x['end']]
+                      )
+            
+            #Find start and end times of merged events
+            if len(matches) > 0:
+                event['start'] = min([x['start'] for x in matches])
+                event['end'] = max([x['end'] for x in matches])
+                
+                # Save to new event list
+                merged_events.append(event)
+            
+            # Flag that these events have already been merged and removed
+            for m in matches:
+                index = [i for i, evt in enumerate(evts) if
+                         evt['start'] == m['start'] if evt['end'] == m['end']]
+                removed +=index
+    
+    annot.remove_event_type(name = evt_name)
+    grapho = graphoelement.Graphoelement()
+    grapho.events = merged_events         
+    grapho.to_annot(annot, evt_name)       
+
+
+    return    
+
+def merge_2_events(annot, events, new_event_name, chan = None, stage = None, 
+                   segments = None):
+    
+    ''' Merges 2 different event types in annotations (irregardless of any 
+            overlap). However, this will then also combine any events that 
+            have a temporal overlap into the 1 event.
+    '''
+    # Get each event from annotations file
+    evts = []
+    for evt_name in events:
+        evts += annot.get_events(name = evt_name, chan = chan, stage = stage)
+
+    # Rename both events into a single event name
+    evts = [{**d, "name": new_event_name} if "name" in d else d for d in evts]
+    
+    # Save new events to Annotations file
+    grapho = graphoelement.Graphoelement()
+    grapho.events = evts         
+    grapho.to_annot(annot, new_event_name)       
+    
+    # Finally, combine any overlapping events
+    merge_events(annot, new_event_name, chan, stage, segments)
+
+    return    
 
 
 def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater, 
@@ -213,6 +216,123 @@ def remove_duplicate_evts_bids(in_dir, out_dir, chan, grp_name, rater,
 
     return
 
+
+def clean_annots(xml_dir, out_dir, rater, keep_evts = None, subs = 'all', 
+                 sessions = 'all', logger = create_logger('Clean annotations')):
+    
+    '''
+        Copies the annotations files from inside xml_dir into out_dir and 
+        removes all annotations from the files, keeping only staging info.
+        
+    '''
+    
+    logger.debug('')
+    logger.debug(f'Time start: {datetime.now()}')
+    logger.debug(f'Removing events from files in directory {xml_dir}')  
+    logger.debug(f'Keeping events = {keep_evts}')
+    logger.debug(f'Saving new annotations files to directory {out_dir}')
+    logger.debug('')
+    
+    # Loop through subjects
+    if isinstance(subs, list):
+        None
+    elif subs == 'all':
+            subs = listdir(xml_dir)
+            subs = [x for x in subs if not '.' in x]
+    else:
+        logger.error("'subs' must either be an array of subject ids or = 'all' **CHECK**")
+    
+    subs.sort()                
+    for i, sub in enumerate(subs):
+        # Loop through visits
+        if sessions == 'all':
+            sessions = listdir(xml_dir + '/' + '/' + sub)
+            sessions = [x for x in sessions if not '.' in x]
+        sessions.sort()
+        for v, ses in enumerate(sessions): 
+            
+            # Define files
+            xdir = xml_dir + '/' + sub + '/' + ses + '/'
+            xml_files = [x for x in listdir(xdir) if x.endswith('.xml') if not x.startswith('.')] 
+            
+            if len(xml_files) == 0:                
+                logger.warning(f'No xml files found for Subject {sub}, skipping..')
+  
+            else:
+                for xml_file in xml_files:
+                    ## Copy annotations file before beginning
+                    if not path.exists(out_dir):
+                        mkdir(out_dir)
+                    if not path.exists(out_dir + sub):
+                        mkdir(out_dir + sub)
+                    if not path.exists(out_dir + sub + '/' + ses):
+                        mkdir(out_dir + sub + '/' + ses)
+                    backup = out_dir + sub + '/' + ses + '/'
+                    backup_file = (f'{backup}{xml_file[0]}')
+                    shutil.copy(xdir + xml_file, backup_file)
+                                
+                    # Import Annotations file
+                    annot = Annotations(backup_file, rater_name=rater)
+                    evts = list(set([x['name'] for x in annot.get_events()]))
+                    
+                    logger.debug(f'Removing events for {sub}, {ses}..')
+                    if keep_evts == None:
+                        keep_evts = []
+                    for ev in evts:
+                        if ev not in keep_evts:
+                            annot.remove_event_type(name=ev)
+
+
+def merge_epochs(epochs):
+    
+    ''' Function to merge epochs of the same stage together into larger segments,
+        to extract the start and end times of periods of sleep stages. An 
+        exception is granted for single epochs (30s) splitting a larger segment,
+        in this case the single epoch is 'absorbed' by the larger segment.
+        
+        Parameters
+        ----------
+        epochs  - A list of dict corresponding to segments of data. Each dict 
+                  must contain the following parameters: 'start', 'end', 'stage'.
+        
+        Returns
+        -------
+        A list of dict corresponding to segments of data. Each dict contains the 
+        following parameters: 'start', 'end', 'stage'.
+        
+    '''
+    
+
+    merged = []
+    current = epochs[0].copy()
+    skip_next = False  # Flag to track if we are skipping an interrupting element
+
+    for i in range(1, len(epochs)):
+        entry = epochs[i]
+
+        if skip_next:
+            skip_next = False
+            continue
+
+        if entry["stage"] == current["stage"] and entry["start"] <= current["end"]:
+            # Merge as usual
+            current["end"] = max(current["end"], entry["end"])
+        elif (
+            i + 1 < len(epochs) and epochs[i + 1]["stage"] == current["stage"]
+        ):  
+            # If the next element matches the current stage, skip this one
+            skip_next = True
+            current["end"] = max(current["end"], epochs[i + 1]["end"])
+        else:
+            # Save the merged segment and move to the next one
+            merged.append(current)
+            current = entry.copy()
+
+    # Append the last segment
+    merged.append(current)
+    return merged
+
+                            
 
 def merge_xmls(in_dirs, out_dir, chan, grp_name, stage = None, evt_name = None, 
                part = 'all', visit = 'all'):
@@ -924,5 +1044,27 @@ def choose_best_emg(chans, dset, num = 1, logger = create_logger('QC EMG')):
     return emg_name
 
 
+def reconstruct_stitches(dat, stitches, s_freq, replacement = 0):
+    orig_length = int(stitches[-1][1]*s_freq)  # Length of original array2
+    
+    # Step 1: Create a zero-filled array2
+    dat_reconstructed = np.zeros(orig_length)
+    dat_reconstructed.fill(replacement)
+    
+    # Step 2: Reinsert segments into dat_reconstructed
+    idx = 0  # Index to track position in array1
+    
+    for start, end in stitches:
+        start_idx = int(start * s_freq)
+        end_idx = int(end * s_freq)
+        segment_length = end_idx - start_idx
+        
+        # Insert the segment from array1
+        dat_reconstructed[start_idx:end_idx] = dat[idx:idx + segment_length]
+        
+        # Update the array1 index tracker
+        idx += segment_length
+        
+    return dat_reconstructed
 
     
