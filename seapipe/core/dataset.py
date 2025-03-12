@@ -217,7 +217,7 @@ class pipeline:
                 return
         elif not isinstance(subs, list):
             
-            subs = read_tracking_sheet(self.rootpath, logger)
+            subs = read_tracking_sheet(self.datapath, logger)
             subs = subs['sub'].drop_duplicates().tolist()
         subs.sort()
         
@@ -378,7 +378,9 @@ class pipeline:
         logger.debug(f'Output being saved to: {xml_dir}')
         
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        if isinstance(chan, str):
+            return
         
         # Set default parameters
         if not general_opts:
@@ -466,18 +468,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
         
         # Set channels
-        eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
+        eeg_chan, ref_chan = check_chans(self.datapath, eeg_chan, ref_chan, logger)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.rootpath, None, False, logger)
+            invert = check_chans(self.datapath, None, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -547,14 +549,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
         
         # Set channels
-        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chans, 
+        eeg_chans, ref_chan = check_chans(self.datapath, eeg_chans, ref_chans, 
                                           logger)
         
     
@@ -625,14 +627,14 @@ class pipeline:
             
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()    
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
@@ -720,18 +722,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.rootpath, None, False, logger)
+            invert = check_chans(self.datapath, None, False, logger)
         elif type(invert) != bool:
             logger.critical(f"The argument 'invert' must be set to either: 'True', "
                             f"'False' or 'None'; but it was set as {invert}.")
@@ -814,14 +816,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
@@ -959,14 +961,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
         
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
@@ -1034,14 +1036,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
     
         # Run detection
         REMS = remora(in_dir, xml_dir, out_dir, chan, ref_chan, 
@@ -1105,18 +1107,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.rootpath, chan, False, logger)
+            invert = check_chans(self.datapath, chan, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -1200,14 +1202,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
+            tracking = read_tracking_sheet(self.datapath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = read_tracking_sheet(self.datapath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
@@ -1229,7 +1231,7 @@ class pipeline:
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.rootpath, None, False, logger)
+            invert = check_chans(self.datapath, None, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -1324,7 +1326,7 @@ class pipeline:
         logger.debug(f'Output being saved to: {out_dir}')
         
         # Set channels
-        times, ref_chan = check_chans(self.rootpath, None, True, logger)
+        times, ref_chan = check_chans(self.datapath, None, True, logger)
         
         self.track(subs = subs, ses = sessions, step = ['staging'], show = False, 
                    log = True)
@@ -1420,12 +1422,12 @@ class pipeline:
             if adap_bands in ['Auto','Manual']:
                 evt_name = f'{evt_name}_adap'
                 self.track(step='fooof', show = False, log = False)
-                peaks = check_chans(self.rootpath, None, False, logger)
+                peaks = check_chans(self.datapath, None, False, logger)
             else:
                 peaks = None
             
             # Set channels
-            chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+            chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
             if average_channels:
                 Ngo = {'run':True}
             else:

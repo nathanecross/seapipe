@@ -67,7 +67,7 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
                 xml_dir = f'{outpath}/{xml_dir[0]}'
 
             else:
-                logger.critical(" 'xml_dir' wasn't specified and it cannot be "
+                logger.error(" 'xml_dir' wasn't specified and it cannot be "
                                 "determined from inside the derivatives directory. "
                                 "Please specify manually.") 
                 xml_dir = ''
@@ -106,7 +106,7 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
                                f"the name. Will default to {out_dir}")
                 
             else:
-                logger.critical(" 'xml_dir' wasn't specified and it cannot be "
+                logger.error(" 'xml_dir' wasn't specified and it cannot be "
                                 "determined from inside the derivatives directory. "
                                 "Please specify manually.") 
                 xml_dir = ''    
@@ -227,9 +227,9 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
     
     return flag
 
-def check_chans(rootpath, chan, ref_chan, logger):
+def check_chans(datapath, chan, ref_chan, logger):
     if chan is None:
-        chan = read_tracking_sheet(f'{rootpath}', logger)
+        chan = read_tracking_sheet(f'{datapath}', logger)
         if not isinstance(chan, DataFrame) and chan == 'error':
             logger.error("Channels haven't been defined, and there was an error "
                          "reading the tracking file.")
@@ -237,9 +237,10 @@ def check_chans(rootpath, chan, ref_chan, logger):
             logger.info("Check documentation for how to set up channel data: "
                         "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
+            return chan, ref_chan
         
     if ref_chan is None:
-        ref_chan = read_tracking_sheet(f'{rootpath}', logger)
+        ref_chan = read_tracking_sheet(f'{datapath}', logger)
         if not isinstance(ref_chan, DataFrame) and ref_chan == 'error':
             logger.warning("Reference channels haven't been defined, and there "
                            "was an error reading the tracking file.")

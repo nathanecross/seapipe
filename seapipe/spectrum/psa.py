@@ -842,7 +842,8 @@ class Spectrum:
                                 else:
                                     norm_dat = nSxx(chan=ch)[0]
                                 Sxx.data[0][j,:] = dat / norm_dat
-                                
+                        
+
                         out['data'] = Sxx
 
                         # Export and save data
@@ -879,17 +880,17 @@ class Spectrum:
                         if model == 'stage*cycle':
                             for (stage,cycle) in product(self.stage,self.cycle_idx):
                                 outputfile.append(f"{outpath}/{sub}_{ses}_{fnamechan}_{stage}_cycle{cycle}_{event_opts['evt_type'][0]}**{suffix}.csv")
-                                out = [x for x in out_full if stage in x['stage']]
+                                out = [x for x in out_full if stage == x['stage']]
                                 out = [x for x in out if cycle in x['cycle']]
                                 ev_out.append(out)
                         if model == 'per_stage':
                             for stage in self.stage:
-                                outputfile.append(f'{outpath}/{sub}_{ses}_{fnamechan}_{stage}**{suffix}.csv')
-                                out = [x for x in out_full if stage in x['stage']]
+                                outputfile.append(f"{outpath}/{sub}_{ses}_{fnamechan}_{stage}_{event_opts['evt_type'][0]}**{suffix}.csv")
+                                out = [x for x in out_full if stage == x['stage']]
                                 ev_out.append(out)
                         if model == 'per_cycle':
                             for cycle in self.cycle_idx:
-                                outputfile.append(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle}**{suffix}.csv') 
+                                outputfile.append(f"{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{cycle}_{event_opts['evt_type'][0]}**{suffix}.csv") 
                                 out = [x for x in out if cycle in x['cycle']]
                                 ev_out.append(out)
                         for out, outfile in zip(ev_out, outputfile):
