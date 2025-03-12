@@ -171,16 +171,14 @@ It's structure should look like this:
    ...
 |
 As you can see with this dataset, there are some inconsistences in the channel naming: 
-
-sub-01 has channels named 'F3' and 'C3' <-> sub-01 has channels named 'F3 (A2)' and 'C3 (A2)'
-
-sub-01 has references named 'M1' and 'M2' <-> sub-01 has channels named 'A2' and 'A2'
-
-All subjects and sessions have different lights out (loff) and lights on (lon) times, corresponding to the `time in bed. <https://www.sleepfoundation.org/how-sleep-works/sleep-dictionary#:~:text=Time%20in%20bed%3A%20The%20total,studies%20to%20calculate%20sleep%20efficiency.>`_
+   sub-01 has channels named 'F3' and 'C3' <-> sub-01 has channels named 'F3 (A2)' and 'C3 (A2)' \
+   sub-01 has references named 'M1' and 'M2' <-> sub-01 has channels named 'A2' and 'A2' \
+   All subjects and sessions have different lights out (loff) and lights on (lon) times, corresponding to the `time in bed. <https://www.sleepfoundation.org/how-sleep-works/sleep-dictionary#:~:text=Time%20in%20bed%3A%20The%20total,studies%20to%20calculate%20sleep%20efficiency.>`_
 
 If you create this tracking file, then you can read parameters such as channel names by setting this:
-.. code-block:: python
 
+.. code-block:: python
+   
    chan = None
 |
  in the calls to functions.
