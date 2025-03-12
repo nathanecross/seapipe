@@ -149,7 +149,7 @@ in electrode positioning can alter recorded signals, affecting amplitude and fre
 accuracy. Unlike MRI, which provides high-resolution brain images and allows for spatial normalization to a common 
 template, EEG lacks a direct post hoc standardization method, making uniform electrode placement essential.
 
-This has led to systems of EEG application, most notably the `10-20 system <https://en.wikipedia.org/wiki/10%E2%80%9320_system_(EEG)>`_
+This has led to systems of EEG application, most notably the `10-20 system. <https://en.wikipedia.org/wiki/10%E2%80%9320_system_(EEG)>`_
 
 Therefore, when working with EEG data, each timeseries is affiliated to a source electrode. And because EEG is a measure 
 of `electrical potentials <https://doi.org/10.1016/j.cub.2018.11.052>`_ there is the need for reference channels.
@@ -162,18 +162,21 @@ One way that **seapipe** gets around this is with the use of a tracking file. Th
 However it *must* be named: **tracking.csv**
 
 It's structure should look like this:
-
-sub        ses         loff      lon       format     chanset1            chanset1_rename    refset1
-sub-01     ses-1       330       31500     .edf       F3, C3              F3, C3             M1, M2
-sub-01     ses-2       4320      32390     .edf      	F3, C3              F3, C3             M1, M2
-sub-02     ses-1       1900      29945     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
-sub-02     ses-2       670       31010     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
-...
-
+::
+   sub        ses         loff      lon       format     chanset1            chanset1_rename    refset1
+   sub-01     ses-1       330       31500     .edf       F3, C3              F3, C3             M1, M2
+   sub-01     ses-2       4320      32390     .edf      	F3, C3              F3, C3             M1, M2
+   sub-02     ses-1       1900      29945     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
+   sub-02     ses-2       670       31010     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
+   ...
+|
 As you can see with this dataset, there are some inconsistences in the channel naming: 
+
 sub-01 has channels named 'F3' and 'C3' <-> sub-01 has channels named 'F3 (A2)' and 'C3 (A2)'
+
 sub-01 has references named 'M1' and 'M2' <-> sub-01 has channels named 'A2' and 'A2'
-All subjects and sessions have different lights out (loff) and lights on (lon) times, corresponding to the `time in bed <https://www.sleepfoundation.org/how-sleep-works/sleep-dictionary#:~:text=Time%20in%20bed%3A%20The%20total,studies%20to%20calculate%20sleep%20efficiency.>`_
+
+All subjects and sessions have different lights out (loff) and lights on (lon) times, corresponding to the `time in bed. <https://www.sleepfoundation.org/how-sleep-works/sleep-dictionary#:~:text=Time%20in%20bed%3A%20The%20total,studies%20to%20calculate%20sleep%20efficiency.>`_
 
 If you create this tracking file, then you can read parameters such as channel names by setting this:
 .. code-block:: python
