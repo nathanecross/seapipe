@@ -178,8 +178,9 @@ As you can see with this dataset, there are some inconsistences in the channel n
 If you create this tracking file, then you can read parameters such as channel names by setting this:
 
 .. code-block:: python
-   
-   chan = None
+
+    chan = None
+                  
 |
  in the calls to functions.
 
