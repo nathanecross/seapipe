@@ -125,7 +125,40 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
         Extracts stages from the BIDS formatted dataset, in which
         staging has been listed in a file *acq-PSGScoring_events.tsv, and
         saves the information in an annotations file
+        
+        Parameters
+        ----------
+                    in_dir   :  str
+                                The path to the BIDS dataset containing EEG recordings
+                                and staging *acq-PSGScoring_events.tsv files
+                    xml_dir  :  str
+                                The derivatives path to store the annotations (.xml) 
+                                file under the <sub>/<ses> structure
+                    subs     :  str or ist of str
+                                The participant ids to run this function on. Can 
+                                be set to 'all', and all participants will be 
+                                formatted.
+                    sessions :  str or list of str
+                                The participant ids to run this function on. Can 
+                                be set to 'all', and all participants will be 
+                                formatted.   
+                    filetype :  str
+                                The extension of EEG recording files 
+                                (default = '.edf')
+                    stage_key : dict or NoneType
+                                Key for staging names to be saved into annotations
+                                file (default is set to be compatible with Wonambi)
+                    logger   :  logger for logging
+                    
+
+        Returns
+        -------
+                    flag : 0 (no errors)
+                           1+ (errors or warnings)
+        
+        
     '''
+    
     flag = 0
     if not stage_key:
         stage_key = {0: 'Wake',
@@ -142,6 +175,7 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
         return 
     
     # Loop through
+    subs.sort()
     for s, sub in enumerate(subs):
         
         # Make subject output directory
@@ -166,7 +200,7 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
             # Load BIDS stage event file
             datadir = f'{in_dir}/{sub}/{ses}/eeg'
             stagefile = [x for x in listdir(datadir) if 'acq-PSGScoring_events.tsv' in x][0]
-            stagedf = read_csv(stagefile, sep ='\t' ) 
+            stagedf = read_csv(f'{datadir}/{stagefile}', sep ='\t' ) 
             
             # Create new annotations for staging
             xml_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_staging.xml'

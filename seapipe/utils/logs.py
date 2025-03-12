@@ -133,8 +133,9 @@ def create_logger_outfile(logfile, name=None):
     ch.setFormatter(CustomFormatter())
     logger.addHandler(ch)
     
-    #logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
     logger.propagate = False
 
     return logger
+

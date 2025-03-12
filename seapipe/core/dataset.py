@@ -79,7 +79,10 @@ class pipeline:
                        filetype = '.edf'):
         
         self.rootpath = indir
-        self.datapath = indir + '/DATA'
+        if path.exists(indir + '/DATA'):
+            self.datapath = indir + '/DATA'
+        else:
+            self.datapath = indir + '/sourcedata'
         self.outpath = indir + '/derivatives'
         if not path.exists(self.outpath):
             mkdir(self.outpath)
@@ -90,8 +93,8 @@ class pipeline:
         if not path.exists(self.log_dir):
             mkdir(self.log_dir)
         self.tracking = {}
-        self.audit_init = check_dataset(self.rootpath, self.outfile, filetype,
-                                        tracking)
+        self.audit_init = check_dataset(self.rootpath, self.datapath, 
+                                        self.outfile, filetype, tracking)
         self.track(subs = 'all', ses = 'all', 
                    step = ['staging','spindle','slowwave','pac','sync','psa'],
                    show = False, log = False)
@@ -206,7 +209,12 @@ class pipeline:
         
         ## Track sessions  
         if not isinstance(subs, list) and subs == 'all':
-            subs = [x for x in listdir(self.datapath) if '.' not in x]
+            try:
+                subs = [x for x in listdir(self.datapath) if '.' not in x]
+            except:
+                logger.critical(f'{self.datapath} does not exist - cannot ascertain '
+                             'details of dataset.')
+                return
         elif not isinstance(subs, list):
             
             subs = read_tracking_sheet(self.rootpath, logger)
@@ -278,7 +286,7 @@ class pipeline:
         '''
             Extracts stages from the BIDS formatted dataset, in which
             staging has been listed in a file *acq-PSGScoring_events.tsv, and
-            saves the information in an annotations file
+            saves the information in an annotations (.xml) file
         '''
         
         # Set up logging
@@ -435,12 +443,12 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
+            today = date.today().strftime("%Y/%m/%d")
+            now = datetime.now().strftime("%H:%M:%S")
             logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
             logger.info('')
-            logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {now} --------------")
+            logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {today}, {now} --------------")
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
@@ -495,7 +503,7 @@ class pipeline:
                                subs = 'all', sessions = 'all', filetype = '.edf', 
                                method = 'seapipe', win_size = 5,
                                eeg_chans = None, ref_chans = None, 
-                               eog_chan = None, label = 'allchans',
+                               label = 'allchans',
                                rater = None, grp_name = 'eeg', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                outfile = True):
@@ -551,7 +559,7 @@ class pipeline:
         
     
         # Check annotations directory exists, run detection
-        artefacts = SAND(in_dir, xml_dir, out_dir, eeg_chans, ref_chan, eog_chan, 
+        artefacts = SAND(in_dir, xml_dir, out_dir, eeg_chans, ref_chan, 
                          rater, grp_name, subs, sessions, self.tracking) 
         artefacts.detect_artefacts(method, label,  win_size,  filetype, stage,
                                    logger)
@@ -582,12 +590,14 @@ class pipeline:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/detect_specparams_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spectral peaks')
+            logger = create_logger_outfile(logfile = logfile, 
+                                           name = 'Detect spectral peaks')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spectral peaks' evoked at {now} --------------")
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spectral peaks')
+            logger = create_logger_outfile(logfile = logfile, 
+                                           name = 'Detect spectral peaks')
         else:
             logger = create_logger('Detect spectral peaks')
         

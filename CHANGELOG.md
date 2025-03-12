@@ -23,3 +23,5 @@ Beta Version
 0.4.6 Fixed bugs with audit, whales, logs and added first REMS detection (YASA)
 0.4.7 Corrected some more issues with logging, updates to artefact detection
 0.4.8 Added artefact detection, fixed some loading issues, added back arousals to export macro stats
+0.4.9 Updates to make_bids (added 'Woolcock' option and fixed bugs), whales
+0.5.0 Updates to functions (make_bids, load, audit) and enabled data_dir as /sourcedata

@@ -7,16 +7,21 @@ Created on Mon Jul 31 13:36:12 2023
 """
 from copy import deepcopy
 from datetime import datetime
+from json import dump, dumps
 from os import listdir, mkdir, path, rename, walk
-from numpy import array, delete, where
-from pandas import DataFrame, read_csv
+from numpy import array, ceil, delete, zeros
+from pandas import DataFrame
+from pyedflib import highlevel
+from shutil import rmtree
+from statistics import mode
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from .logs import create_logger
-from .load import load_channels, rename_channels, read_tracking_sheet
+from .load import load_channels, load_stages, rename_channels, read_tracking_sheet
 
 
-def check_dataset(rootpath, outfile = False, filetype = '.edf', 
+
+def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf', 
                   tracking = False, logger = create_logger("Audit")):
     
     """ Audits the directory specified by <in_dir> to check if the dataset is
@@ -26,9 +31,8 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf',
     """
     
     
-    datapath = path.join(rootpath, 'DATA')
     if not path.exists(datapath):
-        logger.error(f"PATH: {datapath} does not exist. Check documentation for "
+        logger.critical(f"PATH: {datapath} does not exist. Check documentation for "
                      "how to arrange data:"
                      "\nhttps://seapipe.readthedocs.io/en/latest/index.html\n")
         return DataFrame()
@@ -135,7 +139,8 @@ def check_dataset(rootpath, outfile = False, filetype = '.edf',
 
 
 
-def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf'):
+def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
+              logger = create_logger("Make bids")):
     
     """Converts the directory specified by <in_dir> to be BIDS compatible.
     You can specify the origin format of the data. For now, this only converts
@@ -282,8 +287,148 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf'):
                         dst = f'{newdir}/eeg/{newfile}'
                     rename(src, dst)
     
+    if origin=='MASS':
+        
+        # Update in_dir for MASS
+        in_dir = in_dir.replace('sourcedata','')
+        dir_check = [x for x in listdir(in_dir) if '.' not in x]
+        
+        data_dir = f'{in_dir}/Biosignals/' if 'Biosignals' in dir_check else in_dir
+        annot_dir = f'{in_dir}/Annotations/' if 'Annotations' in dir_check else []
+        derivs_dir = f'{in_dir}/derivatives/'
+        
+        # Make '/derivatives' directory if not already exists
+        if not path.exists(derivs_dir):
+            mkdir(derivs_dir)
+        if not path.exists(f'{derivs_dir}/staging/'):
+            mkdir(f'{derivs_dir}/staging/')
+
+        # Make '/DATA' directory if not already exists
+        out_dir = f'{in_dir}/sourcedata'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        files = [x for x in listdir(data_dir) if not x.startswith('.') if 'PSG' in x]
+        stages = [x for x in listdir(data_dir) if not x.startswith('.') if 'Base' in x]
+        
+        if subs == 'all':
+            sublist = [x.split(' ')[0] for x in files]
+            sublist = [x.split('-')[2] for x in sublist]
+        
+        if len(sublist) == 0:
+            logger.critical(f'No {filetype} files in {data_dir}. Check paths are correct.')
+            return
+        
+        sublist.sort()
+        for s, sub in enumerate(sublist):
+            
+            if not path.exists(f'{out_dir}/sub-{sub}'):
+                mkdir(f'{out_dir}/sub-{sub}')
+                mkdir(f'{out_dir}/sub-{sub}/ses-1/')
+                mkdir(f'{out_dir}/sub-{sub}/ses-1/eeg/')
+            
+                
+            file = [x for x in files if sub in x][0]
+            
+            src = f'{data_dir}/{file}'
+            dst = f'{out_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSG.edf'
+            rename(src, dst)
+            
+            ## JSON SIDECAR
+            hd = Dataset(dst).header
+            s_freq = hd['s_freq']
+            dur = hd['n_samples']/s_freq
+            dictionary = {
+                "TaskName": "Sleep",
+                "SamplingFrequency": s_freq,
+                "EEGReference": "Unknown",
+                "PowerLineFrequency": "Unknown",
+                "SoftwareFilters": "n/a",
+                "InstitutionName": "University of Sydney",
+                "InstitutionalDepartmentName": "Woolcock Institute of Medical Research",
+                "RecordingDuration": dur}
+             
+            json_file = '.'.join(dst.split('.')[0:-1]) + '.json'
+            
+            # Writing to .json
+            with open(json_file, "w") as outfile:
+                dump(dictionary, outfile)
+
+            # Read staging data
+            file = [x for x in stages if sub in x][0]
+            _, _, header = highlevel.read_edf(f'{data_dir}/{file}')
+            epochs = [x for x in header['annotations']]
+            length = int(epochs[-1][0])
+            hypno = zeros(length)
+            
+            
+            stagekey = {'Sleep stage 1' : 1,
+                        'Sleep stage 2' : 2,
+                        'Sleep stage 3' : 3,
+                        'Sleep stage 4' : 3,
+                        'Sleep stage ?' : 0,
+                        'Sleep stage R' : 4,
+                        'Sleep stage W' : 0}
+            
+            for e, epoch in enumerate(epochs):
+                if e == 0:
+                    end = int(epoch[0]) + int(ceil(epoch[1]))
+                    hypno[0:end] = stagekey[epoch[2]]
+                else:
+                    start = int(epoch[0])
+                    end = start + int(ceil(epoch[1]))
+                    hypno[start:end] = stagekey[epoch[2]]
+            
+            stage_df = DataFrame(columns = ['onset', 'duration', 'staging'])
+            
+            for row, onset in enumerate(range(0,length,30)):
+                
+                stage_df.loc[row, 'onset'] = onset
+                stage_df.loc[row, 'duration'] = 30
+                stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
+                
+            stage_df.to_csv(f'{out_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSGScoring_events.tsv', 
+                            sep = '\t', header=True, index=False)
+            
+            # Move original .edf staging file to /derivatives
+            if not path.exists(f'{derivs_dir}/staging/sub-{sub}/'):
+                mkdir(f'{derivs_dir}/staging/sub-{sub}/')
+                mkdir(f'{derivs_dir}/staging/sub-{sub}/ses-1')
+            rename(f'{data_dir}/{file}', f'{derivs_dir}/staging/sub-{sub}/ses-1/{file}')
+            
+            
+            # TODO : Add import of MASS annotations
+            #if len(annot_dir) > 0:
+            annot_files = [x for x in listdir(annot_dir) if not x.startswith('.') 
+                           if sub in x]    
+            
+            for afile in annot_files:
+                rename(f'{annot_dir}/{afile}', 
+                       f'{derivs_dir}/staging/sub-{sub}/ses-1/{afile}')
+            
+            
+        # Make XMLs and add staging
+        load_stages(out_dir, derivs_dir + '/staging', subs = subs)
+        
+        # Clean up and finish
+        if path.exists(f'{in_dir}/Biosignals/'):
+            if len([x for x in listdir(f'{in_dir}/Biosignals/') if not x.startswith('.')]) == 0:
+                rmtree(f'{in_dir}/Biosignals/')
+            else:
+                logger.warning(f'{in_dir}/Annotations/ is not empty - check the '
+                               'contents and remove this from the path [in_dir} '
+                               'before proceeding any analysis.')
+        if path.exists(f'{in_dir}/Annotations/'):
+            if len([x for x in listdir(f'{in_dir}/Annotations/') if not x.startswith('.')]) == 0:
+                rmtree(f'{in_dir}/Annotations/')
+            else:
+                logger.warning(f'{in_dir}/Biosignals/ is not empty - check the '
+                               'contents and remove this from the path [in_dir} '
+                               'before proceeding any analysis.')
+        
+       
     # Finally check dataset
-    check_dataset('/'.join(in_dir.split('/')[0:-1]), filetype)
+    check_dataset(in_dir, out_dir, filetype)
                     
 def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
     

@@ -41,6 +41,7 @@ setup(
                       "numpy<=1.26.4",
                       "openpyxl",
                       "pandas",
+                      "pyedflib",
                       "pinguoin",
                       "safepickle",
                       "scipy<1.13.0",

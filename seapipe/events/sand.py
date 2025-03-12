@@ -53,7 +53,7 @@ class SAND:
     """   
     
     def __init__(self, rec_dir, xml_dir, out_dir, eeg_chan, ref_chan,
-                 eog_chan, rater = None, grp_name = 'eeg', 
+                 rater = None, grp_name = 'eeg', 
                  subs='all', sessions='all', tracking = None):
         
         self.rec_dir = rec_dir
@@ -61,7 +61,6 @@ class SAND:
         self.out_dir = out_dir
         self.eeg_chan = eeg_chan
         self.ref_chan = ref_chan
-        self.eog_chan = eog_chan
         self.rater = rater
         self.grp_name = grp_name
         
@@ -200,11 +199,22 @@ class SAND:
                 if not path.exists(self.xml_dir + '/' + sub + '/' + ses):
                      mkdir(self.xml_dir + '/' + sub + '/' + ses)
                 xdir = self.xml_dir + '/' + sub + '/' + ses
-                xml_file = f'{xdir}/{sub}_{ses}_eeg.xml'
+                
+                xml_file = [x for x in listdir(f'{xdir}') if '.xml' in x]
+                if len(xml_file) > 1:
+                    logger.warning(f'More than 1 annotations file found for '
+                                   f'{sub}, {ses} in {xdir}. Skipping...')
+                    continue
+                if len(xml_file) < 1:
+                    logger.warning(f'No annotations file was found for '
+                                   f'{sub}, {ses} in {xdir}. Skipping...')
+                else:
+                    xml_file = f'{xdir}/{xml_file[0]}'
+                    
                 if not path.exists(xml_file):
                     dset = Dataset(rdir + edf_file)
                     create_empty_annotations(xml_file, dset)
-                    logger.warning(f"No annotations file exists. Creating" 
+                    logger.warning(f"No annotations file exists. Creating " 
                                    f"annotations file for {sub}, {ses} and" 
                                    "detecting Artefacts WITHOUT hypnogram.")
                     annot = Annotations(xml_file)
@@ -229,7 +239,10 @@ class SAND:
                 
                 
                 for chan in chanset:
-                    logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
+                    if newchans:
+                        logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
+                    else:
+                        logger.debug(f'Detecting for {chan} : {chanset[chan]}')
 
                     if 'yasa' in method:     
                         
