@@ -165,7 +165,7 @@ It's structure should look like this:
 ::
    sub        ses         loff      lon       format     chanset1            chanset1_rename    refset1
    sub-01     ses-1       330       31500     .edf       F3, C3              F3, C3             M1, M2
-   sub-01     ses-2       4320      32390     .edf      	F3, C3              F3, C3             M1, M2
+   sub-01     ses-2       4320      32390     .edf       F3, C3              F3, C3             M1, M2
    sub-02     ses-1       1900      29945     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
    sub-02     ses-2       670       31010     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2
    ...
