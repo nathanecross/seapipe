@@ -26,7 +26,7 @@ from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, m
 from seapipe.utils.logs import create_logger, create_logger_outfile
 from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_sheet, 
                                 select_input_dirs, select_output_dirs, load_stages)
-
+from seapipe.utils.misc import adap_bands_setup
 
 ## TO DO:
 #   - adapt load channels to be flexible for non-equivalent refsets and chansets
@@ -217,7 +217,7 @@ class pipeline:
                 return
         elif not isinstance(subs, list):
             
-            subs = read_tracking_sheet(self.datapath, logger)
+            subs = read_tracking_sheet(self.rootpath, logger)
             subs = subs['sub'].drop_duplicates().tolist()
         subs.sort()
         
@@ -378,7 +378,7 @@ class pipeline:
         logger.debug(f'Output being saved to: {xml_dir}')
         
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if isinstance(chan, str):
             return
         
@@ -468,18 +468,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
         
         # Set channels
-        eeg_chan, ref_chan = check_chans(self.datapath, eeg_chan, ref_chan, logger)
+        eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.datapath, None, False, logger)
+            invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -549,14 +549,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
         
         # Set channels
-        eeg_chans, ref_chan = check_chans(self.datapath, eeg_chans, ref_chans, 
+        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chans, 
                                           logger)
         
     
@@ -627,14 +627,14 @@ class pipeline:
             
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()    
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
@@ -722,18 +722,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.datapath, None, False, logger)
+            invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
             logger.critical(f"The argument 'invert' must be set to either: 'True', "
                             f"'False' or 'None'; but it was set as {invert}.")
@@ -816,14 +816,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
@@ -840,63 +840,11 @@ class pipeline:
                 logger.info("Check documentation for how to mark and use sleep cycles:")
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 return
-                
-        # Check for adapted bands
-        if adap_bands == 'Fixed':
-            logger.debug("Detection using FIXED frequency bands has been selected "
-                         "(adap_bands = Fixed)")
-            if not frequency:
-                frequency = (11,16)
-        elif adap_bands == 'Manual':
-            logger.debug("Detection using ADAPTED (user-provided) frequency bands "
-                         "has been selected (adap_bands = Manual)")
-            logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
-            flag = check_adap_bands(self.rootpath, subs, sessions, chan, logger)
-            if flag == 'error':
-                logger.critical('Spindle detection finished with ERRORS. See log for details.')
-                return
-            elif flag == 'review':
-                logger.info('')
-                logger.warning("Some spectral peak entries in 'tracking.tsv' are "
-                               "inconsistent or missing. In these cases, detection will "
-                               f"revert to fixed bands: {frequency[0]}-{frequency[1]}Hz")
-                logger.info('')
-        elif adap_bands == 'Auto': 
-            if not frequency:
-                frequency = (9,16)           
-            logger.debug("Detection using ADAPTED (automatic) frequency bands has "
-                         "been selected (adap_bands = Auto)")
-            self.track(subs, sessions, step = 'fooof', show = False, log = False)
-            if not type(chan) == type(DataFrame()):
-                logger.critical("For adap_bands = Auto, the argument 'chan' must "
-                                "be 'None' and specfied in 'tracking.csv'")
-                logger.critical('Spindle detection finished with ERRORS. See log for details.')
-                return
-            else:
-                flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
-                                                                  chan, ref_chan, 
-                                                                  stage, 
-                                                                  cat,
-                                                                  cycle_idx, 
-                                                                  logger)
-            if flag == 'error':
-                logger.critical('Error in reading channel names, check tracking sheet.')
-                logger.info("Check documentation for how to set up channel names in tracking.tsv':")
-                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-                logger.info('-' * 10)
-                logger.critical('Spindle detection finished with ERRORS. See log for details.')
-                return
-            elif flag == 'review':
-                logger.debug("Spectral peaks have not been found for all subs, "
-                             "analysing the spectral parameters prior to spindle detection..")
-                for (sub,ses) in zip(pk_sub,pk_ses):
-                    self.detect_spectral_peaks(subs = [sub], 
-                                           sessions = [ses], 
-                                           chan = pk_chan, 
-                                           frequency = frequency,
-                                           stage = stage, cycle_idx = cycle_idx,
-                                           concat_cycle=concat_cycle, 
-                                           concat_stage=True)
+        
+        # Check for adapted bands    
+        frequency = adap_bands_setup(self, adap_bands, frequency, subs, sessions, 
+                                     chan, ref_chan, stage, cat, concat_cycle, 
+                                     cycle_idx, logger)
        
         # Run detection
         self.track(step='fooof', show = False, log = False)
@@ -961,14 +909,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
         
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
@@ -1036,14 +984,14 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
     
         # Run detection
         REMS = remora(in_dir, xml_dir, out_dir, chan, ref_chan, 
@@ -1107,18 +1055,18 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.datapath, chan, False, logger)
+            invert = check_chans(self.rootpath, chan, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -1202,18 +1150,30 @@ class pipeline:
         
         # Check subs
         if not subs:
-            tracking = read_tracking_sheet(self.datapath, logger)
+            tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.datapath, logger)
+            sessions = read_tracking_sheet(self.rootpath, logger)
             
         # Set channels
-        chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
         elif isinstance(ref_chan, str):
             return
+        
+        # Check for adapted bands 
+        cat = (int(concat_cycle),int(concat_stage),0,0)
+        
+        frequency_phase = adap_bands_setup(self, adap_bands_phase, frequency_phase, 
+                                     subs, sessions, chan, ref_chan, stage, cat, 
+                                     concat_cycle, cycle_idx, logger)
+        
+        frequency_amplitude = adap_bands_setup(self, adap_bands_amplitude, 
+                                               frequency_amplitude, subs, sessions, 
+                                               chan, ref_chan, stage, cat, 
+                                               concat_cycle, cycle_idx, logger)
         
         # Set PAC methods
         idpac = pac_method(method, surrogate, correction)
@@ -1231,7 +1191,7 @@ class pipeline:
         
         # Check inversion
         if invert == None:
-            invert = check_chans(self.datapath, None, False, logger)
+            invert = check_chans(self.rootpath, None, False, logger)
         elif type(invert) != bool:
             logger.critical("The argument 'invert' must be set to either: "
                             f"'True', 'False' or 'None'; but it was set as {invert}.")
@@ -1326,7 +1286,7 @@ class pipeline:
         logger.debug(f'Output being saved to: {out_dir}')
         
         # Set channels
-        times, ref_chan = check_chans(self.datapath, None, True, logger)
+        times, ref_chan = check_chans(self.rootpath, None, True, logger)
         
         self.track(subs = subs, ses = sessions, step = ['staging'], show = False, 
                    log = True)
@@ -1422,12 +1382,12 @@ class pipeline:
             if adap_bands in ['Auto','Manual']:
                 evt_name = f'{evt_name}_adap'
                 self.track(step='fooof', show = False, log = False)
-                peaks = check_chans(self.datapath, None, False, logger)
+                peaks = check_chans(self.rootpath, None, False, logger)
             else:
                 peaks = None
             
             # Set channels
-            chan, ref_chan = check_chans(self.datapath, chan, ref_chan, logger)
+            chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
             if average_channels:
                 Ngo = {'run':True}
             else:
