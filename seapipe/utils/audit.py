@@ -152,7 +152,11 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
         if subs == 'all':
             subs = [x for x in listdir(in_dir) if '.' not in x]
         
-        
+        root_dir = '/'.join(in_dir.split('/')[0:-1])
+        derivs_dir = f'{root_dir}/derivatives/'
+        if not path.exists(derivs_dir):
+            mkdir(derivs_dir)
+            
         for s, sub in enumerate(subs):
             
             src = f'{in_dir}/{sub}'
@@ -176,10 +180,7 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
                     rename(src, dst)
                 
                 # XMLs
-                odir = '/'.join(in_dir.split('/')[0:-1]) + '/derivatives/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/staging_manual/'
+                odir = f'{derivs_dir}/staging_manual/'
                 if not path.exists(odir):
                     mkdir(odir)
                 odir = f'{odir}/sub-{sub}/'
@@ -208,6 +209,11 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
         if subs == 'all':
             subs = [x for x in listdir(in_dir) if '.' not in x]
         
+        root_dir = '/'.join(in_dir.split('/')[0:-1])
+        derivs_dir = f'{root_dir}/derivatives/'
+        if not path.exists(derivs_dir):
+            mkdir(derivs_dir)
+            
         # Loop subjects
         for s, sub in enumerate(subs):
             
@@ -231,12 +237,8 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
                 newdir = f'{in_dir}/{newsub}/{newses}/'
                 rename(src, newdir)
                 
-
                 # Make derivatives, staging, <sub>, <ses> folders
-                odir = '/'.join(in_dir.split('/')[0:-1]) + '/derivatives/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/staging_manual/'
+                odir = f'{derivs_dir}/staging_manual/'
                 if not path.exists(odir):
                     mkdir(odir)
                 odir = f'{odir}/{newsub}/'
@@ -290,12 +292,12 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
     if origin=='MASS':
         
         # Update in_dir for MASS
-        in_dir = in_dir.replace('sourcedata','')
-        dir_check = [x for x in listdir(in_dir) if '.' not in x]
+        root_dir = '/'.join(in_dir.split('/')[0:-1])
+        dir_check = [x for x in listdir(root_dir) if '.' not in x]
         
-        data_dir = f'{in_dir}/Biosignals/' if 'Biosignals' in dir_check else in_dir
-        annot_dir = f'{in_dir}/Annotations/' if 'Annotations' in dir_check else []
-        derivs_dir = f'{in_dir}/derivatives/'
+        data_dir = f'{root_dir}/Biosignals/' if 'Biosignals' in dir_check else root_dir
+        annot_dir = f'{root_dir}/Annotations/' if 'Annotations' in dir_check else []
+        derivs_dir = f'{root_dir}/derivatives/'
         
         # Make '/derivatives' directory if not already exists
         if not path.exists(derivs_dir):
@@ -304,9 +306,9 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
             mkdir(f'{derivs_dir}/staging/')
 
         # Make '/DATA' directory if not already exists
-        out_dir = f'{in_dir}/sourcedata'
-        if not path.exists(out_dir):
-            mkdir(out_dir)
+        in_dir = f'{root_dir}/sourcedata'
+        if not path.exists(in_dir):
+            mkdir(in_dir)
         
         files = [x for x in listdir(data_dir) if not x.startswith('.') if 'PSG' in x]
         stages = [x for x in listdir(data_dir) if not x.startswith('.') if 'Base' in x]
@@ -322,16 +324,16 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
         sublist.sort()
         for s, sub in enumerate(sublist):
             
-            if not path.exists(f'{out_dir}/sub-{sub}'):
-                mkdir(f'{out_dir}/sub-{sub}')
-                mkdir(f'{out_dir}/sub-{sub}/ses-1/')
-                mkdir(f'{out_dir}/sub-{sub}/ses-1/eeg/')
+            if not path.exists(f'{in_dir}/sub-{sub}'):
+                mkdir(f'{in_dir}/sub-{sub}')
+                mkdir(f'{in_dir}/sub-{sub}/ses-1/')
+                mkdir(f'{in_dir}/sub-{sub}/ses-1/eeg/')
             
                 
             file = [x for x in files if sub in x][0]
             
             src = f'{data_dir}/{file}'
-            dst = f'{out_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSG.edf'
+            dst = f'{in_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSG.edf'
             rename(src, dst)
             
             ## JSON SIDECAR
@@ -387,7 +389,7 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
                 stage_df.loc[row, 'duration'] = 30
                 stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
                 
-            stage_df.to_csv(f'{out_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSGScoring_events.tsv', 
+            stage_df.to_csv(f'{in_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSGScoring_events.tsv', 
                             sep = '\t', header=True, index=False)
             
             # Move original .edf staging file to /derivatives
@@ -408,27 +410,27 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
             
             
         # Make XMLs and add staging
-        load_stages(out_dir, derivs_dir + '/staging', subs = subs)
+        load_stages(in_dir, derivs_dir + '/staging', subs = subs)
         
         # Clean up and finish
-        if path.exists(f'{in_dir}/Biosignals/'):
-            if len([x for x in listdir(f'{in_dir}/Biosignals/') if not x.startswith('.')]) == 0:
-                rmtree(f'{in_dir}/Biosignals/')
+        if path.exists(f'{root_dir}/Biosignals/'):
+            if len([x for x in listdir(f'{root_dir}/Biosignals/') if not x.startswith('.')]) == 0:
+                rmtree(f'{root_dir}/Biosignals/')
             else:
-                logger.warning(f'{in_dir}/Annotations/ is not empty - check the '
-                               'contents and remove this from the path [in_dir} '
+                logger.warning(f'{root_dir}/Annotations/ is not empty - check the '
+                               'contents and remove this from the path {root_dir} '
                                'before proceeding any analysis.')
-        if path.exists(f'{in_dir}/Annotations/'):
-            if len([x for x in listdir(f'{in_dir}/Annotations/') if not x.startswith('.')]) == 0:
-                rmtree(f'{in_dir}/Annotations/')
+        if path.exists(f'{root_dir}/Annotations/'):
+            if len([x for x in listdir(f'{root_dir}/Annotations/') if not x.startswith('.')]) == 0:
+                rmtree(f'{root_dir}/Annotations/')
             else:
-                logger.warning(f'{in_dir}/Biosignals/ is not empty - check the '
-                               'contents and remove this from the path [in_dir} '
+                logger.warning(f'{root_dir}/Biosignals/ is not empty - check the '
+                               'contents and remove this from the path {root_dir} '
                                'before proceeding any analysis.')
         
        
     # Finally check dataset
-    check_dataset(in_dir, out_dir, filetype)
+    check_dataset(root_dir, in_dir, filetype)
                     
 def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
     
