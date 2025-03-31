@@ -320,8 +320,11 @@ class octopus:
                     # b. Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
+                        filter_opts['renames'] = {newchans[ch]:ch}
+                        filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
+                        filter_opts['laplacian_rename'] = False
 
                     if ch == '_REF':
                         filter_opts['oREF'] = newchans[ch]

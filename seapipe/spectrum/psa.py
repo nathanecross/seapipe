@@ -657,8 +657,11 @@ class Spectrum:
                     # 5.b Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
+                        filter_opts['renames'] = {newchans[ch]:ch}
+                        filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
+                        filter_opts['laplacian_rename'] = False
                     
                     # Normalisation (if requested)
                     if norm == 'baseline':
