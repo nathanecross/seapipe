@@ -1074,13 +1074,10 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
 
    
     if adap_bands == 'Fixed':
-        logger.debug("Detection using FIXED frequency bands has been selected "
-                     "(adap_bands = Fixed)")
+        flag = None
         if not frequency:
             frequency = (11,16)
     elif adap_bands == 'Manual':
-        logger.debug("Detection using ADAPTED (user-provided) frequency bands "
-                     "has been selected (adap_bands = Manual)")
         logger.debug(f"Checking for spectral peaks in {self.rootpath}/'tracking.tsv' ")
         flag = check_adap_bands(self.rootpath, subs, sessions, chan, logger)
         if flag == 'error':
@@ -1095,14 +1092,11 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
     elif adap_bands == 'Auto': 
         if not frequency:
             frequency = (9,16)           
-        logger.debug("Detection using ADAPTED (automatic) frequency bands has "
-                     "been selected (adap_bands = Auto)")
         self.track(subs, sessions, step = 'fooof', show = False, log = False)
         if not type(chan) == type(DataFrame()):
             logger.critical("For adap_bands = Auto, the argument 'chan' must "
                             "be 'None' and specfied in 'tracking.csv'")
-            logger.critical('Spindle detection finished with ERRORS. See log for details.')
-            return
+            flag = 'error'
         else:
             flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
                                                               chan, ref_chan, 
@@ -1115,12 +1109,11 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
             logger.info("Check documentation for how to set up channel names in tracking.tsv':")
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
-            logger.critical('Spindle detection finished with ERRORS. See log for details.')
             return
         elif flag == 'review':
             logger.debug("Spectral peaks have not been found for all subs, "
                          "analysing the spectral parameters prior to spindle detection..")
-            for (sub,ses) in zip(pk_sub,pk_ses):
+            for (sub,ses) in zip(pk_sub, pk_ses):
                 self.detect_spectral_peaks(subs = [sub], 
                                        sessions = [ses], 
                                        chan = pk_chan, 
@@ -1128,4 +1121,5 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
                                        stage = stage, cycle_idx = cycle_idx,
                                        concat_cycle = concat_cycle, 
                                        concat_stage=True)    
-    return frequency
+    return frequency, flag
+

@@ -222,6 +222,8 @@ class octopus:
             return
         
         # Log filtering options
+        logger.debug(f'Using {adap_bands_phase} bands for phase frequency.')
+        logger.debug(f'Using {adap_bands_amplitude} bands for amplitude frequncy.')
         if filter_opts['notch']:
             logger.debug(f"Applying notch filtering: {filter_opts['notch_freq']} Hz")
         if filter_opts['notch_harmonics']: 
@@ -328,6 +330,7 @@ class octopus:
 
                     if ch == '_REF':
                         filter_opts['oREF'] = newchans[ch]
+                        filter_opts['laplacian_rename'] = False
                     else:
                         filter_opts['oREF'] = None
                         

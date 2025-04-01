@@ -841,10 +841,13 @@ class pipeline:
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 return
         
-        # Check for adapted bands    
-        frequency = adap_bands_setup(self, adap_bands, frequency, subs, sessions, 
-                                     chan, ref_chan, stage, cat, concat_cycle, 
-                                     cycle_idx, logger)
+        # Check for adapted bands
+        logger.debug(f'Detection using {adap_bands} frequency bands has been selected.')
+        frequency, flag = adap_bands_setup(self, adap_bands, frequency, subs, 
+                                           sessions, chan, ref_chan, stage, cat, 
+                                           concat_cycle, cycle_idx, logger)
+        if flag == 'error':
+            return
        
         # Run detection
         self.track(step='fooof', show = False, log = False)
@@ -1166,14 +1169,17 @@ class pipeline:
         # Check for adapted bands 
         cat = (int(concat_cycle),int(concat_stage),0,0)
         
-        frequency_phase = adap_bands_setup(self, adap_bands_phase, frequency_phase, 
+        frequency_phase, flag1 = adap_bands_setup(self, adap_bands_phase, frequency_phase, 
                                      subs, sessions, chan, ref_chan, stage, cat, 
                                      concat_cycle, cycle_idx, logger)
         
-        frequency_amplitude = adap_bands_setup(self, adap_bands_amplitude, 
+        frequency_amplitude, flag2 = adap_bands_setup(self, adap_bands_amplitude, 
                                                frequency_amplitude, subs, sessions, 
                                                chan, ref_chan, stage, cat, 
                                                concat_cycle, cycle_idx, logger)
+        
+        if flag1 == 'error' or flag2 == 'error':
+            return
         
         # Set PAC methods
         idpac = pac_method(method, surrogate, correction)
@@ -1207,7 +1213,7 @@ class pipeline:
                 out_dir = f'{self.outpath}/event_pac'  
             if not path.exists(out_dir):
                 mkdir(out_dir)
-            logger.debug(f'Output being saved to: {xml_dir}')
+            logger.debug(f'Output being saved to: {out_dir}')
                 
             cat = (int(concat_cycle),int(concat_stage),0,0)
             Octopus = octopus(self.rootpath, in_dir, xml_dir, out_dir, 
@@ -1225,7 +1231,7 @@ class pipeline:
                 out_dir = f'{self.outpath}/pac'  
             if not path.exists(out_dir):
                 mkdir(out_dir)
-            logger.debug(f'Output being saved to: {xml_dir}')
+            logger.debug(f'Output being saved to: {out_dir}')
             cat = (int(concat_cycle),int(concat_stage),1,1)
             Pacats = pacats(self.rootpath, in_dir, xml_dir, out_dir, 
                             chan, ref_chan, grp_name, stage, rater, subs, sessions, 

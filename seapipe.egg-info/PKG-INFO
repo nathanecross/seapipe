@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: seapipe
-Version: 0.5.0
+Version: 0.5.1
 Summary: A package pipeline for Sleep Events Analysis of EEG data.
 Home-page: https://github.com/nathanecross/seapipe
 Author: Nathan E. Cross
@@ -55,6 +55,7 @@ Requires-Dist: PyQt5; extra == "plot"
 Requires-Dist: matplotlib; extra == "plot"
 Dynamic: author
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-python
 
 
