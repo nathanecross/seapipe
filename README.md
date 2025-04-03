@@ -21,5 +21,5 @@ The only requirement is that the data should be structured in BIDS.
 For more information, check out the documentation at: https://seapipe.readthedocs.io/en/latest/index.html
 
 
-![](img/Fig1.pdf)
+![](img/Fig1.png)
 
