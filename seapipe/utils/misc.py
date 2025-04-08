@@ -15,6 +15,8 @@ from os import listdir, path, mkdir
 from datetime import datetime
 from wonambi import Dataset, graphoelement
 from wonambi.attr.annotations import Annotations, create_empty_annotations
+from wonambi.trans import fetch
+from wonambi.detect.spindle import transform_signal
 from scipy.signal import find_peaks, periodogram
 import shutil
 from sleepecg import detect_heartbeats
@@ -1123,3 +1125,40 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
                                        concat_stage=True)    
     return frequency, flag
 
+
+def infer_polarity(dset, annot, chan, ref_chan, cat = (1,1,1,1), evt_type = None, 
+                   stage = None, cycle = None, logger = create_logger('Check polarity')):
+
+    segments = fetch(dset, annot, cat, evt_type, stage,  cycle)
+    segments.read_data(chan, ref_chan)
+    
+    s_freq = dset.header['s_freq']
+    
+    X = segments.segments[0]['data'].data[0][0]
+    
+    XNormed = (X - X.mean())/(X.std())
+    
+    X_trans = transform_signal(XNormed, s_freq, 'double_sosbutter', 
+                               method_opt={'freq':(0.1,4.5), 'order':3})
+    
+    X_pos = copy.deepcopy(X_trans)
+    X_pos[X_pos<0] = np.nan
+    peaks_pos = find_peaks(X_pos, height = np.nanstd(X_pos)) 
+    pos_peaks_mean = np.nanmean(X_pos[peaks_pos[0]])
+    
+    X_neg = copy.deepcopy(X_trans)
+    X_neg[X_neg>0] = np.nan
+    X_neg = X_neg * -1
+    peaks_neg = find_peaks(X_neg, height = np.nanstd(X_neg)) 
+    neg_peaks_mean = np.nanmean(X_neg[peaks_neg[0]])
+    
+    logger.debug(f'Postive peaks average height = {pos_peaks_mean}')
+    logger.debug(f'Negative peaks average height = {neg_peaks_mean}')
+    
+    if pos_peaks_mean > neg_peaks_mean:
+        logger.debug('Therefore signal needs to be inverted.')
+        invert = True
+    elif neg_peaks_mean >= pos_peaks_mean:
+        invert = False
+        logger.debug('Signal polarity appears correct.')
+    return invert

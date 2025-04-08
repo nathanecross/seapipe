@@ -17,7 +17,7 @@ from datetime import datetime, date
 from pandas import DataFrame
 from ..utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, read_inversion, load_sessions)
-from ..utils.misc import remove_duplicate_evts, remove_event
+from ..utils.misc import infer_polarity, remove_duplicate_evts, remove_event
 
 
 class seasnakes:
@@ -185,14 +185,14 @@ class seasnakes:
                     break
                 
                 for c, ch in enumerate(chanset):
-                    
                     # g. Check if channel needs to be inverted for detection
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
-                            logger.warning(f"NO inversion will be applied to channel {ch} prior to detection for {sub}, {ses}. To turn off this warning, select invert = 'False'")
-                        else: 
-                            logger.debug(f'Inverting channel {ch} prior to detection for {sub}, {ses}')
+                            logger.debug(f'Inferring channel polarity {ch} for {sub}, {ses}')
+                            inversion = infer_polarity(dset, annot, ch, chanset[ch], 
+                                                       cat, None, self.stage, 
+                                                       cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert
                     else:
@@ -201,7 +201,9 @@ class seasnakes:
                         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                         logger.info('-' * 10)
                         return
-                        
+                    logger.debug(f"{'Inverting' if inversion else 'Not inverting'}"
+                                 " channel {ch} prior to detection for {sub}, {ses}")
+                    
                     # h. Read data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
                     try:

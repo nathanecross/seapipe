@@ -34,7 +34,7 @@ from wonambi.detect.spindle import transform_signal
 from seapipe.utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
                           load_sessions, read_inversion, read_manual_peaks)
-from ..utils.misc import remove_duplicate_evts
+from ..utils.misc import remove_duplicate_evts, infer_polarity
 
 
 def pac_method(method, surrogate, correction, list_methods=False):
@@ -381,9 +381,9 @@ class octopus:
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
-                            logger.warning(f"NO inversion will be applied to channel {ch} prior to detection for {sub}, {ses}. To turn off this warning, select `invert = 'False'`")
-                        else: 
-                            logger.debug(f'Inverting channel {ch} prior to detection for {sub}, {ses}')
+                            inversion = infer_polarity(dset, annot, ch, chanset[ch], 
+                                                       cat, evt_type, self.stage, 
+                                                       cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert
                     else:
@@ -392,7 +392,10 @@ class octopus:
                         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                         logger.info('-' * 10)
                         return
-    
+                    logger.debug(f"{'Inverting' if inversion else 'Not inverting'}"
+                                 " channel {ch} prior to detection for {sub}, {ses}")
+                    
+                    
                     # 5.a. Fetch data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     if not evt_type == None and not isinstance(evt_type, list):
