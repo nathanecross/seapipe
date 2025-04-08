@@ -445,7 +445,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            today = date.today().strftime("%Y/%m/%d")
+            today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
             logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
