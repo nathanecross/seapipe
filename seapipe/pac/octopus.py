@@ -233,6 +233,10 @@ class octopus:
         if filter_opts['laplacian']:
             logger.debug('Applying Laplacian filtering.')
         
+        # Check format of evt_type
+        if not evt_type == None and not isinstance(evt_type, list):
+            evt_type = [evt_type]
+        
         ### 1. First we check the directories
         # a. Check for output folder, if doesn't exist, create
         if path.exists(self.out_dir):
@@ -319,6 +323,8 @@ class octopus:
                 # 4.a. Loop through channels
                 for c, ch in enumerate(chanset):
                     
+                    chan_full = f'{ch} ({self.grp_name})'
+                    
                     # b. Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
@@ -329,8 +335,20 @@ class octopus:
                         filter_opts['laplacian_rename'] = False
 
                     if ch == '_REF':
-                        filter_opts['oREF'] = newchans[ch]
                         filter_opts['laplacian_rename'] = False
+                        if not filter_opts['oREF']:
+                            try:
+                                filter_opts['oREF'] = newchans[ch]
+                            except:
+                                logger.warning("Channel selected is '_REF' but "
+                                               "no information has been given "
+                                               "about what standard name applies, "
+                                               "either via filter_opts['oREF'] "
+                                               "or 'chanset_rename' in the tracking "
+                                               "sheet (see user guide). Skipping "
+                                               "channel...")
+                                flag += 1
+                                continue
                     else:
                         filter_opts['oREF'] = None
                         
@@ -381,9 +399,9 @@ class octopus:
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
-                            inversion = infer_polarity(dset, annot, ch, chanset[ch], 
-                                                       cat, evt_type, self.stage, 
-                                                       cycle, logger)
+                            inversion = infer_polarity(dset, annot, ch, 
+                                                       chanset[ch], cat, evt_type, 
+                                                       self.stage, cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert
                     else:
@@ -393,16 +411,14 @@ class octopus:
                         logger.info('-' * 10)
                         return
                     logger.debug(f"{'Inverting' if inversion else 'Not inverting'}"
-                                 " channel {ch} prior to detection for {sub}, {ses}")
+                                 f" channel {ch} prior to detection for {sub}, {ses}")
                     
                     
                     # 5.a. Fetch data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
-                    if not evt_type == None and not isinstance(evt_type, list):
-                        evt_type = [evt_type]
                     try:
                         segments = fetch(dset, annot, cat = cat, evt_type = evt_type, 
-                                     stage = self.stage,  cycle = cycle, 
+                                     stage = self.stage, cycle = cycle, 
                                      buffer = event_opts['buffer'])
                     except Exception as error:
                         logger.error(error.args[0])
@@ -497,46 +513,57 @@ class octopus:
                                 selectchans = ch
                             
                             # 7.d. Notch filters
+                            filtflag = 0
                             if filter_opts['notch']:
-                                data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                            channel=selectchans, 
-                                                            freq=filter_opts['notch_freq'],
-                                                            rename=filter_opts['laplacian_rename'],
-                                                            renames=filter_opts['renames'],
-                                                            montage=filter_opts['montage'])
+                                data.data[0], filtflag = notch_mne(data,  
+                                                        channel=selectchans, 
+                                                        freq=filter_opts['notch_freq'],
+                                                        oREF=filter_opts['oREF'],
+                                                        rename=filter_opts['laplacian_rename'],
+                                                        renames=filter_opts['renames'],
+                                                        montage=filter_opts['montage']
+                                                        )
                                 
                             if filter_opts['notch_harmonics']: 
-                                data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                          channel=selectchans, 
+                                data.data[0], filtflag = notch_mne2(data, 
+                                                          channel=selectchans,
+                                                          oREF=filter_opts['oREF'], 
                                                           rename=filter_opts['laplacian_rename'],
                                                           renames=filter_opts['renames'],
-                                                          montage=filter_opts['montage'])    
+                                                          montage=filter_opts['montage']
+                                                          )    
                             
                             # 7.e. Bandpass filters
                             if filter_opts['bandpass']:
-                                data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
-                                                          channel=selectchans,
-                                                          highpass=filter_opts['highpass'], 
-                                                          lowpass=filter_opts['lowpass'], 
-                                                          rename=filter_opts['laplacian_rename'],
-                                                          renames=filter_opts['renames'],
-                                                          montage=filter_opts['montage'])
+                                data.data[0], filtflag = bandpass_mne(data, 
+                                                            channel=selectchans, 
+                                                            highpass=filter_opts['highpass'], 
+                                                            lowpass=filter_opts['lowpass'], 
+                                                            oREF=filter_opts['oREF'],
+                                                            rename=filter_opts['laplacian_rename'],
+                                                            renames=filter_opts['renames'],
+                                                            montage=filter_opts['montage']
+                                                            )
                             
                             # 7.f. Laplacian transform
                             if filter_opts['laplacian'] and laplace_flag:
-                                data.data[0] = laplacian_mne(data, 
-                                                     filter_opts['oREF'], 
-                                                     channel=selectchans, 
-                                                     ref_chan=chanset[ch], 
-                                                     laplacian_rename=filter_opts['laplacian_rename'], 
-                                                     renames=filter_opts['renames'],
-                                                     montage=filter_opts['montage'])
+                                data.data[0], filtflag = laplacian_mne(data, 
+                                                                       channel=selectchans, 
+                                                                       ref_chan=chanset[ch], 
+                                                                       oREF=filter_opts['oREF'], 
+                                                                       laplacian_rename=filter_opts['laplacian_rename'], 
+                                                                       renames=filter_opts['renames'],
+                                                                       montage=filter_opts['montage']
+                                                                       )
                                 data.axis['chan'][0] = asarray([x for x in chanset])
                                 selectchans = ch
                                 dat = data[0]
                             else:
                                 dat = data()[0][0]
                             
+                            # If any errors occured during filtering, break
+                            if filtflag > 0:
+                                break
                             
                             # 7.g. Fix polarity of recording
                             if inversion:

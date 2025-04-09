@@ -26,3 +26,4 @@ Beta Version
 0.4.9 Updates to make_bids (added 'Woolcock' option and fixed bugs), whales
 0.5.0 Updates to functions (make_bids, load, audit) and enabled data_dir as /sourcedata
 0.5.1 Fixed bugs with channel renames (PSA and PAC) and make_bids
+0.5.2 Fixed bugs, added function to infer polarity, and updated other (filtering) functions

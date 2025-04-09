@@ -631,15 +631,26 @@ def rename_evts(xml_dir, out_dir, part, visit, evts):
     return
                 
 
-def laplacian_mne(data, oREF, channel, ref_chan, laplacian_rename=False, 
-                  renames=None, montage='standard_alphabetic'):
+def laplacian_mne(data, channel, ref_chan, oREF = None, laplacian_rename=False, 
+                  renames=None, montage='standard_alphabetic', 
+                  logger = create_logger('Laplacian filter')):
     
     
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
     
     if oREF:
-        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        try:
+            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        except Exception as error:
+            logger.error(error)
+            logger.error("This is due to an incorrect naming of an online "
+                         "reference 'oREF' (see user guide):")
+            logger.info('')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
+            logger.info('-' * 10)
+            return data, 1
     
     if laplacian_rename:
         dig.rename_channels(renames, allow_duplicates=False)
@@ -654,12 +665,12 @@ def laplacian_mne(data, oREF, channel, ref_chan, laplacian_rename=False,
     raw_csd = mne.preprocessing.compute_current_source_density(a, verbose=40)
     data = raw_csd.get_data(picks=channel)
     
-    return data
+    return data, 0
 
 
-
-def notch_mne(data, oREF, channel, freq, rename=False,
-                 renames=None, montage='standard_alphabetic'):
+def notch_mne(data, channel, freq, oREF = None, rename=False, renames=None, 
+              montage='standard_alphabetic', 
+              logger = create_logger('Notch filter')):
     
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
@@ -668,7 +679,17 @@ def notch_mne(data, oREF, channel, freq, rename=False,
         dig.rename_channels(renames, allow_duplicates=False)
         
     if oREF:
-        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        try:
+            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        except Exception as error:
+            logger.error(error)
+            logger.error("This is due to an incorrect naming of an online "
+                         "reference 'oREF' (see user guide):")
+            logger.info('')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
+            logger.info('-' * 10)
+            return data, 1
     
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -679,10 +700,11 @@ def notch_mne(data, oREF, channel, freq, rename=False,
     anotch = a.notch_filter(freq,verbose=40)
     data = anotch.get_data(picks=channel)
     
-    return data
+    return data, 0 
 
-def notch_mne2(data, oREF, channel, rename=False, renames=None,
-               montage='standard_alphabetic'):
+def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
+               montage = 'standard_alphabetic', 
+               logger = create_logger('Notch filter')):
     
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
@@ -691,7 +713,17 @@ def notch_mne2(data, oREF, channel, rename=False, renames=None,
         dig.rename_channels(renames, allow_duplicates=False)
         
     if oREF:
-        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        try:
+            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        except Exception as error:
+            logger.error(error)
+            logger.error("This is due to an incorrect naming of an online "
+                         "reference 'oREF' (see user guide):")
+            logger.info('')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
+            logger.info('-' * 10)
+            return data, 1
         
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -704,11 +736,12 @@ def notch_mne2(data, oREF, channel, rename=False, renames=None,
                             method='spectrum_fit', verbose=None)
     data = anotch.get_data(picks=channel)
     
-    return data
+    return data, 0
     
 
-def bandpass_mne(data, oREF, channel, highpass, lowpass, rename=False,
-                 renames=None, montage='standard_alphabetic'):
+def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
+                 renames=None, montage='standard_alphabetic', 
+                 logger = create_logger('Bandpass filter')):
     
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
@@ -717,7 +750,17 @@ def bandpass_mne(data, oREF, channel, highpass, lowpass, rename=False,
         dig.rename_channels(renames, allow_duplicates=False)
         
     if oREF:
-        dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        try:
+            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
+        except Exception as error:
+            logger.error(error)
+            logger.error("This is due to an incorrect naming of an online "
+                         "reference 'oREF' (see user guide):")
+            logger.info('')
+            logger.info("Check documentation for how to set up channel data: "
+                        "https://seapipe.readthedocs.io/en/latest/index.html")
+            logger.info('-' * 10)
+            return data, 1
         
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -728,7 +771,7 @@ def bandpass_mne(data, oREF, channel, highpass, lowpass, rename=False,
     a_filt = a.filter(highpass, lowpass,verbose=40)
     data = a_filt.get_data(picks=channel)
     
-    return data
+    return data, 0
 
 def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     
@@ -1129,7 +1172,7 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
 def infer_polarity(dset, annot, chan, ref_chan, cat = (1,1,1,1), evt_type = None, 
                    stage = None, cycle = None, logger = create_logger('Check polarity')):
 
-    segments = fetch(dset, annot, cat, evt_type, stage,  cycle)
+    segments = fetch(dset, annot, cat, evt_type, stage, cycle)
     segments.read_data(chan, ref_chan)
     
     s_freq = dset.header['s_freq']
@@ -1141,24 +1184,79 @@ def infer_polarity(dset, annot, chan, ref_chan, cat = (1,1,1,1), evt_type = None
     X_trans = transform_signal(XNormed, s_freq, 'double_sosbutter', 
                                method_opt={'freq':(0.1,4.5), 'order':3})
     
+    ## Positive component of signal
     X_pos = copy.deepcopy(X_trans)
     X_pos[X_pos<0] = np.nan
+    
+    # Positive peaks
     peaks_pos = find_peaks(X_pos, height = np.nanstd(X_pos)) 
     pos_peaks_mean = np.nanmean(X_pos[peaks_pos[0]])
     
+    # Positive mean
+    pos_mean = np.nanmean(X_pos[X_pos>np.nanpercentile(X_pos, 99)])
+    
+    # Positive PSD
+    result = flip_and_switch(X_pos)
+    Sxx = periodogram(result, s_freq)
+    pos_Sxx_mean = np.nanmean(Sxx[1][0:2000])
+    
+    ## Negative component of signal
     X_neg = copy.deepcopy(X_trans)
     X_neg[X_neg>0] = np.nan
     X_neg = X_neg * -1
+    
+    # Negative peaks
     peaks_neg = find_peaks(X_neg, height = np.nanstd(X_neg)) 
     neg_peaks_mean = np.nanmean(X_neg[peaks_neg[0]])
     
-    logger.debug(f'Postive peaks average height = {pos_peaks_mean}')
-    logger.debug(f'Negative peaks average height = {neg_peaks_mean}')
+    # Negative mean
+    neg_mean = np.nanmean(X_neg[X_neg>np.nanpercentile(X_neg, 99)])
     
-    if pos_peaks_mean > neg_peaks_mean:
-        logger.debug('Therefore signal needs to be inverted.')
+    # Negative PSD
+    result = flip_and_switch(X_neg)
+    Sxx = periodogram(result, s_freq)
+    neg_Sxx_mean = np.nanmean(Sxx[1][0:2000])
+    
+    # Compare Postive to Negative
+    rating = ( 
+              int(pos_peaks_mean>neg_peaks_mean) + 
+              int(pos_Sxx_mean>neg_Sxx_mean) + 
+              int(pos_mean > neg_mean) 
+              )
+
+    if rating > 0:
+        logger.debug('Signal polarity appears to be reversed.')
         invert = True
-    elif neg_peaks_mean >= pos_peaks_mean:
+    else:
         invert = False
         logger.debug('Signal polarity appears correct.')
     return invert
+
+
+def flip_and_switch(data):
+    
+    # Step 1: Identify segments between NaNs
+    segments = []
+    current_segment = []
+    
+    for i, val in enumerate(data):
+        if not np.isnan(val):
+            current_segment.append(val)
+        elif current_segment:
+            segments.append(np.array(current_segment))
+            current_segment = []
+    
+    # Add the last segment if it exists
+    if current_segment:
+        segments.append(np.array(current_segment))
+    
+    # Step 2: Flip every even-indexed segment (starting at index 1)
+    for i in range(len(segments)):
+        if i % 2 == 1:  # 0-based index: 1st, 3rd, etc.
+            segments[i] = -segments[i]
+    
+    # Step 3: Stitch the segments together
+    result = np.concatenate(segments)
+    
+    return result
+

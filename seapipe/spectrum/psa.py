@@ -662,6 +662,23 @@ class Spectrum:
                     else:
                         fnamechan = ch
                         filter_opts['laplacian_rename'] = False
+                        
+                    if ch == '_REF':
+                        filter_opts['laplacian_rename'] = False
+                        if not filter_opts['oREF']:
+                            try:
+                                filter_opts['oREF'] = newchans[ch]
+                            except:
+                                logger.warning("Channel selected is '_REF' but "
+                                               "no information has been given "
+                                               "about what standard name applies, "
+                                               "either via filter_opts['oREF'] "
+                                               "or 'chanset_rename' in the tracking "
+                                               "sheet (see user guide). Skipping "
+                                               "channel...")
+                                flag += 1
+                                continue
+                   
                     
                     # Normalisation (if requested)
                     if norm == 'baseline':
@@ -776,47 +793,54 @@ class Spectrum:
                             selectchans = ch
                         
                         # Notch filters
+                        filtflag = 0
                         if filter_opts['notch']:
-                            logger.debug(f"Applying notch filtering: {filter_opts['notch_freq']}")
-                            data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                        channel=selectchans, 
-                                                        freq=filter_opts['notch_freq'],
-                                                        rename=filter_opts['laplacian_rename'],
-                                                        renames=filter_opts['renames'],
-                                                        montage=filter_opts['montage'])
+                            data.data[0], filtflag = notch_mne(data,  
+                                                    channel=selectchans, 
+                                                    freq=filter_opts['notch_freq'],
+                                                    oREF=filter_opts['oREF'],
+                                                    rename=filter_opts['laplacian_rename'],
+                                                    renames=filter_opts['renames'],
+                                                    montage=filter_opts['montage']
+                                                    )
                             
                         if filter_opts['notch_harmonics']: 
-                            logger.debug('Applying notch harmonics filtering.')
-                            logger.debug(f'{selectchans}')
-                            data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                      channel=selectchans, 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])    
-                        
-                        # Bandpass filters
-                        if filter_opts['bandpass']:
-                            logger.debug(f"Applying bandpass filtering: {filter_opts['highpass']} - {filter_opts['lowpass']} Hz")
-                            data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
+                            data.data[0], filtflag = notch_mne2(data, 
                                                       channel=selectchans,
-                                                      highpass=filter_opts['highpass'], 
-                                                      lowpass=filter_opts['lowpass'], 
+                                                      oREF=filter_opts['oREF'], 
                                                       rename=filter_opts['laplacian_rename'],
                                                       renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])
+                                                      montage=filter_opts['montage']
+                                                      )    
+                        
+                        # 7.e. Bandpass filters
+                        if filter_opts['bandpass']:
+                            data.data[0], filtflag = bandpass_mne(data, 
+                                                        channel=selectchans, 
+                                                        highpass=filter_opts['highpass'], 
+                                                        lowpass=filter_opts['lowpass'], 
+                                                        oREF=filter_opts['oREF'],
+                                                        rename=filter_opts['laplacian_rename'],
+                                                        renames=filter_opts['renames'],
+                                                        montage=filter_opts['montage']
+                                                        )
                         
                         # Laplacian transform
                         if filter_opts['laplacian'] and laplace_flag:
-                            logger.debug('Applying Laplacian filtering.')
-                            data.data[0] = laplacian_mne(data, 
-                                                 filter_opts['oREF'], 
-                                                 channel=selectchans, 
-                                                 ref_chan=chanset[ch], 
-                                                 laplacian_rename=filter_opts['laplacian_rename'], 
-                                                 renames=filter_opts['renames'],
-                                                 montage=filter_opts['montage'])
+                            data.data[0], filtflag = laplacian_mne(data, 
+                                                                   channel=selectchans, 
+                                                                   ref_chan=chanset[ch], 
+                                                                   oREF=filter_opts['oREF'], 
+                                                                   laplacian_rename=filter_opts['laplacian_rename'], 
+                                                                   renames=filter_opts['renames'],
+                                                                   montage=filter_opts['montage']
+                                                                   )
                             data.axis['chan'][0] = asarray([x for x in chanset])
                             selectchans = ch
+                        
+                        # If any errors occured during filtering, break
+                        if filtflag > 0:
+                            break
                         
                         ### Frequency transformation
                         Sxx = frequency(data, output=frequency_opts['output'], 

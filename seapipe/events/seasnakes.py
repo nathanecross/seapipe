@@ -202,7 +202,7 @@ class seasnakes:
                         logger.info('-' * 10)
                         return
                     logger.debug(f"{'Inverting' if inversion else 'Not inverting'}"
-                                 " channel {ch} prior to detection for {sub}, {ses}")
+                                 f" channel {ch} prior to detection for {sub}, {ses}")
                     
                     # h. Read data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
