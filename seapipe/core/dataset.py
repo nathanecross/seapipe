@@ -1241,8 +1241,7 @@ class pipeline:
                            min_dur, adap_bands_phase, frequency_phase, 
                            adap_bands_amplitude, frequency_amplitude,
                            adap_bw, invert, progress, logger)
-            
-                          
+
         return
     
     #--------------------------------------------------------------------------

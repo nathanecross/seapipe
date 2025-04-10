@@ -70,7 +70,7 @@ class pacats:
                  idpac = (2,3,4), min_dur = 1, 
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
-                 peaks = None, adap_bw = 4, invert = False, progress=True,
+                 adap_bw = 4, invert = False, progress=True,
                  logger = create_logger('Phase-amplitude coupling')):
 
         '''
@@ -435,7 +435,7 @@ class pacats:
                         
                         # 7.d. Notch filters
                         if filter_opts['notch']:
-                            data.data[0] = notch_mne(data, oREF=filter_opts['oREF'], 
+                            data.data[0], flag = notch_mne(data, oREF=filter_opts['oREF'], 
                                                         channel=selectchans, 
                                                         freq=filter_opts['notch_freq'],
                                                         rename=filter_opts['laplacian_rename'],
@@ -443,7 +443,7 @@ class pacats:
                                                         montage=filter_opts['montage'])
                             
                         if filter_opts['notch_harmonics']: 
-                            data.data[0] = notch_mne2(data, oREF=filter_opts['oREF'], 
+                            data.data[0], flag = notch_mne2(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans, 
                                                       rename=filter_opts['laplacian_rename'],
                                                       renames=filter_opts['renames'],
@@ -451,7 +451,7 @@ class pacats:
                         
                         # 7.e. Bandpass filters
                         if filter_opts['bandpass']:
-                            data.data[0] = bandpass_mne(data, oREF=filter_opts['oREF'], 
+                            data.data[0], flag = bandpass_mne(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans,
                                                       highpass=filter_opts['highpass'], 
                                                       lowpass=filter_opts['lowpass'], 
@@ -461,7 +461,7 @@ class pacats:
                         
                         # 7.f. Laplacian transform
                         if filter_opts['laplacian'] and laplace_flag:
-                            data.data[0] = laplacian_mne(data, 
+                            data.data[0], flag = laplacian_mne(data, 
                                                  filter_opts['oREF'], 
                                                  channel=selectchans, 
                                                  ref_chan=chanset[ch], 

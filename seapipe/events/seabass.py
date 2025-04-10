@@ -188,9 +188,15 @@ class seabass:
                                               include = chans,
                                               preload=True, verbose = False)
                 except Exception as e:
-                    logger.warning(f'Error loading {filetype} file in {rdir}, {repr(e)}')
-                    flag += 1
-                    break
+                    if 'latin' in str(e):
+                        raw = mne.io.read_raw_edf(rdir + edf_file, 
+                                                  include = chans,
+                                                  preload=True, verbose = False,
+                                                  encoding='latin1')
+                    else:
+                        logger.warning(f'Error loading {filetype} file in {rdir}, {repr(e)}')
+                        flag += 1
+                        continue
                 
                 # d. Load/create for annotations file
                 if not path.exists(f'{self.out_dir}/{sub}'):
