@@ -166,7 +166,7 @@ class whales:
                     shutil.copy(xdir + xml_file, backup_file)
                 else:
                     logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                
+                    flag += 1
                 # Read annotations file
                 annot = Annotations(backup_file, rater_name=self.rater)
                 
@@ -183,7 +183,8 @@ class whales:
                                               flag, logger)
                 if flag - pflag > 0:
                     logger.warning(f'Skipping {sub}, {ses}...')
-                    break
+                    flag += 1
+                    continue
                 
                 newchans = rename_channels(sub, ses, self.chan, logger)
                 
@@ -210,6 +211,7 @@ class whales:
                     if not freq:
                         logger.warning('Will use fixed frequency bands instead.')
                         freq = self.frequency
+                        flag += 1
                     if not chanset[ch]:
                         logchan = ['(no re-refrencing)']
                     else:
@@ -255,7 +257,7 @@ class whales:
                             spindle.to_annot(annot, evt_name) # write spindles to annotations file
                             if len(spindle.events) == 0:
                                 logger.warning(f'No events detected by {meth} for {sub}, {ses}, {stage_cycle}')    
-                        
+                                flag += 1
                         # l. Remove any duplicate detected spindles on channel 
                         remove_duplicate_evts(annot, evt_name=evt_name, chan=f'{ch} ({self.grp_name})')
                         

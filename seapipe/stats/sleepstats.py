@@ -85,13 +85,13 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                 logger.warning(f"No sleep staging file found for {sub}, {ses}. "
                                "Skipping..")
                 flag+=1
-                break
+                continue
             elif len(xml_file) > 1:
                 logger.warning(f"> 1 sleep staging file was found for {sub}, "
                                f"visit {ses} - to select the correct file you "
                                "must define the variable 'keyword'. Skipping..")
                 flag+=1
-                break
+                continue
             else:
                 xml_file_path = f'{xml_dir}/{sub}/{ses}/{xml_file[0]}'
            
@@ -103,7 +103,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                                    "required for LightsOFF and LightsON times. "
                                    "Skipping...")
                     flag +=1
-                    break
+                    continue
                 l_times = l_times[l_times['ses']==ses]
                 if l_times.size == 0:
                     logger.warning(f"Session not found in column 'ses' in "
@@ -111,7 +111,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                                    "required for LightsOFF and LightsON times. "
                                    "Skipping...")
                     flag +=1
-                    break
+                    continue
                 
                 ## Lights OFF
                 lights_off = l_times['loff']
@@ -120,26 +120,40 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                     logger.warning(f"Lights Off time not found in 'tracking.tsv' "
                                    f"for {sub}, {ses}. Skipping...")
                     flag +=1
-                    break
+                    continue
                 else:
                     if isinstance(lights_off[0],int64):
                         lights_off = float(lights_off[0])
                     else:
-                        lights_off = lights_off.astype(float64)[0]
+                        try:
+                            lights_off = lights_off.astype(float64)[0]
+                        except:
+                            logger.warning("Error reading Lights Off time in "
+                                          f"'tracking.tsv' for {sub}, {ses}. "
+                                           "Skipping...")
+                            flag +=1
+                            continue
                 
                 ## Lights ON
                 lights_on = l_times['lon']
                 lights_on = asarray(lights_on.dropna())
                 if lights_on.size == 0:
                     logger.warning(f"Lights On time not found in 'tracking.tsv' "
-                                   "for {sub}, {ses}. Skipping...")
+                                   f"for {sub}, {ses}. Skipping...")
                     flag +=1
-                    break
+                    continue
                 else:
                     if isinstance(lights_on[0],int64):
                         lights_on = float(lights_on[0])
                     else:
-                        lights_on = lights_on.astype(float64)[0]
+                        try:
+                            lights_on = lights_on.astype(float64)[0]
+                        except:
+                            logger.warning("Error reading Lights On time in "
+                                          f"'tracking.tsv' for {sub}, {ses}. "
+                                           "Skipping...")
+                            flag +=1
+                            continue
                 
                 
                 # Export sleep stats

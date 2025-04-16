@@ -281,11 +281,27 @@ class pacats:
                     # b. Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
+                        filter_opts['renames'] = {newchans[ch]:ch}
+                        filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
+                        filter_opts['laplacian_rename'] = False
 
                     if ch == '_REF':
-                        filter_opts['oREF'] = newchans[ch]
+                        filter_opts['laplacian_rename'] = False
+                        if not filter_opts['oREF']:
+                            try:
+                                filter_opts['oREF'] = newchans[ch]
+                            except:
+                                logger.warning("Channel selected is '_REF' but "
+                                               "no information has been given "
+                                               "about what standard name applies, "
+                                               "either via filter_opts['oREF'] "
+                                               "or 'chanset_rename' in the tracking "
+                                               "sheet (see user guide). Skipping "
+                                               "channel...")
+                                flag += 1
+                                continue
                     else:
                         filter_opts['oREF'] = None
                         
@@ -434,8 +450,9 @@ class pacats:
                             selectchans = ch
                         
                         # 7.d. Notch filters
+                        filtflag = 0
                         if filter_opts['notch']:
-                            data.data[0], flag = notch_mne(data, oREF=filter_opts['oREF'], 
+                            data.data[0], filtflag = notch_mne(data, oREF=filter_opts['oREF'], 
                                                         channel=selectchans, 
                                                         freq=filter_opts['notch_freq'],
                                                         rename=filter_opts['laplacian_rename'],
@@ -443,7 +460,7 @@ class pacats:
                                                         montage=filter_opts['montage'])
                             
                         if filter_opts['notch_harmonics']: 
-                            data.data[0], flag = notch_mne2(data, oREF=filter_opts['oREF'], 
+                            data.data[0], filtflag = notch_mne2(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans, 
                                                       rename=filter_opts['laplacian_rename'],
                                                       renames=filter_opts['renames'],
@@ -451,7 +468,7 @@ class pacats:
                         
                         # 7.e. Bandpass filters
                         if filter_opts['bandpass']:
-                            data.data[0], flag = bandpass_mne(data, oREF=filter_opts['oREF'], 
+                            data.data[0], filtflag = bandpass_mne(data, oREF=filter_opts['oREF'], 
                                                       channel=selectchans,
                                                       highpass=filter_opts['highpass'], 
                                                       lowpass=filter_opts['lowpass'], 
@@ -461,7 +478,7 @@ class pacats:
                         
                         # 7.f. Laplacian transform
                         if filter_opts['laplacian'] and laplace_flag:
-                            data.data[0], flag = laplacian_mne(data, 
+                            data.data[0], filtflag = laplacian_mne(data, 
                                                  filter_opts['oREF'], 
                                                  channel=selectchans, 
                                                  ref_chan=chanset[ch], 
@@ -474,6 +491,9 @@ class pacats:
                         else:
                             dat = data()[0][0]
                             
+                        # If any errors occured during filtering, break
+                        if filtflag > 0:
+                            break
                             
                         # 7.g. Fix polarity of recording
                         if inversion:

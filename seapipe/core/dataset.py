@@ -307,6 +307,8 @@ class pipeline:
         # Set xml_dir
         if not xml_dir:
             xml_dir = self.outpath + '/staging_manual'
+        if not path.exists(xml_dir):
+            mkdir(xml_dir)
         
         # Load stages
         flag = load_stages(self.datapath, xml_dir, subs, sessions, filetype, 
@@ -328,15 +330,16 @@ class pipeline:
     
     
     def power_spectrum(self, xml_dir = None, out_dir = None, 
-                             subs = 'all', sessions = 'all', chan = None, 
-                             ref_chan = None, grp_name = 'eeg', rater = None, 
+                             subs = 'all', sessions = 'all', filetype = '.edf',  
+                             chan = None, ref_chan = None, 
+                             grp_name = 'eeg', rater = None, 
                              stage = ['NREM1','NREM2','NREM3', 'REM'], 
                              cycle_idx = None, concat_cycle = True, 
                              concat_stage = False, general_opts = None, 
                              frequency_opts = None, filter_opts = None, 
                              epoch_opts = None, event_opts = None, 
                              norm = None, norm_opts = None, 
-                             filetype = '.edf', outfile = True):
+                             outfile = True):
         
         # Set up logging
         if outfile == True:
@@ -467,15 +470,17 @@ class pipeline:
         logger.debug(f'Output annotations being saved to: {out_dir}')
         
         # Check subs
+        track_sheet = read_tracking_sheet(self.rootpath, logger)
         if not subs:
-            tracking = read_tracking_sheet(self.rootpath, logger)
-            subs = [x for x in list(set(tracking['sub']))]
+            subs = [x for x in list(set(track_sheet['sub']))]
             subs.sort()
         if not sessions:
-            sessions = read_tracking_sheet(self.rootpath, logger)
+            sessions = track_sheet
         
         # Set channels
         eeg_chan, ref_chan = check_chans(self.rootpath, eeg_chan, ref_chan, logger)
+        if isinstance(eeg_chan, str) and eeg_chan == 'error':
+            return
         
         # Check inversion
         if invert == None:
@@ -493,7 +498,8 @@ class pipeline:
         # Check annotations directory exists, run detection
         stages = seabass(in_dir, out_dir, eeg_chan, ref_chan, eog_chan, emg_chan, 
                          rater, subs, sessions, self.tracking) 
-        stages.detect_stages(method, qual_thresh, invert, filetype, logger)
+        stages.detect_stages(method, qual_thresh, invert, filetype, track_sheet,
+                             logger)
         try:
             self.tracking = self.tracking | stages.tracking
         except:
@@ -504,7 +510,7 @@ class pipeline:
     def detect_artefacts(self, xml_dir = None, out_dir = None, 
                                subs = 'all', sessions = 'all', filetype = '.edf', 
                                method = 'seapipe', win_size = 5,
-                               eeg_chans = None, ref_chans = None, 
+                               chan = None, ref_chan = None, 
                                label = 'allchans',
                                rater = None, grp_name = 'eeg', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
@@ -556,12 +562,12 @@ class pipeline:
             sessions = read_tracking_sheet(self.rootpath, logger)
         
         # Set channels
-        eeg_chans, ref_chan = check_chans(self.rootpath, eeg_chans, ref_chans, 
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, 
                                           logger)
         
     
         # Check annotations directory exists, run detection
-        artefacts = SAND(in_dir, xml_dir, out_dir, eeg_chans, ref_chan, 
+        artefacts = SAND(in_dir, xml_dir, out_dir, chan, ref_chan, 
                          rater, grp_name, subs, sessions, self.tracking) 
         artefacts.detect_artefacts(method, label,  win_size,  filetype, stage,
                                    logger)
@@ -1332,7 +1338,8 @@ class pipeline:
     
     def export_eventparams(self, evt_name, frequency = None,
                                  xml_dir = None, out_dir = None, subs = 'all', 
-                                 sessions = 'all', chan = None, ref_chan = None, 
+                                 sessions = 'all', filetype = '.edf',
+                                 chan = None, ref_chan = None, 
                                  stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                                  rater = None, cycle_idx = None, 
                                  concat_cycle = True, concat_stage = False, 
@@ -1405,7 +1412,7 @@ class pipeline:
             fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, grp_name, 
                               stage, rater, subs, sessions, self.tracking) 
             fish.line(keyword, evt_name, cat, segs, cycle_idx, frequency, adap_bands, 
-                      peaks, adap_bw, params, epoch_dur, Ngo, logger)
+                      peaks, adap_bw, params, epoch_dur, Ngo, filetype, logger)
         return
     
     

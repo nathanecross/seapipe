@@ -5,8 +5,8 @@ Created on Sat Aug 10 18:40:35 2024
 
 @author: ncro8394
 """
-
-
+from pandas import DataFrame
+from numpy import (asarray, float64, int64)
 from os import listdir, mkdir, path
 from wonambi import Dataset 
 from wonambi.attr import Annotations, create_empty_annotations
@@ -48,7 +48,7 @@ class seabass:
         self.tracking = tracking
 
     def detect_stages(self, method, qual_thresh = 0.5, invert = False, 
-                            filetype = '.edf', 
+                            filetype = '.edf', track_sheet = None,
                             logger = create_logger('Detect sleep stages')):
         
         ''' Automatically detects sleep stages by applying a published 
@@ -243,6 +243,36 @@ class seabass:
                     logger.critical("Currently 'Vallat2021' is the only supported method.")
                     return
                 
+                # Check for lights off time
+                l_flag = deepcopy(flag)
+                if isinstance(track_sheet, DataFrame):
+                    lights_off = track_sheet['loff']
+                    lights_off = asarray(lights_off.dropna())
+                    if lights_off.size == 0:
+                        logger.warning(f"Lights Off time not found in 'tracking.tsv' "
+                                       f"for {sub}, {ses}. Skipping...")
+                        flag +=1
+                    else:
+                        if isinstance(lights_off[0],int64):
+                            lights_off = float(lights_off[0])
+                        else:
+                            try:
+                                lights_off = lights_off.astype(float64)[0]
+                            except:
+                                logger.warning("Error reading Lights Off time in "
+                                              f"'tracking.tsv' for {sub}, {ses}. "
+                                               "Skipping...")
+                                flag +=1
+                else:
+                    logger.warning("No tracking file found.")
+                    flag +=1
+                if flag - l_flag > 0:
+                    logger.warning("Lights Off times will not be used in automatic "
+                                  f"staging for {sub}, {ses}. This could lead to "
+                                  "negative sleep latency values when exporting macro "
+                                  "statistics.")
+                    continue
+                
                 # Save staging to annotations
                 if method not in annot.raters:
                     annot.add_rater(method)
@@ -250,7 +280,10 @@ class seabass:
                 idx_epoch = 0
                 for i, key in enumerate(hypno):
                     epoch_beg = 0 + (idx_epoch * epoch_length)
-                    one_stage = stage_key[key]
+                    if epoch_beg < lights_off: # Force wake prior to lights off
+                        one_stage = 'Wake'
+                    else:
+                        one_stage = stage_key[key]
                     annot.set_stage_for_epoch(epoch_beg, one_stage,
                                              attr='stage',
                                              save=False)

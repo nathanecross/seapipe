@@ -51,6 +51,7 @@ class FISH:
              segs = None,  cycle_idx = None, frequency = None, 
              adap_bands = 'Fixed', peaks = None,  adap_bw = 4, 
              param_keys = 'all', epoch_dur = 30, Ngo = False, 
+             filetype = '.edf',
              logger = create_logger('Export params')):
                            
             '''
@@ -176,8 +177,8 @@ class FISH:
                         
                         # 3.d. Get recording
                         rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
-                        edf_file = [x for x in listdir(rdir) if x.endswith('.edf') or x.endswith('.rec') 
-                                    or x.endswith('.eeg') if not x.startswith('.')]
+                        edf_file = [x for x in listdir(rdir) if x.endswith(filetype)
+                                    if not x.startswith('.')]
                         
                         # 3.d. Get proper annotations file
                         if keyword is not None:

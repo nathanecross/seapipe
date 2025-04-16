@@ -6,7 +6,7 @@ Created on Tue Dec  3 18:13:45 2024
 @author: ncro8394
 """
 
-from numpy import append, diff, insert, percentile, where 
+from numpy import append, asarray, diff, insert, isnan, nanstd, percentile, where 
 from os import listdir, mkdir, path
 from wonambi import Dataset, graphoelement
 from wonambi.attr import Annotations, create_empty_annotations
@@ -23,21 +23,20 @@ from ..utils.load import load_channels, load_sessions, rename_channels
 from ..utils.misc import merge_events, reconstruct_stitches, remove_duplicate_evts
 
 
-def detect_above_zero_regions(signal):
-    # Find transitions
-    starts = where(diff(signal.astype(int)) >0)[0] + 1
-    ends = where(diff(signal.astype(int)) <0)[0] + 1
+# def detect_above_zero_regions(signal):
+#     # Find transitions
+#     starts = where(diff(signal.astype(int)) >0)[0] + 1
+#     ends = where(diff(signal.astype(int)) <0)[0] + 1
 
-    # Edge case: If signal starts above 0
-    if signal[0]:
-        starts = insert(starts, 0, 0)
+#     # Edge case: If signal starts above 0
+#     if signal[0]:
+#         starts = insert(starts, 0, 0)
     
-    # Edge case: If signal ends above 0
-    if signal[-1]:
-        ends = append(ends, len(signal))
+#     # Edge case: If signal ends above 0
+#     if signal[-1]:
+#         ends = append(ends, len(signal))
 
-    return list(zip(starts, ends))    
-    
+#     return list(zip(starts, ends))    
 
 
 class SAND:
@@ -237,7 +236,7 @@ class SAND:
                     
                     hypno = array([int(stage_key[x]) for x in hypno])
                 
-                
+                evts = []
                 for chan in chanset:
                     if newchans:
                         logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
@@ -364,16 +363,35 @@ class SAND:
                                                      'order':3})
 
                         # Align this filtered data back to the raw EEG recording 
-                        dat_reconstructed = reconstruct_stitches(dat, 
-                                                                  stitches, 
-                                                                  s_freq)
+                        dat_full = reconstruct_stitches(dat, stitches, s_freq)
                         
                         # Threshold and detect artefact 'events'
                         threshold = percentile(dat, 95)
-                        dat_reconstructed[dat_reconstructed<threshold] = 0
-                        dat_reconstructed[dat_reconstructed>threshold] = 1
-                        movements = detect_above_zero_regions(dat_reconstructed)
+                        dat_full[dat_full<threshold] = 0
+                        dat_full[dat_full>threshold] = 1
+                        movements = detect_above_zero_regions(dat_full)
                         
+                        
+                        # Step 3. Large deflections in signal
+                        logger.debug("Detecting deflection artefacts...")
+                        dat = transform_signal(data[0], s_freq, 'low_butter', 
+                                         method_opt={'freq':2,
+                                                     'order':3})
+                        dat = transform_signal(dat, s_freq, 'moving_rms', 
+                                         method_opt = {'dur':win_size,
+                                                       'step':1})
+                        # Put back all the samples that were averaged within the window 
+                        dat = repeat(dat, s_freq)
+                        
+                        # Align the filtered data back to the raw EEG recording
+                        dat_full = reconstruct_stitches(dat, stitches, s_freq,
+                                                        replacement=nan)
+                        
+                        #threshold = percentile(dat, 95)
+                        threshold = 2*nanstd(dat_full)
+                        dat_full[dat_full<threshold] = 0
+                        dat_full[dat_full>=threshold] = 1
+                        deflections = detect_above_zero_regions(dat_full)
                         
                         ## TODO: Step 3. Let's look for sharp slow waves in REM
                         # if 'REM' in stage:
@@ -415,13 +433,16 @@ class SAND:
                             
 
                         ## Step 4. Combine all artefact types
-                        times = flatlines + movements
                         
-                        times = merge_segments(times)
+                        merged = flatlines + deflections + movements
+                        
+                        merged = merge_segments(merged)
                         
                         # Convert times back into seconds for annotations
-                        times = [(x / s_freq, y / s_freq) for x, y in times]
+                        merged = [(x / s_freq, y / s_freq) for x, y in merged]
 
+                        
+                        
                         
                         # Convert to wonambi annotations format
 
@@ -433,24 +454,21 @@ class SAND:
                         return
                     
                     # Save events to Annotations file
-                    if label == "allchans":
-                        chan_name = ['']
-                    else:
-                        chan_name = [chan]
-                    evts = []
-                    for x in times:
+                    for x in merged:
                         evts.append({'name':'Artefact',
-                              'start':float(x[0]),
-                              'end':float(x[1]),
-                              'chan':chan_name,
-                              'stage':'',
-                              'quality':'Good',
-                              'cycle':''})
+                                     'start':float(x[0]),
+                                     'end':float(x[1]),
+                                     'chan':f'{chan} ({self.grp_name})',
+                                     'stage':'',
+                                     'quality':'Good',
+                                     'cycle':''})
+                
                         
-                    # Add to annotations file
-                    grapho = graphoelement.Graphoelement()
-                    grapho.events = evts          
-                    grapho.to_annot(annot)
+                # Add to annotations file
+                grapho = graphoelement.Graphoelement()
+                grapho.events = evts          
+                grapho.to_annot(annot)
+                    
                     
                 merge_events(annot, 'Artefact')
                 remove_duplicate_evts(annot, 'Artefact')
@@ -488,5 +506,47 @@ def merge_segments(segments):
 
     return merged
     
+
+
+def detect_above_zero_regions(signal):
+    signal = asarray(signal)
+    valid = ~isnan(signal)
+
+    # Compute diffs and mask invalid transitions
+    diffs = diff(signal.astype(float))
+    valid_diffs = valid[:-1] & valid[1:]
+
+    raw_starts = where((diffs > 0) & valid_diffs)[0] + 1
+    raw_ends = where((diffs < 0) & valid_diffs)[0] + 1
+
+    # Edge case: signal starts above 0 and is valid
+    if valid[0] and signal[0] > 0:
+        raw_starts = insert(raw_starts, 0, 0)
+
+    # Edge case: signal ends above 0 and is valid
+    if valid[-1] and signal[-1] > 0:
+        raw_ends = append(raw_ends, len(signal))
+
+    # Now, match starts to ends
+    starts = []
+    ends = []
+    s_idx = 0
+    e_idx = 0
+
+    while s_idx < len(raw_starts) and e_idx < len(raw_ends):
+        if raw_starts[s_idx] < raw_ends[e_idx]:
+            starts.append(raw_starts[s_idx])
+            # find first end after this start
+            while e_idx < len(raw_ends) and raw_ends[e_idx] < raw_starts[s_idx]:
+                e_idx += 1
+            if e_idx < len(raw_ends):
+                ends.append(raw_ends[e_idx])
+                e_idx += 1
+            s_idx += 1
+        else:
+            # skip any unmatched end that comes before the first start
+            e_idx += 1
+
+    return list(zip(starts, ends))
     
     

@@ -185,13 +185,18 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
         # Define sessions
         subdir = f'{in_dir}/{sub}'
         if sessions == 'all':
-            sessions = [x for x in listdir(subdir) if '.' not in x]
+            sess = [x for x in listdir(subdir) if '.' not in x]
         elif not isinstance(sessions, list):  
             logger.error(f"'sessions' must be a list of session ids or 'all', not {sessions}.")
             return
+        else:
+            sess = sessions
+        
+        # flag, sess = load_sessions(sub, sessions, in_dir, flag, 
+        #                          logger, verbose=2)
         
         # Loop through
-        for s, ses in enumerate(sessions):
+        for s, ses in enumerate(sess):
             
             # Make session output directory
             if not path.exists(f'{xml_dir}/{sub}/{ses}'):
@@ -199,7 +204,8 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                 
             # Load BIDS stage event file
             datadir = f'{in_dir}/{sub}/{ses}/eeg'
-            stagefile = [x for x in listdir(datadir) if 'acq-PSGScoring_events.tsv' in x][0]
+            stagefile = [x for x in listdir(datadir) if 'acq-PSGScoring_events.tsv' in x
+                         if not x.startswith('.')][0]
             stagedf = read_csv(f'{datadir}/{stagefile}', sep ='\t' ) 
             
             # Create new annotations for staging
@@ -217,12 +223,20 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
             
             # Save staging to annotations
             annot.add_rater('manual')
+            stage_flag = 0
             for i in range(0, stagedf.shape[0]):
                 epoch_beg = stagedf.loc[i, 'onset']
                 one_stage = stage_key[stagedf.loc[i, 'staging']]
-                annot.set_stage_for_epoch(epoch_beg, one_stage,
+                try:
+                    annot.set_stage_for_epoch(epoch_beg, one_stage,
                                          attr='stage',
                                          save=False)
+                except:
+                    stage_flag += 1
+            if stage_flag > 0:
+                logger.warning("Some epochs in staging file were outside the length "
+                               "of the edf. It looks as though the staging file is "
+                               "not the same length as the edf for {sub}, {ses}. REVIEW.")
             annot.save()
     
     return flag
