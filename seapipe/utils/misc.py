@@ -17,12 +17,12 @@ from wonambi import Dataset, graphoelement
 from wonambi.attr.annotations import Annotations, create_empty_annotations
 from wonambi.trans import fetch
 from wonambi.detect.spindle import transform_signal
-from scipy.signal import find_peaks, periodogram
+from scipy.signal import butter, filtfilt, find_peaks,  periodogram
 import shutil
-from sleepecg import detect_heartbeats
 from .logs import create_logger
 from .load import check_adap_bands
 from .audit import check_fooof
+
                 
 def remove_event(annot, evt_name, chan = None, stage = None):
     
@@ -54,7 +54,7 @@ def remove_duplicate_evts(annot, evt_name, chan = None, stage = None):
         Workaround function because wonambi.attr.annotations.remove_event()
         is not working properly (and I couldn't figure out why).
     '''
-    evts = annot.get_events(name=evt_name, chan = chan, stage = stage)
+    evts = annot.get_events(name = evt_name, chan = chan, stage = stage)
     evts_trim = copy.deepcopy(evts)
     for e, event in enumerate(evts[:-1]):
         starttime = event['start']
@@ -67,9 +67,9 @@ def remove_duplicate_evts(annot, evt_name, chan = None, stage = None):
                         del(evts_trim[ee])
                     i=+1
     
-    evts = [x for x in annot.get_events(name=evt_name) if chan not in x['chan']]
+    evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
     
-    annot.remove_event_type(name=evt_name)
+    annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
     grapho.events = evts + evts_trim          
     grapho.to_annot(annot, evt_name)
@@ -110,7 +110,10 @@ def merge_events(annot, evt_name, chan = None, stage = None, segments = None):
             for m in matches:
                 index = [i for i, evt in enumerate(evts) if
                          evt['start'] == m['start'] if evt['end'] == m['end']]
-                removed +=index
+                removed.append(index)
+    
+    events_trim = [evts[1] for i, x in enumerate (evts) if not i in removed]
+    merged_events = merged_events + events_trim
     
     annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
@@ -786,308 +789,7 @@ def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     annot.import_staging(hypno_file, 'alice', rater_name=rater, rec_start=dataset.header['start_time'])
     
 
-def infer_eeg(dset, logger = create_logger('Infer EEG')):
-    
-    ''' This function reads a recording file (e.g. edf) and searches for likely
-        EEG channel names. IF the EEG channels are not easly identifiable from
-        the edf, then nothing is returned. IF there are multiple (>2) options,
-        then the channels will be QC'd and the channels with the best quality 
-        will be returned. #NOTE: Central channels will be given highest priority.
-    '''
-    
-    h = dset.header
-    
-    # 1. Look for central channels first
-    eeg = [x for x in h['chan_name'] if any(l in x for l in ['C1', 'C2', 'C3',
-                                                             'C4', 'C5', 'C6',
-                                                             'Cz', 'CZ'])]  
-    
-    # 2. If no central channels, look for frontal:
-    if len(eeg) == 0:
-        eeg = [x for x in h['chan_name'] if any(l in x for l in ['F1', 'F2', 'F3',
-                                                                 'F4', 'F5', 'F6',
-                                                                 'Fz', 'FZ'])]          
-    # 3. Look for any channels names beginning with E
-    if len(eeg) == 0:
-        eeg = [x for x in h['chan_name'] if 'E' in x if not 
-                                                any(l in x for l in ['EMG', 
-                                                                     'ECG',
-                                                                     'EOG',
-                                                                     'Chin',
-                                                                     ])]
-               
 
-    # If still nothing or when all electrode names contain 'E' (e.g. EGI nets) 
-    if len(eeg) == 0 or len(eeg) > 10:
-        logger.error('Unable to determine EEG channels from recording. EEG names must be explicitly specified.')
-        logger.info('Check documentation for how to specify channels:')
-        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-        logger.info('-' * 10)
-        return None
-    else:
-        eeg = choose_best_eeg(eeg, dset, 1, logger)
-            
-    return eeg 
-    
-    
-def infer_eog(dset, logger = create_logger('Infer EOG')):
-    
-    ''' This function reads a recording file (e.g. edf) and searches for likely
-        EOG channel names. IF the EOG channels are not easly identifiable from
-        the edf, then nothing is returned. IF there are multiple (>2) options,
-        then the channels will be QC'd and the channels with the best quality 
-        will be returned.
-    '''
-    
-    h = dset.header
-    
-    # First and most obvious EOG name
-    eyes = [x for x in h['chan_name'] if 'EOG' in x]  
-    
-    # If EOG are not labelled as 'EOG'
-    if len(eyes) == 0:
-        eyes = [x for x in h['chan_name'] if 'E' in x if not 'EMG' in x 
-                                                      if not 'ECG' in x]    
-    
-    # If still nothing or when all electrode names contain 'E' (e.g. EGI nets) 
-    if len(eyes) == 0 or len(eyes) > 6:
-        logger.error('Unable to determine EOG channels from recording. EOG names must be explicitly specified.')
-        logger.info('Check documentation for how to specify channels:')
-        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-        logger.info('-' * 10)
-        return None
-
-    elif len(eyes) > 2:
-        
-        loc = [x for x in eyes if any(l in x for l in ['l', 'L'])]
-        loc = choose_best_eog(loc, dset, 1, logger)
-        
-        roc = [x for x in eyes if any(l in x for l in ['r', 'R'])]
-        roc = choose_best_eog(roc, dset, 1, logger)
-        
-        eyes = roc + loc
-            
-    return eyes    
-
-def infer_emg(dset, logger = create_logger('Infer EMG')):
-    
-    ''' This function reads a recording file (e.g. edf) and searches for likely
-        EOG channel names. IF the EOG channels are not easly identifiable from
-        the edf, then nothing is returned. IF there are multiple (>2) options,
-        then the channels will be QC'd and the channels with the best quality 
-        will be returned.
-    '''
-    
-    h = dset.header
-    
-    # First and most obvious EMG name
-    emg = [x for x in h['chan_name'] if any(l in x for l in ['EMG', 
-                                                             'Chin', 
-                                                             'CHIN'])]  
-     
-    
-    # If still nothing or when all electrode names contain 'E' (e.g. EGI nets) 
-    if len(emg) == 0 or len(emg) > 6:
-        logger.error('Unable to determine EMG channels from recording. EOG names must be explicitly specified.')
-        logger.info('Check documentation for how to specify channels:')
-        logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-        logger.info('-' * 10)
-        return None
-
-    elif len(emg) > 1:
-        emg = choose_best_emg(emg, dset, 1, logger)
-            
-    return emg  
-        
-### Quality Control Checks    
-def gini(x, w = None):
-    
-    ''' Calculates the Gini coefficient:
-                    a measure of statistical dispersion calculated by comparing 
-                    the actual Lorenz curve to the diagonal line of equality.
-    '''
-
-    x = np.asarray(x)
-    if w is not None:
-        w = np.asarray(w)
-        sorted_indices = np.argsort(x)
-        sorted_x = x[sorted_indices]
-        sorted_w = w[sorted_indices]
-        # Force float dtype to avoid overflows
-        cumw = np.cumsum(sorted_w, dtype=float)
-        cumxw = np.cumsum(sorted_x * sorted_w, dtype=float)
-        return (np.sum(cumxw[1:] * cumw[:-1] - cumxw[:-1] * cumw[1:]) / 
-                (cumxw[-1] * cumw[-1]))
-    else:
-        sorted_x = np.sort(x)
-        n = len(x)
-        cumx = np.cumsum(sorted_x, dtype=float)
-        # The above formula, with all weights equal to 1 simplifies to:
-        return (n + 1 - 2 * np.sum(cumx) / cumx[-1]) / n
-
-def moving_average_time(a, s_freq, win=5):
-    n = win*s_freq*60
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
-
-def moving_average(a, win=100):
-    n = win
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
-
-
-def choose_best_eeg(chans, dset, num = 2, logger = create_logger('QC EEG')):
-    
-    quals = DataFrame(data=None, dtype = float, 
-                          columns=['integral',
-                                  'stdev',
-                                  'time_not_in_low_range',
-                                  'time_not_flatline',
-                                  '99th_quantile',
-                                  'gini_coeff'])
-    
-    ch_dat = dset.read_data(chan = chans)
-    for i, name in enumerate(chans):
-        logger.debug(f'Checking quality of {name}')
-        s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
-        e = moving_average_time(abs(ch_dat.data[0][i]),s_freq,5)
-        quals.loc[i,'integral'] = sum(e) # (AUC)
-        quals.loc[i,'stdev'] = np.std(e)
-        quals.loc[i,'time_not_in_low_range'] = 1 - sum(np.logical_and(e>=0, e<=0.5))/len(e)
-        quals.loc[i,'time_not_flatline'] = 1 - (sum(np.diff(e)==0)/len(np.diff(e)))
-        quals.loc[i,'99th_quantile'] = np.quantile(e,0.99)
-        quals.loc[i,'gini_coeff'] = gini(e)
-    
-    winners = DataFrame([quals[x].rank() for x in quals.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
-    eeg_names = [chans[x] for x in idx]
-    logger.debug(f'Best EEG channels based on auto-QC are: {eeg_names}')
-    
-    return eeg_names
-
-
-
-def choose_best_eog(chans, dset, num = 2, logger = create_logger('QC EOG')):
-    
-    quals = DataFrame(data=None, dtype = float, 
-                          columns=['integral',
-                                  'stdev',
-                                  'time_not_in_low_range',
-                                  'time_not_flatline',
-                                  '99th_quantile',
-                                  'gini_coeff'])
-    
-    ch_dat = dset.read_data(chan = chans)
-    for i, name in enumerate(chans):
-        logger.debug(f'Checking quality of {name}')
-        s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
-        e = moving_average_time(abs(ch_dat.data[0][i]),s_freq,5)
-        quals.loc[i,'integral'] = sum(e) # (AUC)
-        quals.loc[i,'stdev'] = np.std(e)
-        quals.loc[i,'time_not_in_low_range'] = 1 - sum(np.logical_and(e>=0, e<=0.5))/len(e)
-        quals.loc[i,'time_not_flatline'] = 1 - (sum(np.diff(e)==0)/len(np.diff(e)))
-        quals.loc[i,'99th_quantile'] = np.quantile(e,0.99)
-        quals.loc[i,'gini_coeff'] = gini(e)
-    
-    winners = DataFrame([quals[x].rank() for x in quals.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
-    eog_names = [chans[x] for x in idx]
-    
-    
-    
-    logger.debug(f'Best EOG channels based on auto-QC are: {eog_names}')
-    
-    return eog_names
-
-
-
-
-def choose_best_ecg(chans, dset, num = 1, logger = create_logger('QC ECG')):
-    
-    quals = DataFrame(data=None, columns=['hr_qual',
-                                          'stdev',
-                                          'time_not_flatline',
-                                          'PSD_qual'])
-    ecg_dat = dset.read_data(chan=chans)
-    
-    for i, name in enumerate(chans):
-        logger.debug(f'Checking quality of {name}')
-        s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
-        e = ecg_dat.data[0][i]
-        
-        # Check BPM
-        beats = detect_heartbeats(e, s_freq)
-        hr = len(beats)/(len(e)/(s_freq*60))
-        if np.logical_and(hr>40, hr<120):
-            logger.debug(f'Heart rate ({round(hr)}bpm) seems physiologically plausible. Continuing...')
-            quals.loc[i,'hr_qual'] = 2
-        elif np.logical_and(hr>120, hr<200):
-            quals.loc[i,'hr_qual'] = 1
-            logger.warning(f'Heart rate ({round(hr)}bpm) is physiologically plausible but high. Check...')
-        else:
-            quals.loc[i,'hr_qual'] = 0
-            logger.warning(f'Heart rate ({round(hr)}bpm) is NOT physiologically plausible. Signal quality is likely poor...')
-        
-        # Check Std Dev.
-        quals.loc[i,'stdev'] = np.std(abs(e)) #standard deviation 
-        
-        # Check for flatlines
-        quals.loc[i,'time_not_flatline'] = 1 - (sum(np.diff(e)==0)/len(np.diff(e)))
-        
-        # Check PSD        
-        f_p, Pxx_spec = periodogram(e, s_freq)
-        Pxx_spec_sm = np.concatenate((np.zeros(2000),
-                                      moving_average(Pxx_spec, 4000),
-                                      np.zeros(1999)))
-        top = int((len(e)/s_freq)*20) # corresponds to 20Hz
-        peaks = find_peaks(Pxx_spec_sm[:top], prominence=800)[0]
-        
-        if len(peaks) > 4:
-            quals.loc[i,'PSD_qual'] = 2
-        elif len(peaks) > 2:
-            quals.loc[i,'PSD_qual'] = 1
-        else:
-            print(f'WARNING: PSD of {name} looks unusual..')
-            quals.loc[i,'PSD_qual'] = 0
-
-    winners = DataFrame([quals[x].rank() for x in quals.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
-    ecg_name = [chans[x] for x in idx]
-    logger.debug(f'Best ECG channel based on auto-QC is: {ecg_name}')
-
-    return ecg_name
-
-
-def choose_best_emg(chans, dset, num = 1, logger = create_logger('QC EMG')):
-
-    emg_dat = dset.read_data(chan=chans)
-    quals = DataFrame(data=None, dtype = float, 
-                      columns=['integral',
-                               'stdev',
-                               'time_not_in_low_range',
-                               'time_not_flatline',
-                               '99th_quantile',
-                               'gini_coeff'])
-    
-    for i, name in enumerate(chans):
-        logger.debug(f'Checking quality of {name}')
-        s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
-        e = moving_average_time(abs(emg_dat.data[0][i]),s_freq,5)
-        quals.loc[i,'integral'] = sum(e) #intragral (AUC)
-        quals.loc[i,'stdev'] = np.std(e) #standard deviation 
-        quals.loc[i,'time_not_in_low_range'] = 1 - sum(np.logical_and(e>=0, e<=0.5))/len(e)
-        quals.loc[i,'time_not_flatline'] = 1 - (sum(np.diff(e)==0)/len(np.diff(e)))
-        quals.loc[i,'99th_quantile'] = np.quantile(e,0.99)
-        quals.loc[i,'gini_coeff'] = gini(e)
-    
-    winners = DataFrame([quals[x].rank() for x in quals.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
-    emg_name = [chans[x] for x in idx]
-    print(f'Best EMG channel based on auto-QC is: {emg_name}')
-    
-    return emg_name
 
 
 def reconstruct_stitches(dat, stitches, s_freq, replacement = 0):
@@ -1259,4 +961,6 @@ def flip_and_switch(data):
     result = np.concatenate(segments)
     
     return result
+
+
 

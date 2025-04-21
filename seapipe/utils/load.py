@@ -1148,12 +1148,14 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
             newchans = [x for y in newchans for x in y]
         
         if len(oldchans) == len(newchans):
-            ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF'][0]
+            ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF']
             if len(ref_chan) < 1:
                 if verbose>1:
                     logger.debug(f"No channels named '_REF' in tracking sheet, "
                                  "so cannot infer reference channel.")
                 return None
+            else:
+                ref_chan = ref_chan[0]
         else:
             if verbose>0:
                 logger.warning(f"There must be the same number of original channel "

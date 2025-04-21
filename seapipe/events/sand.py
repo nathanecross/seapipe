@@ -6,37 +6,21 @@ Created on Tue Dec  3 18:13:45 2024
 @author: ncro8394
 """
 
-from numpy import append, asarray, diff, insert, isnan, nanstd, percentile, where 
+from numpy import (append, array, asarray, concatenate, cumsum, diff, inf, 
+                   insert, isnan, median, multiply, nan, nanmean, nanstd, pad, 
+                   percentile, repeat, sqrt, squeeze, where)
 from os import listdir, mkdir, path
 from wonambi import Dataset, graphoelement
 from wonambi.attr import Annotations, create_empty_annotations
 from wonambi.detect.spindle import transform_signal
 from wonambi.trans import fetch
 import mne
-from scipy.signal import find_peaks, peak_widths
+from scipy.signal import butter, correlate, filtfilt, find_peaks, peak_widths
 import yasa
-from numpy import (array, concatenate, convolve, cumsum, full, multiply, nan, 
-                   ones, repeat, roll, where, zeros)
 from copy import deepcopy
 from ..utils.logs import create_logger
 from ..utils.load import load_channels, load_sessions, rename_channels
-from ..utils.misc import merge_events, reconstruct_stitches, remove_duplicate_evts
-
-
-# def detect_above_zero_regions(signal):
-#     # Find transitions
-#     starts = where(diff(signal.astype(int)) >0)[0] + 1
-#     ends = where(diff(signal.astype(int)) <0)[0] + 1
-
-#     # Edge case: If signal starts above 0
-#     if signal[0]:
-#         starts = insert(starts, 0, 0)
-    
-#     # Edge case: If signal ends above 0
-#     if signal[-1]:
-#         ends = append(ends, len(signal))
-
-#     return list(zip(starts, ends))    
+from ..utils.misc import (merge_events, reconstruct_stitches, remove_duplicate_evts)
 
 
 class SAND:
@@ -47,7 +31,7 @@ class SAND:
         previously published staging algorithms:
             1. YASA (standard deviation)
             2. YASA (covariance)
-            3. (More to come..)
+            3. Seapipe artefact detection
         
     """   
     
@@ -86,7 +70,7 @@ class SAND:
                              detect staging with. 
                              Current methods supported: 
                                  1. 'Vallat2021' (https://doi.org/10.7554/eLife.70092)
-                                 2. 'Cross2025' 
+                                 2. 'seapipe' 
                              
             qual_thresh ->   Quality threshold. Any stages with a confidence of 
                              prediction lower than this threshold will be set 
@@ -99,9 +83,9 @@ class SAND:
         flag = 0
         tracking = self.tracking
         if label == "allchans":
-            chan_msg = "All channels at once."
+            chan_msg = "all channels at once."
         else:
-            chan_msg = "Each channel individually."
+            chan_msg = "each channel individually."
             
         logger.info('')
         logger.debug(rf"""Commencing artefact detection... 
@@ -207,6 +191,7 @@ class SAND:
                 if len(xml_file) < 1:
                     logger.warning(f'No annotations file was found for '
                                    f'{sub}, {ses} in {xdir}. Skipping...')
+                    continue
                 else:
                     xml_file = f'{xdir}/{xml_file[0]}'
                     
@@ -374,24 +359,36 @@ class SAND:
                         
                         # Step 3. Large deflections in signal
                         logger.debug("Detecting deflection artefacts...")
-                        dat = transform_signal(data[0], s_freq, 'low_butter', 
-                                         method_opt={'freq':2,
-                                                     'order':3})
-                        dat = transform_signal(dat, s_freq, 'moving_rms', 
-                                         method_opt = {'dur':win_size,
-                                                       'step':1})
-                        # Put back all the samples that were averaged within the window 
-                        dat = repeat(dat, s_freq)
                         
-                        # Align the filtered data back to the raw EEG recording
+                        dat = append(0, squeeze(diff(data)))
                         dat_full = reconstruct_stitches(dat, stitches, s_freq,
-                                                        replacement=nan)
+                                                         replacement=nan)
                         
-                        #threshold = percentile(dat, 95)
-                        threshold = 2*nanstd(dat_full)
+                        threshold = 10 * nanstd(dat_full)
                         dat_full[dat_full<threshold] = 0
                         dat_full[dat_full>=threshold] = 1
                         deflections = detect_above_zero_regions(dat_full)
+                        deflections = [(x[0] - (s_freq/2), 
+                                        x[1] + (s_freq/2)) for x in deflections]
+                        
+                        # dat = transform_signal(data[0], s_freq, 'low_butter', 
+                        #                  method_opt={'freq':2,
+                        #                              'order':3})
+                        # dat = transform_signal(dat, s_freq, 'moving_rms', 
+                        #                  method_opt = {'dur':win_size,
+                        #                                'step':1})
+                        # # Put back all the samples that were averaged within the window 
+                        # dat = repeat(dat, s_freq)
+                        
+                        # # Align the filtered data back to the raw EEG recording
+                        # dat_full = reconstruct_stitches(dat, stitches, s_freq,
+                        #                                 replacement=nan)
+                        
+                        # #threshold = percentile(dat, 95)
+                        # threshold = 2*nanstd(dat_full)
+                        # dat_full[dat_full<threshold] = 0
+                        # dat_full[dat_full>=threshold] = 1
+                        # deflections = detect_above_zero_regions(dat_full)
                         
                         ## TODO: Step 3. Let's look for sharp slow waves in REM
                         # if 'REM' in stage:
@@ -434,16 +431,13 @@ class SAND:
 
                         ## Step 4. Combine all artefact types
                         
-                        merged = flatlines + deflections + movements
+                        merged = flatlines + deflections +  movements
                         
                         merged = merge_segments(merged)
                         
                         # Convert times back into seconds for annotations
-                        merged = [(x / s_freq, y / s_freq) for x, y in merged]
+                        times = [(x / s_freq, y / s_freq) for x, y in merged]
 
-                        
-                        
-                        
                         # Convert to wonambi annotations format
 
                     else:
@@ -454,21 +448,25 @@ class SAND:
                         return
                     
                     # Save events to Annotations file
-                    for x in merged:
+                    if label == "allchans":
+                        channame = ['']
+                    else:
+                        channame = f'{chan} ({self.grp_name})'
+                        
+                    for x in times:
                         evts.append({'name':'Artefact',
                                      'start':float(x[0]),
                                      'end':float(x[1]),
-                                     'chan':f'{chan} ({self.grp_name})',
+                                     'chan':channame,
                                      'stage':'',
                                      'quality':'Good',
                                      'cycle':''})
-                
-                        
+                    
+                 
                 # Add to annotations file
                 grapho = graphoelement.Graphoelement()
                 grapho.events = evts          
                 grapho.to_annot(annot)
-                    
                     
                 merge_events(annot, 'Artefact')
                 remove_duplicate_evts(annot, 'Artefact')
@@ -477,38 +475,132 @@ class SAND:
     
     
     
-def merge_segments(segments):
+def detect_ecg_artifacts(eeg_signal, sfreq, bandpass=(1, 40), template_window=0.6,
+                         peak_percentile=95, match_percentile=99, min_rr_interval=0.5):
     """
-    Merges overlapping or adjacent segments in a list of (start, end) tuples.
+    Automatically detects ECG artifacts in a single EEG channel using template matching.
 
     Parameters:
-      segments (list of tuples): List of (start, end) index pairs.
+    - eeg_signal: 1D numpy array of EEG data
+    - sfreq: Sampling frequency in Hz
+    - bandpass: Tuple of (low, high) bandpass filter cutoff in Hz
+    - template_window: Length of ECG template window in seconds
+    - peak_percentile: Percentile threshold for peak detection
+    - match_percentile: Correlation percentile threshold for match detection
+    - min_rr_interval: Minimum interval between matches in seconds
 
     Returns:
-      list of tuples: Merged (start, end) segments.
+    - clean_matches: Sample indices of detected ECG artifacts
+    - template: The derived ECG template used for matching
+    - corr: Cross-correlation trace
     """
-    if not segments:
-        return []
-
-    # Sort segments by start time
-    segments.sort()
-
-    # Initialize merged list with the first segment
-    merged = [segments[0]]
-
-    for start, end in segments[1:]:
-        prev_start, prev_end = merged[-1]
-
-        if start <= prev_end:  # Overlapping or adjacent segments
-            merged[-1] = (prev_start, max(prev_end, end))  # Merge them
-        else:
-            merged.append((start, end))  # No overlap, add as new segment
-
-    return merged
     
+    
+    # 1. Bandpass filter
+    def bandpass_filter(data, low, high, fs, order=4):
+        nyq = 0.5 * fs
+        b, a = butter(order, [low / nyq, high / nyq], btype='band')
+        return filtfilt(b, a, data)
+
+    filtered = bandpass_filter(eeg_signal, *bandpass, fs=sfreq)
+
+    # 2. Detect peaks likely to be ECG R-peaks
+    min_distance = int(min_rr_interval * sfreq)
+    height_thresh = percentile(filtered, peak_percentile)
+    peaks, _ = find_peaks(filtered, 
+                          height = height_thresh, 
+                          distance = min_distance)
+
+    # 3. Extract candidate segments around each peak
+    win_len = int(template_window * sfreq)
+    half_win = win_len // 2
+    segments = []
+
+    for peak in peaks:
+        if peak - half_win >= 0 and peak + half_win < len(filtered):
+            segment = filtered[peak - half_win:peak + half_win]
+            segments.append(segment)
+
+    if not segments:
+        raise ValueError("No valid ECG segments found. Try lowering peak_percentile or check EEG signal.")
+
+    segments = array(segments)
+
+    # 4. Create the ECG template
+    template = median(segments, axis=0)
+
+    # 5. Cross-correlate the template with the EEG signal
+    corr = fast_normalized_cross_correlation(filtered, template)
+    threshold = percentile(corr[~isnan(corr)], match_percentile)
+    matches = where(corr > threshold)[0]
+
+    # 6. Prune close matches
+    pruned = []
+    last = -inf
+    for m in matches:
+        if m - last > min_distance:
+            pruned.append(m)
+            last = m
+
+    clean_matches = array(pruned)
+
+    return clean_matches, template, corr    
+    
+
+def fast_normalized_cross_correlation(signal, template):
+    """
+    Efficient normalized cross-correlation using cumulative sums.
+
+    Parameters:
+    - signal: 1D array
+    - template: 1D array (shorter than signal)
+
+    Returns:
+    - norm_corr: Normalized cross-correlation (same length as signal)
+    """
+    signal = asarray(signal)
+    template = asarray(template)
+    template_len = len(template)
+    template = (template - nanmean(template)) / nanstd(template)
+
+    # Raw cross-correlation (same length as signal)
+    raw_corr = correlate(signal, template, mode='same')
+
+    # Compute running mean and std of signal (same window length as template)
+    window = template_len
+    runmean = cumsum(insert(signal, 0, 0))
+    runmean2 = cumsum(insert(signal**2, 0, 0))
+
+    sum_window = runmean[window:] - runmean[:-window]
+    sum2_window = runmean2[window:] - runmean2[:-window]
+
+    mean_window = sum_window / window
+    std_window = sqrt(sum2_window / (window - mean_window**2))
+
+    # Pad to match length of signal
+    std_padded = pad(std_window, (window // 2, len(signal) - len(std_window) - 
+                                  window // 2), mode='edge')
+
+    # Avoid division by zero
+    std_padded[std_padded == 0] = 1e-10
+
+    norm_corr = raw_corr / (std_padded * window)
+
+    return norm_corr
 
 
 def detect_above_zero_regions(signal):
+    """
+    Detects regions where the signal is above zero.
+
+    Parameters:
+    - signal: 1D array
+        Input signal where the regions of interest (above zero) are detected.
+
+    Returns:
+    - regions: list of tuples
+        Each tuple contains the start and end indices of regions where the signal is above zero.
+    """
     signal = asarray(signal)
     valid = ~isnan(signal)
 
@@ -548,5 +640,34 @@ def detect_above_zero_regions(signal):
             e_idx += 1
 
     return list(zip(starts, ends))
+
     
-    
+
+def merge_segments(segments):
+    """
+    Merges overlapping or adjacent segments in a list of (start, end) tuples.
+
+    Parameters:
+      segments (list of tuples): List of (start, end) index pairs.
+
+    Returns:
+      list of tuples: Merged (start, end) segments.
+    """
+    if not segments:
+        return []
+
+    # Sort segments by start time
+    segments.sort()
+
+    # Initialize merged list with the first segment
+    merged = [segments[0]]
+
+    for start, end in segments[1:]:
+        prev_start, prev_end = merged[-1]
+
+        if start <= prev_end:  # Overlapping or adjacent segments
+            merged[-1] = (prev_start, max(prev_end, end))  # Merge them
+        else:
+            merged.append((start, end))  # No overlap, add as new segment
+
+    return merged

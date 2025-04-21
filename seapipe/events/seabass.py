@@ -15,7 +15,7 @@ import yasa
 from copy import deepcopy
 from ..utils.logs import create_logger
 from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
-from ..utils.misc import infer_eeg, infer_eog, infer_emg
+
 
 class seabass:
     
@@ -140,7 +140,7 @@ class seabass:
                                               flag, logger)
                 if flag - pflag > 0:
                     logger.debug('Inferring EEG from recording instead...')
-                    eeg_chan = infer_eeg(dset, logger)
+                    eeg_chan = infer_eeg(dset, logger = logger)
                     ref_chan = []
                     if not eeg_chan:
                         logger.warning(f'Skipping {sub}, {ses}...')
@@ -152,7 +152,7 @@ class seabass:
                 # Load EMG
                 pflag = deepcopy(flag)
                 flag, emg_chan = load_emg(sub, ses, self.emg_chan, 
-                                    flag, logger)
+                                    flag, logger = logger)
                 if flag - pflag > 0:
                     logger.debug('Inferring EMG from recording instead...')
                     emg_chan = infer_emg(dset, logger)
@@ -166,7 +166,7 @@ class seabass:
                                     flag, logger)
                 if flag - pflag > 0:
                     logger.debug('Inferring EOG from recording instead...')
-                    eog_chan = infer_eog(dset, logger)
+                    eog_chan = infer_eog(dset, logger = logger)
                     if not eog_chan:
                         logger.warning(f'Skipping {sub}, {ses}...')
                         break

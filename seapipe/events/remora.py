@@ -17,7 +17,7 @@ from yasa import rem_detect
 from copy import deepcopy
 from ..utils.logs import create_logger
 from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
-from ..utils.misc import infer_eog
+from ..utils.squid import infer_eog
 
 class remora:
     
