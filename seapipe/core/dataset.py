@@ -7,7 +7,7 @@ Created on Tue Jul 25 12:07:36 2023
 """
 from datetime import datetime, date
 from os import listdir, mkdir, path, remove, walk
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.remora import remora
@@ -19,13 +19,13 @@ from seapipe.pac.pacats import pacats
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
-from seapipe.spectrum.spectrogram import event_spectrogram, event_spectrogram_grouplevel
+from seapipe.spectrum.spectrogram import event_spectrogram
 from seapipe.utils.squid import SQUID, gather_qc_reports
 from seapipe.stats import sleepstats
-from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, make_bids,
+from seapipe.utils.audit import (check_dataset, extract_channels, make_bids,
                         track_processing)
 from seapipe.utils.logs import create_logger, create_logger_outfile
-from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_sheet, 
+from seapipe.utils.load import (check_chans, read_tracking_sheet, 
                                 select_input_dirs, select_output_dirs, load_stages)
 from seapipe.utils.misc import adap_bands_setup
 
@@ -411,7 +411,7 @@ class pipeline:
         if flag > 0:
             logger.warning(f"'load_stages' finished with {flag} WARNINGS. See log for detail.")
         else:
-            logger.debug(f"'load_stages' finished without error.")
+            logger.debug("'load_stages' finished without error.")
     #--------------------------------------------------------------------------
     '''
     ANALYSIS FUNCTIONS
@@ -1460,10 +1460,11 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(evt_name)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Export params')
             logger.info('')
             logger.debug(f"-------------- New call of 'Export params' evoked at {now} --------------")
