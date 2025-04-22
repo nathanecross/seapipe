@@ -146,9 +146,7 @@ class SQUID:
                 filepath = f'{outdir}/{savename}_qc_report_{c}.csv'
                 df.to_csv(filepath, index=False)
 
-        
-        
-        
+
         # dset = self._load_dataset(subject_id, session_id)
         # outdir = self._set_outdir(subject_id, session_id)
         
@@ -293,13 +291,12 @@ def get_candidate_eeg(dset, filt=None, logger=create_logger('Get Candidate EEG')
         eeg = [x for x in h["chan_name"] if any(l in x for l in ['C1', 'C2', 
                                                                  'C3', 'C4', 
                                                                  'C5', 'C6', 
-                                                                 'Cz', 'CZ'])]
-
-        if len(eeg) == 0:
-            eeg = [x for x in h["chan_name"] if any(l in x for l in ['F1', 'F2', 
-                                                                     'F3', 'F4', 
-                                                                     'F5', 'F6', 
-                                                                     'Fz', 'FZ'])]
+                                                                 'Cz', 'CZ',
+                                                                 'F1', 'F2', 
+                                                                 'F3', 'F4', 
+                                                                 'F5', 'F6', 
+                                                                 'Fz', 'FZ',
+                                                                 'Fpz'])]
 
         if len(eeg) == 0:
             eeg = [x for x in h["chan_name"] if 'E' in x and not 

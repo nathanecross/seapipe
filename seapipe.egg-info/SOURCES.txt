@@ -43,3 +43,4 @@ seapipe/utils/logs.py
 seapipe/utils/misc.py
 seapipe/utils/process.py
 seapipe/utils/splitter.py
+seapipe/utils/squid.py

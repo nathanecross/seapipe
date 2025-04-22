@@ -29,3 +29,5 @@ Beta Version
 0.5.2 Fixed bugs, added function to infer polarity, and updated other (filtering) functions
 0.5.3 Fixed bugs in PAC, misc and sleep staging
 0.5.4 Fixed bugs relating to filetype in export eventparams and updated SAND
+0.6 Added S.Q.U.I.D for channel QC, and improved artefact detection
+0.6.1 Minor bug fixes, expanded default QC channel search

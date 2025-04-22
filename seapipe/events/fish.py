@@ -149,30 +149,27 @@ class FISH:
                 logger.critical("'subs' must either be an array of Participant IDs or = 'all' ")
                 return
             subs.sort()
-            
-            # 2.b. Get sessions
-            sessions = self.sessions
-            if isinstance(sessions, list):
-                None
-            elif sessions == 'all':
-                sessions = []
-                for i, sub in enumerate(subs):
-                    sessions.append(next(walk(f'{self.xml_dir}/{sub}'))[1])
-            else:
-                logger.info('')
-                logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
-                return
-            
+
             # 3.a. Loop over event types
             logger.info('') 
             for e, event in enumerate(evt_name):  
                 # 3.b. Loop over subjects
                 for i, sub in enumerate(subs):
-                    if not (sessions[i]):
+                    
+                    # 2.b. Get sessions
+                    sessions = self.sessions
+                    if not isinstance(sessions, list) and sessions == 'all':
+                        sessions = sessions.append(next(walk(f'{self.xml_dir}/{sub}'))[1])
+                    else:
+                        logger.info('')
+                        logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
+                        return
+                    if not (sessions):
                         logger.warning(f'No visits found in {self.xml_dir}{sub}. Skipping..')
-                        break
+                        continue
+                    
                     # 3.c. Loop over sessions
-                    for v, ses in enumerate(sessions[i]):  
+                    for v, ses in enumerate(sessions):  
                         logger.debug(f'Extracting {event} parameters for {sub}, {ses}..') 
                         
                         # 3.d. Get recording
@@ -190,11 +187,11 @@ class FISH:
                         if len(xml_file) == 0:                
                             logger.warning(f'{event} has not been detected for {sub}, {ses} - skipping..')
                             flag+=1
-                            break
+                            continue
                         elif len(xml_file) > 1:
                             logger.warning(f"More than 1 annotations file found for {sub}, visit {ses} - to select the correct file you must define the variable 'keyword' - skipping..")
                             flag+=1
-                            break
+                            continue
                         else:
                             xml_file_path = f'{self.xml_dir}/{sub}/{ses}/{xml_file[0]}'
                             
@@ -220,7 +217,7 @@ class FISH:
                             flag, chanset = load_channels(sub, ses, self.chan, 
                                                           self.ref_chan, flag, logger)
                             if not chanset:
-                                break
+                                continue
                             
                             newchans = rename_channels(sub, ses, self.chan, logger)
                             
@@ -312,11 +309,11 @@ class FISH:
                                         logger.error(e)
                                         logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}.')
                                         flag +=1
-                                        break
+                                        continue
                                     if len(segments) < 1:
                                         logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}.')
                                         flag +=1
-                                        break
+                                        continue
                                     else:
                                         # Get times
                                         poi = get_times(annot, stage=self.stage, 
@@ -349,7 +346,7 @@ class FISH:
                                         except:
                                             logger.warning(f'Issue exporting data for {sub}, {ses}, {fnamechan}, {stagename}, {event}.')
                                             flag +=1
-                                            break
+                                            continue
                                 
                                 ### PER STAGE AND CYCLE ###
                                 elif model == 'stage*cycle':
@@ -375,11 +372,11 @@ class FISH:
                                                 logger.error(e)
                                                 logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, STAGE {st} in CYCLE {cy+1}.')
                                                 flag +=1
-                                                break
+                                                continue
                                             if len(segments) < 1:
                                                 logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, STAGE {st} in CYCLE {cy+1}.')
                                                 flag +=1
-                                                break
+                                                continue
                                             else:
                                                 # Get times
                                                 if isinstance(chan_ful, ndarray):
@@ -439,11 +436,11 @@ class FISH:
                                             logger.error(e)
                                             logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, STAGE {st}.')
                                             flag +=1
-                                            break
+                                            continue
                                         if len(segments) < 1:
                                             logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, STAGE {st}.')
                                             flag +=1
-                                            break
+                                            continue
                                         else:
                                             # Get times
                                             poi = get_times(annot, stage=[st], cycle=cycle, 
@@ -502,11 +499,11 @@ class FISH:
                                             logger.error(e)
                                             logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, CYCLE {cy}.')
                                             flag +=1
-                                            break
+                                            continue
                                         if len(segments) < 1:
                                             logger.warning(f'No valid data found for {sub}, {ses}, CHANNEL {channel}, CYCLE {cy}.')
                                             flag +=1
-                                            break
+                                            continue
                                         else:
                                             # Get times
                                             if isinstance(chan_ful, ndarray):
@@ -588,7 +585,7 @@ class FISH:
                                         else:
                                             logger.warning(f'No valid data found for {sub}, {ses}, {seg}.')
                                             flag+=1
-                                            break
+                                            continue
 
                 ### 3. Check completion status and print
                 if flag == 0:

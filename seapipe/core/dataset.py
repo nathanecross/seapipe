@@ -321,14 +321,10 @@ class pipeline:
         None
             Results are stored in the SQUID object and/or exported downstream.
         """
-
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -387,10 +383,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -443,10 +436,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/detect_power_spectrum_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -552,10 +542,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
             logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -626,10 +613,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/detect_artefacts_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -707,10 +691,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/detect_specparams_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -803,10 +784,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
@@ -899,10 +877,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
@@ -1007,10 +982,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             logfile = f'{self.log_dir}/detect_spindles_WHALES_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
@@ -1079,10 +1051,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
@@ -1256,10 +1225,7 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
-            if isinstance(subs, list):
-                subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
-            if isinstance(sessions, list):
-                ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             pha = f'{frequency_phase[0]}-{frequency_phase[1]}'
@@ -1789,5 +1755,17 @@ class pipeline:
         
         return
     
+    
+    
+def out_names(subs, sessions):
+    if isinstance(subs, list):
+        subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
+    else:
+        subs_str = subs
+    if isinstance(sessions, list):
+        ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+    else:
+        ses_str = sessions     
         
+    return subs_str, ses_str
         
