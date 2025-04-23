@@ -158,13 +158,18 @@ class FISH:
                     
                     # 2.b. Get sessions
                     sessions = self.sessions
-                    if not isinstance(sessions, list) and sessions == 'all':
-                        sessions = sessions.append(next(walk(f'{self.xml_dir}/{sub}'))[1])
-                    else:
+                    if sessions == 'all':
+                        try:
+                            sessions = next(walk(f'{self.xml_dir}/{sub}'))[1]  # Get list of session directories
+                        except StopIteration:
+                            logger.warning(f'No visits found in {self.xml_dir}{sub}. Skipping..')
+                            continue
+                    elif not isinstance(sessions, list):
                         logger.info('')
-                        logger.critical("'sessions' must either be an array of Session IDs or = 'all' ")
+                        logger.critical("'sessions' must either be a list of Session IDs or = 'all'")
                         return
-                    if not (sessions):
+                    
+                    if not sessions:
                         logger.warning(f'No visits found in {self.xml_dir}{sub}. Skipping..')
                         continue
                     

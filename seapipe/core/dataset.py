@@ -1746,11 +1746,9 @@ class pipeline:
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
-
-        spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
-                            ref_chan = None, grp_name = grp_name, stage = stage, 
-                            cat = cat, rater = rater, cycle_idx = cycle_idx, 
-                            subs = subs, sessions = sessions) 
+                            
+        spectrum = Spectrum(in_dir, xml_dir, out_dir, chan, None, grp_name, 
+                            stage,cat, rater, cycle_idx, subs, sessions) 
         spectrum.powerspec_summary(chan, general_opts, frequency_opts, filter_opts, 
                                    epoch_opts, event_opts, logger)
         
