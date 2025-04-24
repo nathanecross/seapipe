@@ -95,7 +95,9 @@ class pipeline:
         self.tracking = {}
         self.audit_init = check_dataset(self.rootpath, self.datapath, 
                                         self.outfile, filetype, tracking)
-        self.track(subs = 'all', ses = 'all', 
+        
+        if tracking:
+            self.track(subs = 'all', ses = 'all', 
                    step = ['staging','spindle','slowwave','pac','sync','psa'],
                    show = False, log = False)
         
@@ -1566,10 +1568,12 @@ class pipeline:
             if not out_dir:    
                 if not path.exists(self.outpath + '/datasets/'):
                     mkdir(self.outpath + '/datasets/')
-                out_dir = self.outpath + f'/datasets/{evt_name}'
-            if not path.exists(out_dir):
-                mkdir(out_dir)
-            logger.debug(f'Output being saved to: {xml_dir}')
+                outpath = self.outpath + f'/datasets/{evt_name}'
+            else:
+                outpath = out_dir
+            if not path.exists(outpath):
+                mkdir(outpath)
+            logger.debug(f'Output being saved to: {outpath}')
             
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
             logger.debug(f'Input annotations being read from: {xml_dir}')
@@ -1590,7 +1594,7 @@ class pipeline:
                 chan = [chan]
             
         
-            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
+            fish = FISH(self.rootpath, in_dir, xml_dir, outpath, chan, None, grp_name, 
                               stage, subs = subs, sessions = sessions) 
             fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, logger)
         
@@ -1625,7 +1629,8 @@ class pipeline:
         if not out_dir:
             if not path.exists(self.outpath + '/datasets/'):
                 mkdir(self.outpath + '/datasets/')
-            out_dir = f'{self.outpath}/datasets/pac'
+            out_dir = (f'{self.outpath}/datasets/event_pac' if evt_name 
+                       else f'{self.outpath}/datasets/pac') 
         if not path.exists(out_dir):
             mkdir(out_dir)
         logger.debug(f'Output being saved to: {xml_dir}')

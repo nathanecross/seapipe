@@ -365,7 +365,9 @@ class octopus:
                         logchan = ['(no re-refrencing)']
                     else:
                         logchan = chanset[ch]
-                    logger.debug(f"Using PHASE frequency band: {round(f_pha[0],2)}-{round(f_pha[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                    logger.debug("Using PHASE frequency band: "
+                                 f"{round(f_pha[0],2)}-{round(f_pha[1],2)} Hz "
+                                 f"for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # Amplitude
                     if adap_bands_amplitude == 'Fixed':
@@ -386,7 +388,9 @@ class octopus:
                         logchan = ['(no re-refrencing)']
                     else:
                         logchan = chanset[ch]
-                    logger.debug(f"Using AMPLITUDE frequency band: {round(f_amp[0],2)}-{round(f_amp[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                    logger.debug("Using AMPLITUDE frequency band: "
+                                 f"{round(f_amp[0],2)}-{round(f_amp[1],2)} Hz "
+                                 f"for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # d. Check if channel needs to be inverted for detection
                     if type(invert) == type(DataFrame()):
@@ -398,7 +402,8 @@ class octopus:
                     elif type(invert) == bool:
                         inversion = invert
                     else:
-                        logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+                        logger.critical("The argument 'invert' must be set to either: "
+                                        f"'True', 'False' or 'None'; but it was set as {invert}.")
                         logger.info('Check documentation for how to set up staging data:')
                         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                         logger.info('-' * 10)
@@ -420,7 +425,8 @@ class octopus:
                         continue
 
                     if len(segments)==0:
-                        logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, Cycles:{cycle}.")
+                        logger.warning(f"No valid data found for {sub}, {ses}, "
+                                       f"{self.stage}, Cycles:{cycle}.")
                         flag +=1
                         break
                     
@@ -430,8 +436,12 @@ class octopus:
                             segments.read_data(filter_opts['lapchan'], chanset[ch]) 
                             laplace_flag = True
                         except:
-                            logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording for {sub}, {ses}.")
-                            logger.warning("Laplacian filtering will NOT be run for {sub}, {ses}, {ch}. Check parameters under: filter_opts['lapchan']")
+                            logger.error("Channels listed in filter_opts['lapchan']: "
+                                         f"{filter_opts['lapchan']} are not found "
+                                         f"in recording for {sub}, {ses}.")
+                            logger.warning("Laplacian filtering will NOT be run "
+                                           f"for {sub}, {ses}, {ch}. Check parameters "
+                                           "under: filter_opts['lapchan']")
                             segments.read_data(ch, chanset[ch])
                             laplace_flag = False
                             flag += 1
@@ -456,7 +466,8 @@ class octopus:
                         seg_label = []
                         for st in self.stage:
                             for cy in cycle_idx:
-                                segs = [s for s in segments if st in s['stage'] if cy in s['cycle']]
+                                segs = [s for s in segments if st in s['stage'] 
+                                        if cy in s['cycle']]
                                 nsegs.append(segs)
                                 seg_label.append(f'{st}_cycle{cy}')
                     elif model == 'per_cycle':
@@ -491,7 +502,8 @@ class octopus:
                             if progress:
                                 j = s/len(seg)
                                 sys.stdout.write('\r')
-                                sys.stdout.write(f"                      Progress: [{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
+                                sys.stdout.write("                      Progress: "
+                                                 f"[{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
                                 sys.stdout.flush()
                             
                             out = dict(sg)
@@ -662,8 +674,12 @@ class octopus:
                         if adap_bands_amplitude == 'Fixed':
                             ampadap = '-fixed'
                         else:
-                            ampadap = '-adap'    
-                        freqs = f'pha-{f_pha[0]}-{f_pha[1]}Hz{phadap}_amp-{f_amp[0]}-{f_amp[1]}Hz{ampadap}'
+                            ampadap = '-adap'  
+                        phaname1 = round(f_pha[0],2)
+                        phaname2 = round(f_pha[1],2)
+                        ampname1 = round(f_amp[0],2)
+                        ampname2 = round(f_amp[1],2)
+                        freqs = f'pha-{phaname1}-{phaname2}Hz{phadap}_amp-{ampname1}-{ampname2}Hz{ampadap}'
                         if model == 'whole_night':
                             stagename = '-'.join(self.stage)
                             outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
