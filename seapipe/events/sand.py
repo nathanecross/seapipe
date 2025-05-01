@@ -9,7 +9,7 @@ Created on Tue Dec  3 18:13:45 2024
 from numpy import (append, array, asarray, concatenate, cumsum, diff, inf, 
                    insert, isnan, median, multiply, nan, nanmean, nanstd, pad, 
                    percentile, repeat, sqrt, squeeze, where)
-from os import listdir, mkdir, path
+from os import listdir, mkdir, path, getpid
 from wonambi import Dataset, graphoelement
 from wonambi.attr import Annotations, create_empty_annotations
 from wonambi.detect.spindle import transform_signal
@@ -20,8 +20,15 @@ import yasa
 from copy import deepcopy
 from ..utils.logs import create_logger
 from ..utils.load import load_channels, load_sessions, rename_channels
-from ..utils.misc import (merge_events, reconstruct_stitches, remove_duplicate_evts)
+from ..utils.misc import (merge_events, reconstruct_stitches, remove_event, 
+                          remove_duplicate_evts)
+import gc
+import psutil
 
+def print_memory_usage(note="", logger = create_logger("Memory check")):
+    process = psutil.Process(getpid())
+    mem_mb = process.memory_info().rss / 1024 ** 2  # in MB
+    logger.debug(f"[{note}] Memory usage: {mem_mb:.2f} MB")
 
 class SAND:
     
@@ -78,6 +85,7 @@ class SAND:
    
         
         '''
+        print_memory_usage("Start")
         
         ### 0.a Set up logging
         flag = 0
@@ -175,7 +183,11 @@ class SAND:
                                        f"{ses}. Therefore, we'll detect artefacts PER CHANNEL.")
                         flag += 1
                         label = "individual"
-
+                
+                # Get data 
+                dset = Dataset(rdir + edf_file)
+                s_freq = int(dset.header['s_freq'])
+                
                 # d. Load/create for annotations file
                 if not path.exists(self.xml_dir + '/' + sub):
                     mkdir(self.xml_dir + '/' + sub)
@@ -196,7 +208,6 @@ class SAND:
                     xml_file = f'{xdir}/{xml_file[0]}'
                     
                 if not path.exists(xml_file):
-                    dset = Dataset(rdir + edf_file)
                     create_empty_annotations(xml_file, dset)
                     logger.warning(f"No annotations file exists. Creating " 
                                    f"annotations file for {sub}, {ses} and" 
@@ -206,6 +217,8 @@ class SAND:
                 else:
                     logger.debug(f'Annotations file exists for {sub}, {ses},'
                                  'staging will be used for Artefact detection.')
+                    logger.warning('Any previously detected artefacts will be '
+                                   'overwritten.')
 
                     # Extract hypnogram
                     annot = Annotations(xml_file)
@@ -227,7 +240,9 @@ class SAND:
                         logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
                     else:
                         logger.debug(f'Detecting for {chan} : {chanset[chan]}')
-
+                    
+                    remove_event(annot, 'Artefact', chan)
+                    
                     if 'yasa' in method:     
                         
                         ## c. Load recording
@@ -281,16 +296,16 @@ class SAND:
                     elif 'seapipe' in method:
                         
                         logger.debug('Loading Data..')
-                        
-                        # Get data 
-                        dset = Dataset(rdir + edf_file)
-                        s_freq = int(dset.header['s_freq'])
+
                         segments = fetch(dset, annot, cat = (1,1,1,1), 
                                          stage=stage)
                         
                         # Save stitches (to recompute times later)
-                        stitches = segments[0]['times']
-                        
+                        try:
+                            stitches = segments[0]['times']
+                        except:
+                            logger.warning('No valid data found, skipping {chan}')
+                            
                         # Read data
                         segments.read_data(chan, ref_chan = chanset[chan], 
                                            grp_name=self.grp_name)
@@ -328,6 +343,9 @@ class SAND:
                             return flatlines 
                         flatlines = detect_flatlines(dat_full, s_freq)
                         
+                        # Force garbage collection to free memory
+                        del dat_full
+                        gc.collect()  
                         
                         ## Step 2. Find large shifts in fast frequencies (>40Hz)
                         logger.debug("Detecting movement artefacts...")
@@ -350,12 +368,16 @@ class SAND:
                         # Align this filtered data back to the raw EEG recording 
                         dat_full = reconstruct_stitches(dat, stitches, s_freq)
                         
+                        
                         # Threshold and detect artefact 'events'
                         threshold = percentile(dat, 95)
                         dat_full[dat_full<threshold] = 0
                         dat_full[dat_full>threshold] = 1
                         movements = detect_above_zero_regions(dat_full)
                         
+                        # Force garbage collection to free memory
+                        del dat, dat_full
+                        gc.collect()
                         
                         # Step 3. Large deflections in signal
                         logger.debug("Detecting deflection artefacts...")
@@ -438,7 +460,9 @@ class SAND:
                         # Convert times back into seconds for annotations
                         times = [(x / s_freq, y / s_freq) for x, y in merged]
 
-                        # Convert to wonambi annotations format
+                        # Force garbage collection to free memory
+                        del data, dat, dat_full, segments
+                        gc.collect()
 
                     else:
                         logger.critical("Currently the only methods that are" 
@@ -462,15 +486,24 @@ class SAND:
                                      'quality':'Good',
                                      'cycle':''})
                     
-                 
+                    print_memory_usage("End channel")
+                    del times
+                    gc.collect()
+                    print_memory_usage("After cleanup")
+                    
                 # Add to annotations file
                 grapho = graphoelement.Graphoelement()
                 grapho.events = evts          
                 grapho.to_annot(annot)
-                    
-                merge_events(annot, 'Artefact')
+                
+                print_memory_usage("Add to XML")
+                del evts, dset
+                gc.collect()
+                print_memory_usage("After cleanup")
+                
+                merge_events(annot, 'Remove duplicates')
                 remove_duplicate_evts(annot, 'Artefact')
-
+                print_memory_usage("End:")
         return
     
     

@@ -1153,8 +1153,12 @@ def extract_phase_amp_bw(roothpath, sub, ses, ch, stage, adap_bw,
 
     # Get phase and amplitude frequency bands
     f_pha = get_band('phase', adap_bands_phase, frequency_phase, 'phase')
+    if not f_pha:
+        f_pha = frequency_phase
     f_amp = get_band('amplitude', adap_bands_amplitude, frequency_amplitude, 'amplitude')
-
+    if not f_amp:
+        f_amp = frequency_amplitude
+    
     # Format names
     phase_bw = f'pha-{round(f_pha[0], 2)}-{round(f_pha[1], 2)}Hz'
     amp_bw = f'amp-{round(f_amp[0], 2)}-{round(f_amp[1], 2)}Hz'

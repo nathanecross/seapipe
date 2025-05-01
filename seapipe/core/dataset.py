@@ -873,7 +873,7 @@ class pipeline:
                               stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                               cycle_idx = None, concat_cycle = True, 
                               frequency = None, adap_bands = 'Fixed', 
-                              adap_bw = 4, duration =( 0.5, 3),
+                              adap_bw = 4, duration = (0.5, 3),
                               reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                               outfile = True):
         
@@ -932,8 +932,10 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            logger.error('Problem loading channel information')
             return
         elif isinstance(ref_chan, str):
+            logger.error('Problem loading ref-channel information')
             return
         
         # Format concatenation
@@ -957,7 +959,11 @@ class pipeline:
             return
        
         # Run detection
-        self.track(step='fooof', show = False, log = False)
+        self.track(subs, sessions, step = ['fooof','spindle'], show = False, 
+                   log = False)
+        
+        #self.track(step='fooof', show = False, log = False)
+        #self.track(step='spindle', show = False, log = False)
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, 
                          chan, ref_chan, grp_name, stage, frequency, rater, 
                          subs, sessions, reject_artf, self.tracking) 
@@ -1029,10 +1035,15 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            logger.error('Problem loading channel information')
             return
         elif isinstance(ref_chan, str):
+            logger.error('Problem loading ref-channel information')
             return
         
+        self.track(step='spindle', show = False, log = False)
+        
+        logger.debug('Starting Merge Now')
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, 
                          grp_name, stage, frequency = None, rater = rater, 
                          subs = subs, sessions = sessions, 
@@ -1668,9 +1679,14 @@ class pipeline:
         # Default stage
         if stage == None:
             stage = ['NREM2','NREM3']
-            
+        
+        # Run extraction
+        self.track(subs, sessions, step = ['fooof','spindle'], show = False, 
+                   log = False)    
+        
         fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
-                          stage, subs = subs, sessions = sessions) 
+                          stage, None, subs, sessions, self.tracking) 
+                   
         fish.pac_summary(chan, evt_name, adap_bands_phase, frequency_phase, 
                               adap_bands_amplitude, frequency_amplitude,
                               params = 'all', cat = cat, cycle_idx = None, 

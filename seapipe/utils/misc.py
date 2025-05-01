@@ -35,10 +35,13 @@ def remove_event(annot, evt_name, chan = None, stage = None):
         evts = [x for x in annot.get_events(name=evt_name)]
     elif not stage:
         evts = [x for x in annot.get_events(name=evt_name) 
-                if chan not in x['chan']]
+                if chan in x['chan']]
     elif not chan:
         evts = [x for x in annot.get_events(name=evt_name) 
-                if stage not in x['stage']]
+                if stage in x['stage']]
+    else:
+        evts = [x for x in annot.get_events(name=evt_name) 
+                if stage in x['stage'] if chan in x['chan']]
     
     annot.remove_event_type(name=evt_name)
     grapho = graphoelement.Graphoelement()

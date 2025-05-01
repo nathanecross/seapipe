@@ -147,52 +147,6 @@ class SQUID:
                 df.to_csv(filepath, index=False)
 
 
-        # dset = self._load_dataset(subject_id, session_id)
-        # outdir = self._set_outdir(subject_id, session_id)
-        
-        # for c in chantype:
-        #     if c in ('eeg', 'eog'):
-        #         if c == 'eeg':
-        #             chans = get_candidate_eeg(dset, logger = self.logger)
-        #         else:
-        #             chans = get_candidate_eog(dset, logger = self.logger)
-        #         if chans:
-        #             results = []
-        #             for chan in chans:
-        #                 try:
-        #                     signal = dset.read_data(chan=[chan]).data[0][0]  # Adapt as needed
-        #                     s_freq = dset.header['s_freq']
-        #                     qc_row['subject'] = subject_id
-        #                     qc_row['session'] = session_id
-        #                     qc_row = squid_eeg(signal, s_freq, name=chan)
-        #                     results.append(qc_row)
-        #                 except Exception as e:
-        #                     self.logger.warning(f"Failed to process channel {chan}: {e}")
-                        
-        #             filepath = f'{outdir}/qc_report_{c}.csv'
-        #             df = concat(results, ignore_index=True)
-        #             df.to_csv(filepath, index=False)
-
-
-        #     if c == 'emg':
-        #         chans = get_candidate_emg(dset, logger = self.logger)
-        #         if chans:
-        #             results = []
-        #             for chan in chans:
-        #                 try:
-        #                     signal = dset.read_data(chan=[chan]).data[0][0]  # Adapt as needed
-        #                     s_freq = dset.header['s_freq']
-        #                     qc_row['subject'] = subject_id
-        #                     qc_row['session'] = session_id
-        #                     qc_row = squid_emg(signal, s_freq, name=chan)
-        #                     results.append(qc_row)
-        #                 except Exception as e:
-        #                     self.logger.warning(f"Failed to process channel {chan}: {e}")
-                            
-        #         filepath = f'{outdir}/qc_report_{c}.csv'
-        #         df = concat(results, ignore_index=True)
-        #         df.to_csv(filepath, index=False)
-            
             # TO DO:
             # if c == 'ecg':
             #     chans = infer_ecg(dset)
@@ -296,7 +250,8 @@ def get_candidate_eeg(dset, filt=None, logger=create_logger('Get Candidate EEG')
                                                                  'F3', 'F4', 
                                                                  'F5', 'F6', 
                                                                  'Fz', 'FZ',
-                                                                 'Fpz'])]
+                                                                 'Fpz', 'Oz',
+                                                                 'O1', 'O2'])]
 
         if len(eeg) == 0:
             eeg = [x for x in h["chan_name"] if 'E' in x and not 

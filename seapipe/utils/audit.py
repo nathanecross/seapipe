@@ -580,29 +580,33 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                 lg.warning(f'>1 spindle annotation files found for {sub}, {ses}..')
                         else:
                             xml = xml[0]
-                            annot = Annotations(f'{spath}/{sub}/{ses}/{xml}')
-                            events = [x for x in annot.get_events() if x['name'] in methods]
-                            chans = sorted(set([x['chan'][0] for x in events]))
-                            if chan:
-                                chans = [x for x in chans for y in chan if y in x]
-                            if len(chans) == 0:
-                                if log:
-                                    lg.warning(f'Spindles have NOT been detected for {sub}, {ses}.')
-                                spin_dict[sub][ses] = ('-')
-                                spin_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),spin_df.loc[sub]))
-                                break
-                            else:
-                                for chan in chans:
-                                    tracking['spindle'][sub][ses][chan] = []
-                                    methlist = sorted(set([x['name'] for x in events]))
-                                    if len(methlist) > 0:
-                                        for method in methlist:
-                                            update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                            tracking['spindle'][sub][ses][chan].append({'Method':method,
-                                                                                 'Stage':'',      # FLAG FOR UPDATE
-                                                                                 'Cycle':'',      # FLAG FOR UPDATE
-                                                                                 'File':f'{spath}/{sub}/{ses}/{xml}',
-                                                                                 'Updated':update}) 
+                            try:
+                                annot = Annotations(f'{spath}/{sub}/{ses}/{xml}')
+                                events = [x for x in annot.get_events() if x['name'] in methods]
+                                chans = sorted(set([x['chan'][0] for x in events]))
+                                if chan:
+                                    chans = [x for x in chans for y in chan if y in x]
+                                if len(chans) == 0:
+                                    if log:
+                                        lg.warning(f'Spindles have NOT been detected for {sub}, {ses}.')
+                                    spin_dict[sub][ses] = ('-')
+                                    spin_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),spin_df.loc[sub]))
+                                    break
+                                else:
+                                    for chan in chans:
+                                        tracking['spindle'][sub][ses][chan] = []
+                                        methlist = sorted(set([x['name'] for x in events]))
+                                        if len(methlist) > 0:
+                                            for method in methlist:
+                                                update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
+                                                tracking['spindle'][sub][ses][chan].append({'Method':method,
+                                                                                     'Stage':'',      # FLAG FOR UPDATE
+                                                                                     'Cycle':'',      # FLAG FOR UPDATE
+                                                                                     'File':f'{spath}/{sub}/{ses}/{xml}',
+                                                                                     'Updated':update}) 
+                            except:
+                                lg.warning(f'Error loading nnotations found for {sub}, {ses}')
+                                
 
         df['spindle'] = spin_df
     
@@ -645,29 +649,32 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                 lg.warning(f'>1 slow oscillation annotation files found for {sub}, {ses}..')
                         else:
                             xml = xml[0]
-                            annot = Annotations(f'{spath}/{sub}/{ses}/{xml}')
-                            events = [x for x in annot.get_events() if x['name'] in methods]
-                            chans = sorted(set([x['chan'][0] for x in events]))
-                            if chan:
-                                chans = [x for x in chans for y in chan if y in x]
-                            if len(chans) == 0:
-                                if log:
-                                    lg.warning(f'Slow oscillations have NOT been detected for {sub}, {ses}.')
-                                so_dict[sub][ses] = ('-')
-                                so_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),so_df.loc[sub]))
-                                break
-                            else:
-                                for chan in chans:
-                                    tracking['slow_osc'][sub][ses][chan] = []
-                                    methlist = sorted(set([x['name'] for x in events]))
-                                    if len(methlist) > 0:
-                                        for method in methlist:
-                                            update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                            tracking['slow_osc'][sub][ses][chan].append({'Method':method,
-                                                                                 'Stage':'',      # FLAG FOR UPDATE
-                                                                                 'Cycle':'',      # FLAG FOR UPDATE
-                                                                                 'File':f'{spath}/{sub}/{ses}/{xml}',
-                                                                                 'Updated':update}) 
+                            try:
+                                annot = Annotations(f'{spath}/{sub}/{ses}/{xml}')
+                                events = [x for x in annot.get_events() if x['name'] in methods]
+                                chans = sorted(set([x['chan'][0] for x in events]))
+                                if chan:
+                                    chans = [x for x in chans for y in chan if y in x]
+                                if len(chans) == 0:
+                                    if log:
+                                        lg.warning(f'Slow oscillations have NOT been detected for {sub}, {ses}.')
+                                    so_dict[sub][ses] = ('-')
+                                    so_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),so_df.loc[sub]))
+                                    break
+                                else:
+                                    for chan in chans:
+                                        tracking['slow_osc'][sub][ses][chan] = []
+                                        methlist = sorted(set([x['name'] for x in events]))
+                                        if len(methlist) > 0:
+                                            for method in methlist:
+                                                update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
+                                                tracking['slow_osc'][sub][ses][chan].append({'Method':method,
+                                                                                     'Stage':'',      # FLAG FOR UPDATE
+                                                                                     'Cycle':'',      # FLAG FOR UPDATE
+                                                                                     'File':f'{spath}/{sub}/{ses}/{xml}',
+                                                                                     'Updated':update}) 
+                            except:
+                                lg.warning(f'Error loading nnotations found for {sub}, {ses}')
 
         df['slow_osc'] = so_df
     
@@ -681,13 +688,14 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
         
         for sub in subs:
            try:
+               lg.info(f'{spath}/{sub}')
                stage_ses = next(walk(f'{spath}/{sub}'))[1]
                fooof_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-') 
                                     for x in tracking['ses'][sub]])
                fooof_df.loc[sub] = [x if x in stage_ses else '-' 
                              for x in tracking['ses'][sub]]
            except:
-               fooof_dict[sub] = dict([(ses,'-') for ses in self.tracking['ses'][sub]])
+               fooof_dict[sub] = dict([(ses,'-') for ses in tracking['ses'][sub]])
 
 
         # Update tracking
