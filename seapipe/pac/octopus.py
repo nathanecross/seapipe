@@ -4,37 +4,30 @@ Created on Tue Oct  5 15:51:24 2021
 
 @author: Nathan Cross
 """
-from datetime import datetime, date
 
-from os import listdir, mkdir, path, walk
-from . cfc_func import _allnight_ampbin, circ_wwtest, mean_amp, klentropy
+
+from os import listdir, mkdir, path
+from . cfc_func import circ_wwtest, mean_amp
 from seapipe.utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
 from copy import deepcopy
 import shutil
-from math import degrees, radians
-import mne
-import matplotlib.pyplot as plt
-from numpy import (angle, append, argmax, array, arange, asarray, ceil, concatenate, 
-                   empty, histogram, interp, isnan, linspace, log, logical_and, mean, 
-                   median, nan, nanmean, ndarray, newaxis, ones, pi, random, repeat, 
-                   reshape, roll, save, sin, size, squeeze, sqrt, std, sum, tile, where, zeros) 
-from numpy.matlib import repmat
-from pandas import DataFrame, concat, read_csv
-from pathlib import Path
-from safepickle import dump, load
-from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc, circ_corrcl)
-from scipy.signal import hilbert
+from math import degrees
+from numpy import (argmax, array, asarray, ceil, concatenate, histogram, interp, 
+                   isnan, linspace, mean, median, nan, nanmean, ones, pi, random, 
+                   reshape, save, sin, squeeze, sum, zeros) 
+from pandas import DataFrame, read_csv
+from safepickle import load
+from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc)
 from scipy.stats import zscore
 import sys
-from tensorpac import Pac, EventRelatedPac
+from tensorpac import Pac
 from wonambi import Dataset
 from wonambi.trans import fetch
 from wonambi.attr import Annotations 
-from wonambi.detect.spindle import transform_signal
-from seapipe.utils.logs import create_logger, create_logger_outfile
+from seapipe.utils.logs import create_logger
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
                           load_sessions, read_inversion, read_manual_peaks)
-from ..utils.misc import remove_duplicate_evts, infer_polarity
+from ..utils.misc import infer_polarity
 
 
 def pac_method(method, surrogate, correction, list_methods=False):
@@ -372,7 +365,9 @@ class octopus:
                         logchan = ['(no re-refrencing)']
                     else:
                         logchan = chanset[ch]
-                    logger.debug(f"Using PHASE frequency band: {round(f_pha[0],2)}-{round(f_pha[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                    logger.debug("Using PHASE frequency band: "
+                                 f"{round(f_pha[0],2)}-{round(f_pha[1],2)} Hz "
+                                 f"for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # Amplitude
                     if adap_bands_amplitude == 'Fixed':
@@ -393,7 +388,9 @@ class octopus:
                         logchan = ['(no re-refrencing)']
                     else:
                         logchan = chanset[ch]
-                    logger.debug(f"Using AMPLITUDE frequency band: {round(f_amp[0],2)}-{round(f_amp[1],2)} Hz for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
+                    logger.debug("Using AMPLITUDE frequency band: "
+                                 f"{round(f_amp[0],2)}-{round(f_amp[1],2)} Hz "
+                                 f"for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")    
                     
                     # d. Check if channel needs to be inverted for detection
                     if type(invert) == type(DataFrame()):
@@ -405,7 +402,8 @@ class octopus:
                     elif type(invert) == bool:
                         inversion = invert
                     else:
-                        logger.critical(f"The argument 'invert' must be set to either: 'True', 'False' or 'None'; but it was set as {invert}.")
+                        logger.critical("The argument 'invert' must be set to either: "
+                                        f"'True', 'False' or 'None'; but it was set as {invert}.")
                         logger.info('Check documentation for how to set up staging data:')
                         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                         logger.info('-' * 10)
@@ -427,7 +425,8 @@ class octopus:
                         continue
 
                     if len(segments)==0:
-                        logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, Cycles:{cycle}.")
+                        logger.warning(f"No valid data found for {sub}, {ses}, "
+                                       f"{self.stage}, Cycles:{cycle}.")
                         flag +=1
                         break
                     
@@ -437,8 +436,12 @@ class octopus:
                             segments.read_data(filter_opts['lapchan'], chanset[ch]) 
                             laplace_flag = True
                         except:
-                            logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording for {sub}, {ses}.")
-                            logger.warning("Laplacian filtering will NOT be run for {sub}, {ses}, {ch}. Check parameters under: filter_opts['lapchan']")
+                            logger.error("Channels listed in filter_opts['lapchan']: "
+                                         f"{filter_opts['lapchan']} are not found "
+                                         f"in recording for {sub}, {ses}.")
+                            logger.warning("Laplacian filtering will NOT be run "
+                                           f"for {sub}, {ses}, {ch}. Check parameters "
+                                           "under: filter_opts['lapchan']")
                             segments.read_data(ch, chanset[ch])
                             laplace_flag = False
                             flag += 1
@@ -463,7 +466,8 @@ class octopus:
                         seg_label = []
                         for st in self.stage:
                             for cy in cycle_idx:
-                                segs = [s for s in segments if st in s['stage'] if cy in s['cycle']]
+                                segs = [s for s in segments if st in s['stage'] 
+                                        if cy in s['cycle']]
                                 nsegs.append(segs)
                                 seg_label.append(f'{st}_cycle{cy}')
                     elif model == 'per_cycle':
@@ -498,7 +502,8 @@ class octopus:
                             if progress:
                                 j = s/len(seg)
                                 sys.stdout.write('\r')
-                                sys.stdout.write(f"                      Progress: [{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
+                                sys.stdout.write("                      Progress: "
+                                                 f"[{'»' * int(50 * j):{50}s}] {int(100 * j)}%")
                                 sys.stdout.flush()
                             
                             out = dict(sg)
@@ -669,8 +674,12 @@ class octopus:
                         if adap_bands_amplitude == 'Fixed':
                             ampadap = '-fixed'
                         else:
-                            ampadap = '-adap'    
-                        freqs = f'pha-{f_pha[0]}-{f_pha[1]}Hz{phadap}_amp-{f_amp[0]}-{f_amp[1]}Hz{ampadap}'
+                            ampadap = '-adap'  
+                        phaname1 = round(f_pha[0],2)
+                        phaname2 = round(f_pha[1],2)
+                        ampname1 = round(f_amp[0],2)
+                        ampname2 = round(f_amp[1],2)
+                        freqs = f'pha-{phaname1}-{phaname2}Hz{phadap}_amp-{ampname1}-{ampname2}Hz{ampadap}'
                         if model == 'whole_night':
                             stagename = '-'.join(self.stage)
                             outputfile = '{}/{}_{}_{}_{}_{}_{}_pac_parameters.csv'.format(
@@ -856,8 +865,8 @@ def watson_williams(in_dir, out_dir, band_pairs, chan, cycle_idx, stage, nbins,
                         warnings = True
                         for pm in range(0,10000):
                             perm = random.choice(a=[False, True], size=(len(data_m[0])))
-                            da = copy.deepcopy(data_m[0])
-                            db = copy.deepcopy(data_m[1])
+                            da = deepcopy(data_m[0])
+                            db = deepcopy(data_m[1])
                             if pm>0:
                                 da[perm] = data_m[1][perm]
                                 db[perm] = data_m[0][perm]
@@ -870,8 +879,8 @@ def watson_williams(in_dir, out_dir, band_pairs, chan, cycle_idx, stage, nbins,
                     else:
                         print("For within-subjects comparisons, the number of subjects in each condition need to match... ")
                 elif test == 'between':
-                    da = copy.deepcopy(data_m[0])
-                    db = copy.deepcopy(data_m[1])
+                    da = deepcopy(data_m[0])
+                    db = deepcopy(data_m[1])
                     F, P = circ_wwtest(da, db, ones(da.shape), ones(db.shape))
                     dset[k,b*2] = F
                     dset[k,(b*2)+1] = P

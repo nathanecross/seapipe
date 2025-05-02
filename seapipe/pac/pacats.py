@@ -36,7 +36,7 @@ from seapipe.utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
                           load_sessions, read_inversion, read_manual_peaks)
 from ..utils.misc import remove_duplicate_evts
-
+from ..utils.misc import infer_polarity
 
 
 class pacats:
@@ -352,9 +352,9 @@ class pacats:
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
-                            logger.warning(f"NO inversion will be applied to channel {ch} prior to detection for {sub}, {ses}. To turn off this warning, select `invert = 'False'`")
-                        else: 
-                            logger.debug(f'Inverting channel {ch} prior to detection for {sub}, {ses}')
+                            inversion = infer_polarity(dset, annot, ch, 
+                                                       chanset[ch], cat, None, 
+                                                       self.stage, cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert
                     else:

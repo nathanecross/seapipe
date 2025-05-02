@@ -7,7 +7,7 @@ Created on Tue Jul 25 12:07:36 2023
 """
 from datetime import datetime, date
 from os import listdir, mkdir, path, remove, walk
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.remora import remora
@@ -19,12 +19,13 @@ from seapipe.pac.pacats import pacats
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
-from seapipe.spectrum.spectrogram import event_spectrogram, event_spectrogram_grouplevel
+from seapipe.spectrum.spectrogram import event_spectrogram
+from seapipe.utils.squid import SQUID, gather_qc_reports
 from seapipe.stats import sleepstats
-from seapipe.utils.audit import (check_dataset, check_fooof, extract_channels, make_bids,
+from seapipe.utils.audit import (check_dataset, extract_channels, make_bids,
                         track_processing)
 from seapipe.utils.logs import create_logger, create_logger_outfile
-from seapipe.utils.load import (check_chans, check_adap_bands, read_tracking_sheet, 
+from seapipe.utils.load import (check_chans, read_tracking_sheet, 
                                 select_input_dirs, select_output_dirs, load_stages)
 from seapipe.utils.misc import adap_bands_setup
 
@@ -33,7 +34,6 @@ from seapipe.utils.misc import adap_bands_setup
 #   - add in log for detection whether auto, fixed or adapted bands was run
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
-#  ** create catch for errors in tracking sheet around ',' (chans, adap_bands etc.)
 #   - fix discrepency between track WARNINGS and output in dataframe 
 #   - update initial tracking to include spindles, slow_oscillation, cfc, power_spectrum
 #   - update export sleepstats to export by stage/cycle separately
@@ -95,7 +95,9 @@ class pipeline:
         self.tracking = {}
         self.audit_init = check_dataset(self.rootpath, self.datapath, 
                                         self.outfile, filetype, tracking)
-        self.track(subs = 'all', ses = 'all', 
+        
+        if tracking:
+            self.track(subs = 'all', ses = 'all', 
                    step = ['staging','spindle','slowwave','pac','sync','psa'],
                    show = False, log = False)
         
@@ -279,6 +281,98 @@ class pipeline:
         
     def extract_channels(self, exclude = None):
         extract_channels(self.datapath, exclude)
+        
+    def QC_channels(self, subs = 'all', sessions = 'all', filetype = '.edf',
+                chantype = ['eeg', 'eog', 'emg', 'ecg'], outfile=True):
+        
+        """
+        Run automated quality control (QC) on physiological channels for all subjects and sessions.
+    
+        This method initializes a SQUID instance and performs QC on the specified channel types
+        (e.g., EEG, EOG, EMG, ECG). For each channel, signal quality metrics are computed, such as:
+    
+        - `time_not_flatline`:        Percentage of time the signal is not flatlined.
+        - `time_above_10`:            Percentage of signal above 10 µV.
+        - `time_below_200`:           Percentage of signal below 200 µV.
+        - `gini_coeff`:               Gini coefficient of signal inequality.
+        - `inverse_power_ratio`:      Inverse power ratio of high-to-low frequency content.
+        - `ecg_artefact`:             Mean correlation between EEG and ECG signals.
+        - `ecg_artefact_perc`:        Percentage of signal with ECG artefact correlation r > 0.5.
+    
+        Parameters
+        ----------
+        subs : str or list, optional
+            Subjects to include in QC. Can be 'all' or a list of BIDS-compatible subject IDs.
+    
+        sessions : str or list, optional
+            Sessions to include in QC. Can be 'all' or a list of session labels.
+    
+        filetype : str, default='.edf'
+            File format to look for in BIDS dataset (e.g., '.edf', '.set', '.vhdr').
+    
+        chantype : list of str, default=['eeg', 'eog', 'emg', 'ecg']
+            Channel types to process. Accepted values: ['eeg', 'eog', 'emg', 'ecg'].
+    
+        outfile : bool or str, default=True
+            If True, writes log to auto-generated timestamped file in `self.log_dir`.
+            If str, writes log to the specified file path.
+            If False, logs only to console.
+    
+        Returns
+        -------
+        None
+            Results are stored in the SQUID object and/or exported downstream.
+        """
+        
+        # Set up logging
+        if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H%M%S")
+            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile = logfile, name='Channel QC')
+            logger.info('')
+            logger.info(f"-------------- New call of 'Channel QC' evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Channel QC')
+        else:
+            logger = create_logger('Channel QC')
+        logger.info('')
+        
+        
+        # Check chantypes
+        valid_chantypes = {'eeg', 'eog', 'emg', 'ecg'}
+        if not set(chantype).issubset(valid_chantypes):
+            raise ValueError(f"Invalid chantype(s) specified. Allowed: {valid_chantypes}")
+        
+        # Run detection
+        if subs == 'all':
+            subs = None
+        if sessions == 'all':
+            sessions = None
+        squid = SQUID(self.rootpath, filetype = filetype, subjects = subs, 
+                     sessions = sessions )
+        squid.process_all(chantype)
+        
+    def QC_summary(self, qc_dir = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
+        
+        if not qc_dir:
+            qc_root = self.outpath + '/QC'
+            
+        # output directory    
+        out_dir = self.outpath + '/datasets/'
+        if not path.exists(out_dir ):
+            mkdir(out_dir)
+        out_dir = self.outpath + '/datasets/QC'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        
+        # Run and save
+        for modality in chantype:
+            summary = gather_qc_reports(qc_root, modality)
+            summary.to_csv(f'{out_dir}/summary_{modality}.csv')
+            
     
     def load_stages(self, xml_dir = None, subs = 'all', sessions = 'all', 
                           filetype = '.edf', stage_key = None, 
@@ -291,9 +385,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Load sleep stages')
             logger.info('')
             logger.info(f"-------------- New call of 'Load sleep stages' evoked at {now} --------------")
@@ -318,7 +413,7 @@ class pipeline:
         if flag > 0:
             logger.warning(f"'load_stages' finished with {flag} WARNINGS. See log for detail.")
         else:
-            logger.debug(f"'load_stages' finished without error.")
+            logger.debug("'load_stages' finished without error.")
     #--------------------------------------------------------------------------
     '''
     ANALYSIS FUNCTIONS
@@ -343,9 +438,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_power_spectrum_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_power_spectrum_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Power spectrum')
             logger.info('')
             logger.info(f"-------------- New call of 'Power spectrum' evoked at {now} --------------")
@@ -448,9 +544,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {today}, {now} --------------")
@@ -518,9 +615,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_artefacts_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_artefacts_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect artefacts' evoked at {now} --------------")
@@ -595,9 +693,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_specparams_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_specparams_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile = logfile, 
                                            name = 'Detect spectral peaks')
             logger.info('')
@@ -687,10 +786,11 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
@@ -773,16 +873,17 @@ class pipeline:
                               stage = ['NREM2','NREM3'], grp_name = 'eeg', 
                               cycle_idx = None, concat_cycle = True, 
                               frequency = None, adap_bands = 'Fixed', 
-                              adap_bw = 4, duration =( 0.5, 3),
+                              adap_bw = 4, duration = (0.5, 3),
                               reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                               outfile = True):
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_spindles_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_spindles_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
@@ -831,8 +932,10 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            logger.error('Problem loading channel information')
             return
         elif isinstance(ref_chan, str):
+            logger.error('Problem loading ref-channel information')
             return
         
         # Format concatenation
@@ -856,7 +959,11 @@ class pipeline:
             return
        
         # Run detection
-        self.track(step='fooof', show = False, log = False)
+        self.track(subs, sessions, step = ['fooof','spindle'], show = False, 
+                   log = False)
+        
+        #self.track(step='fooof', show = False, log = False)
+        #self.track(step='spindle', show = False, log = False)
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, 
                          chan, ref_chan, grp_name, stage, frequency, rater, 
                          subs, sessions, reject_artf, self.tracking) 
@@ -883,9 +990,10 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_spindles_WHALES_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_spindles_WHALES_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
@@ -927,10 +1035,15 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            logger.error('Problem loading channel information')
             return
         elif isinstance(ref_chan, str):
+            logger.error('Problem loading ref-channel information')
             return
         
+        self.track(step='spindle', show = False, log = False)
+        
+        logger.debug('Starting Merge Now')
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, 
                          grp_name, stage, frequency = None, rater = rater, 
                          subs = subs, sessions = sessions, 
@@ -951,10 +1064,11 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(method)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_rems_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/detect_rems_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Detect eye movements (REMS)')
             logger.info('')
             logger.info(f"-------------- New call of 'Detect rapid eye movements' evoked at {now} --------------")
@@ -1124,11 +1238,12 @@ class pipeline:
         
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
             pha = f'{frequency_phase[0]}-{frequency_phase[1]}'
             amp = f'{frequency_amplitude[0]}-{frequency_amplitude[1]}'
-            logfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
             logger.info('')
             logger.info(f"-------------- New call of 'Phase-amplitude coupling' evoked at {now} --------------")
@@ -1348,12 +1463,21 @@ class pipeline:
                                  adap_bw = 4, params = 'all', epoch_dur = 30, 
                                  average_channels = False, outfile = True):
         
+        # Force evt_name into list, and loop through events    
+        if isinstance(evt_name, str):
+            evts = [evt_name]
+        elif isinstance(evt_name, list):
+            evts = evt_name
+        else:
+            raise TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed.")
+        
         # Set up logging
         if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(evt_name)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
             logger = create_logger_outfile(logfile=logfile, name='Export params')
             logger.info('')
             logger.debug(f"-------------- New call of 'Export params' evoked at {now} --------------")
@@ -1365,14 +1489,7 @@ class pipeline:
         
         # Set input/output directories
         in_dir = self.datapath
-        # Force evt_name into list, and loop through events    
-        if isinstance(evt_name, str):
-            evts = [evt_name]
-        elif isinstance(evt_name, list):
-            evts = evt_name
-        else:
-            logger.error(TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed."))
-            return
+        
         for evt_name in evts:
             
             out_dir = select_output_dirs(self.outpath, out_dir, evt_name)
@@ -1462,10 +1579,12 @@ class pipeline:
             if not out_dir:    
                 if not path.exists(self.outpath + '/datasets/'):
                     mkdir(self.outpath + '/datasets/')
-                out_dir = self.outpath + f'/datasets/{evt_name}'
-            if not path.exists(out_dir):
-                mkdir(out_dir)
-            logger.debug(f'Output being saved to: {xml_dir}')
+                outpath = self.outpath + f'/datasets/{evt_name}'
+            else:
+                outpath = out_dir
+            if not path.exists(outpath):
+                mkdir(outpath)
+            logger.debug(f'Output being saved to: {outpath}')
             
             xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
             logger.debug(f'Input annotations being read from: {xml_dir}')
@@ -1486,7 +1605,7 @@ class pipeline:
                 chan = [chan]
             
         
-            fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
+            fish = FISH(self.rootpath, in_dir, xml_dir, outpath, chan, None, grp_name, 
                               stage, subs = subs, sessions = sessions) 
             fish.net(chan, evt_name, adap_bands, params,  cat, cycle_idx, logger)
         
@@ -1521,7 +1640,8 @@ class pipeline:
         if not out_dir:
             if not path.exists(self.outpath + '/datasets/'):
                 mkdir(self.outpath + '/datasets/')
-            out_dir = f'{self.outpath}/datasets/pac'
+            out_dir = (f'{self.outpath}/datasets/event_pac' if evt_name 
+                       else f'{self.outpath}/datasets/pac') 
         if not path.exists(out_dir):
             mkdir(out_dir)
         logger.debug(f'Output being saved to: {xml_dir}')
@@ -1559,9 +1679,14 @@ class pipeline:
         # Default stage
         if stage == None:
             stage = ['NREM2','NREM3']
-            
+        
+        # Run extraction
+        self.track(subs, sessions, step = ['fooof','spindle'], show = False, 
+                   log = False)    
+        
         fish = FISH(self.rootpath, in_dir, xml_dir, out_dir, chan, None, grp_name, 
-                          stage, subs = subs, sessions = sessions) 
+                          stage, None, subs, sessions, self.tracking) 
+                   
         fish.pac_summary(chan, evt_name, adap_bands_phase, frequency_phase, 
                               adap_bands_amplitude, frequency_amplitude,
                               params = 'all', cat = cat, cycle_idx = None, 
@@ -1642,15 +1767,25 @@ class pipeline:
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
-
-        spectrum = Spectrum(in_dir, xml_dir, out_dir, log_dir, chan, 
-                            ref_chan = None, grp_name = grp_name, stage = stage, 
-                            cat = cat, rater = rater, cycle_idx = cycle_idx, 
-                            subs = subs, sessions = sessions) 
+                            
+        spectrum = Spectrum(in_dir, xml_dir, out_dir, chan, None, grp_name, 
+                            stage,cat, rater, cycle_idx, subs, sessions) 
         spectrum.powerspec_summary(chan, general_opts, frequency_opts, filter_opts, 
                                    epoch_opts, event_opts, logger)
         
         return
     
+    
+    
+def out_names(subs, sessions):
+    if isinstance(subs, list):
+        subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
+    else:
+        subs_str = subs
+    if isinstance(sessions, list):
+        ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+    else:
+        ses_str = sessions     
         
+    return subs_str, ses_str
         

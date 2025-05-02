@@ -31,7 +31,6 @@ seapipe/pac/plots.py
 seapipe/pac/synchrony.py
 seapipe/spectrum/__init__.py
 seapipe/spectrum/psa.py
-seapipe/spectrum/psa_legacy.py
 seapipe/spectrum/spectrogram.py
 seapipe/stats/__init__.py
 seapipe/stats/peth.py
@@ -43,3 +42,4 @@ seapipe/utils/logs.py
 seapipe/utils/misc.py
 seapipe/utils/process.py
 seapipe/utils/splitter.py
+seapipe/utils/squid.py
