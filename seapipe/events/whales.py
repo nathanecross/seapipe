@@ -57,7 +57,7 @@ class whales:
         self.sessions = sessions
         
         if tracking == None:
-            tracking = {}
+            tracking = {'spindle':{}}
         self.tracking = tracking
 
     def whale_it(self, method, cat, cycle_idx = None, adap_bands = False, 
@@ -233,7 +233,12 @@ class whales:
                         logger.warning(f"Skipping {sub}, {ses}, channel {str(ch)} ... ")
                         flag+=1
                         continue
-    
+                    
+                    if len(segments) < 1:
+                        logger.warning(f"No valid data found for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}"
+                                       f"Skipping ... ")
+                        continue
+                    
                     ## i. Loop through methods (i.e. Whale it!)
                     for m, meth in enumerate(method):
                         logger.debug(f'Using method: {meth}')
@@ -388,12 +393,8 @@ class whales:
                         evts = annot.get_events(name = m, chan = f'{ch} ({grp_name})')
                         if len(evts) == 0:
                             logger.warning(f'No events: {m} found for {sub}, {ses} on {ch}')
+                            flag += 1
                         all_events.append(sorted(evts, key=lambda d: d['end']))
-                    
-                    if any(len(x)==0 for x in all_events):
-                        logger.warning(f'Skipping {sub}, {ses}, {ch}')
-                        flag += 1
-                    else:
                         logger.debug(f'Combining events for {sub}, {ses}, {ch}')
                         cons = consensus(all_events, cs_thresh, s_freq, 
                                          min_duration = duration[0],

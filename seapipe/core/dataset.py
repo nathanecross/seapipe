@@ -8,6 +8,7 @@ Created on Tue Jul 25 12:07:36 2023
 from datetime import datetime, date
 from os import listdir, mkdir, path, remove, walk
 from pandas import DataFrame
+from seapipe.events.clam import clam
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
 from seapipe.events.remora import remora
@@ -498,7 +499,7 @@ class pipeline:
         
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),
-               int(epoch_opts['concat_signal']),
+               1,
                int(event_opts['concat_events']),
                )
         
@@ -1328,6 +1329,10 @@ class pipeline:
             logger.critical('Phase amplitude coupling finished with ERRORS. See log for details.')
             return
         
+        self.track(subs, sessions, step = 'fooof', show = False, 
+                   log = False)
+        self.tracking['event_pac'] = {}
+        
         # Check whether event based or continuous
         if evt_name: #OCTOPUS
             if not out_dir:
@@ -1364,6 +1369,82 @@ class pipeline:
                            adap_bw, invert, progress, logger)
 
         return
+    
+    '''
+    DYNAMICS
+    
+    spindle_clustering -> analysis of spindle event temporal clustering 
+    
+    sigma_fluctuations -> 
+    '''
+    
+    def cluster_flucs(self, evt_name, xml_dir = None, out_dir = None,
+                            freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)},
+                            subs = 'all', sessions = 'all', 
+                            filetype = '.edf',
+                            chan = None, ref_chan = None, grp_name = 'eeg', 
+                            stage = ['NREM2'], 
+                            rater = None, 
+                            outfile = True):
+        
+        # Force evt_name into list, and loop through events    
+        if isinstance(evt_name, str):
+            evts = [evt_name]
+        elif isinstance(evt_name, list):
+            evts = evt_name
+        else:
+            raise TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed.")
+        
+        # Set up logging
+        if outfile == True:
+            subs_str, ses_str = out_names(subs, sessions)
+            evt_out = '_'.join(evt_name)
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Event clustering')
+            logger.info('')
+            logger.debug(f"-------------- New call of 'Event clustering evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Event clustering')
+        else:
+            logger = create_logger('Event clustering')
+        
+        for evt_name in evts:
+            
+            out_dir = select_output_dirs(self.outpath, out_dir, 'cluster')
+            logger.debug(f'Output being save to: {out_dir}')
+            
+            xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+            
+            # Check annotations directory exists
+            if not path.exists(xml_dir):
+                logger.info('')
+                logger.critical(f"{xml_dir} doesn't exist. Event detection has not "
+                                "been run or an incorrect event type has been selected.")
+                logger.info('Check documentation for how to run a pipeline:')
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
+                return
+    
+            # Set channels
+            chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+            
+            self.track(subs, sessions, step = 'spindle', show = False, 
+                       log = False)
+            self.tracking['cluster'] = self.tracking['spindle']
+            
+            # Run analysis
+            CLAM = clam(self.rootpath, self.datapath, xml_dir, out_dir, 
+                        chan, grp_name, stage, 
+                        rater, subs, sessions, self.tracking)
+            
+            CLAM.clustering(evt_name, freq_bands, filetype, grp_name, logger )
+        
+        return
+    
     
     #--------------------------------------------------------------------------
     '''

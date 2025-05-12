@@ -66,7 +66,7 @@ def default_frequency_opts():
                       'overlap': 0.5,
                       'step': None,
                       'centend':'mean',
-                      'log_trans': True,
+                      'log_trans': False,
                       'halfbandwidth': 3,
                       'NW': None}
     return frequency_opts
@@ -529,26 +529,36 @@ class Spectrum:
         freq_bw = frequency_opts['frequency']
         if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz for the whole night.')
         elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per stage and cycle separately.')
         elif self.cat[0] == 0:
             model = 'per_cycle'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per cycle separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per cycle separately.')
         elif self.cat[1] == 0:
             model = 'per_stage'  
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per stage separately.')
         
         if self.cat[3] == 0:
             ev_model = True
-            logger.debug(f"Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per event: {event_opts['evt_type']} separately.")
+            logger.debug(f"Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} "
+                         f"Hz per event: {event_opts['evt_type']} separately.")
         else:
             ev_model = False
         if 'cycle' in model and self.cycle_idx == None:
             logger.info('')
-            logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
+            logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx "
+                            "cannot be 'None'")
             return
+        if not ev_model and not epoch_opts['concat_signal']:
+            logger.warning("If not running PSA per event, epoch_opts['concat_signal'] "
+                           "must be set to True. Setting now."  )
+            epoch_opts['concat_signal'] = True
         cat = self.cat
         #cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
         
@@ -657,11 +667,11 @@ class Spectrum:
                     # 5.b Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
-                        filter_opts['renames'] = {newchans[ch]:ch}
-                        filter_opts['laplacian_rename'] = True
+                        #filter_opts['renames'] = {newchans[ch]:ch}
+                        #filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
-                        filter_opts['laplacian_rename'] = False
+                        #filter_opts['laplacian_rename'] = False
                         
                     if ch == '_REF':
                         filter_opts['laplacian_rename'] = False
@@ -1026,7 +1036,12 @@ class Spectrum:
         for s, sub in enumerate(subs):
             if self.sessions == 'all':
                 sessions[sub] = next(walk(f'{self.xml_dir}/{sub}'))[1]
-        sessions = list(set([y for x in sessions.values() for y in x]))           
+            elif isinstance(self.sessions, list):
+                sessions = self.sessions
+                  
+        if isinstance(sessions, dict):
+            sessions = list(set([y for x in sessions.values() for y in x])) 
+            
         sessions.sort() 
   
         # 4. Begin data extraction

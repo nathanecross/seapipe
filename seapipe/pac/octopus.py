@@ -85,7 +85,7 @@ class octopus:
         self.sessions = sessions
         
         if tracking == None:
-            tracking = {}
+            tracking = {'event_pac':{}}
         self.tracking = tracking
 
 
@@ -251,7 +251,8 @@ class octopus:
         # a. Begin loop through participants
         subs.sort()
         for i, sub in enumerate(subs):
-            tracking[f'{sub}'] = {}
+            if not sub in self.tracking['event_pac'].keys():
+                self.tracking['event_pac'][sub] = {}
             # b. Begin loop through sessions
             flag, sessions = load_sessions(sub, self.sessions, self.rec_dir, flag, 
                                      logger, verbose=2) 
@@ -259,9 +260,9 @@ class octopus:
             for v, ses in enumerate(sessions):
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
-                tracking[f'{sub}'][f'{ses}'] = {'pac':{}} 
-                
-                
+                if not ses in self.tracking['event_pac'][sub].keys():
+                    self.tracking['event_pac'][sub][ses] = {} 
+
                 ## c. Load recording
                 rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
                 try:
@@ -269,6 +270,7 @@ class octopus:
                     dset = Dataset(rdir + edf_file[0])
                 except:
                     logger.warning(f' No input {filetype} file in {rdir}')
+                    flag +=1
                     break
                 
                 ## d. Load annotations
@@ -350,7 +352,7 @@ class octopus:
                     if adap_bands_phase == 'Fixed':
                         f_pha = frequency_phase   
                     elif adap_bands_phase == 'Manual':
-                        f_pha = read_manual_peaks(self.roothpath, sub, ses, ch, 
+                        f_pha = read_manual_peaks(self.rootpath, sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands_phase == 'Auto':
                         stagename = '-'.join(self.stage)
@@ -373,7 +375,7 @@ class octopus:
                     if adap_bands_amplitude == 'Fixed':
                         f_amp = frequency_amplitude   
                     elif adap_bands_amplitude == 'Manual':
-                        f_amp = read_manual_peaks(self.roothpath, sub, ses, ch, 
+                        f_amp = read_manual_peaks(self.rootpath, sub, ses, ch, 
                                                  adap_bw, logger)
                     elif adap_bands_amplitude == 'Auto':
                         stagename = '-'.join(self.stage)

@@ -70,7 +70,10 @@ def remove_duplicate_evts(annot, evt_name, chan = None, stage = None):
                         del(evts_trim[ee])
                     i=+1
     
-    evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    if chan:
+        evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    else:
+        evts = []
     
     annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
@@ -115,12 +118,18 @@ def merge_events(annot, evt_name, chan = None, stage = None, segments = None):
                          evt['start'] == m['start'] if evt['end'] == m['end']]
                 removed.append(index)
     
-    events_trim = [evts[1] for i, x in enumerate (evts) if not i in removed]
+    events_trim = [evts[i] for i, x in enumerate (evts) if not i in removed]
     merged_events = merged_events + events_trim
+    
+    
+    if chan:
+        evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    else:
+        evts = []
     
     annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
-    grapho.events = merged_events         
+    grapho.events = evts + merged_events         
     grapho.to_annot(annot, evt_name)       
 
 

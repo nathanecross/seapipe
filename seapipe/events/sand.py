@@ -300,6 +300,10 @@ class SAND:
                         segments = fetch(dset, annot, cat = (1,1,1,1), 
                                          stage=stage)
                         
+                        if len(segments) < 1:
+                            logger.warning('No valid data found, skipping {chan}')
+                            continue
+                        
                         # Save stitches (to recompute times later)
                         try:
                             stitches = segments[0]['times']
@@ -316,8 +320,8 @@ class SAND:
                                          method_opt={'freq':40,
                                                      'order':3})
                         
-
-                        ## Step 1. Detect flatlines in data
+                        
+                        ## ---- Step 1. Detect flatlines in data ----
                         logger.debug("Detecting flatlines...")
                         # Align the filtered data back to the raw EEG recording
                         dat_full = reconstruct_stitches(dat, stitches, s_freq,
@@ -347,7 +351,8 @@ class SAND:
                         del dat_full
                         gc.collect()  
                         
-                        ## Step 2. Find large shifts in fast frequencies (>40Hz)
+                        
+                        ## ---- Step 2. Find large shifts in frequencies (>40Hz) ----
                         logger.debug("Detecting movement artefacts...")
                         # Mask out negative values
                         dat[dat<0] = 0
@@ -366,11 +371,12 @@ class SAND:
                                                      'order':3})
 
                         # Align this filtered data back to the raw EEG recording 
-                        dat_full = reconstruct_stitches(dat, stitches, s_freq)
-                        
+                        dat_full = reconstruct_stitches(dat, stitches, s_freq,
+                                                        replacement = nan)
                         
                         # Threshold and detect artefact 'events'
-                        threshold = percentile(dat, 95)
+                        #threshold = percentile(dat, 97) # another option (future)
+                        threshold = nanstd(dat_full)*2.5
                         dat_full[dat_full<threshold] = 0
                         dat_full[dat_full>threshold] = 1
                         movements = detect_above_zero_regions(dat_full)
@@ -379,38 +385,20 @@ class SAND:
                         del dat, dat_full
                         gc.collect()
                         
-                        # Step 3. Large deflections in signal
+                        
+                        # ---- Step 3. Large deflections in signal ----
                         logger.debug("Detecting deflection artefacts...")
                         
                         dat = append(0, squeeze(diff(data)))
                         dat_full = reconstruct_stitches(dat, stitches, s_freq,
                                                          replacement=nan)
-                        
                         threshold = 10 * nanstd(dat_full)
                         dat_full[dat_full<threshold] = 0
                         dat_full[dat_full>=threshold] = 1
                         deflections = detect_above_zero_regions(dat_full)
                         deflections = [(x[0] - (s_freq/2), 
                                         x[1] + (s_freq/2)) for x in deflections]
-                        
-                        # dat = transform_signal(data[0], s_freq, 'low_butter', 
-                        #                  method_opt={'freq':2,
-                        #                              'order':3})
-                        # dat = transform_signal(dat, s_freq, 'moving_rms', 
-                        #                  method_opt = {'dur':win_size,
-                        #                                'step':1})
-                        # # Put back all the samples that were averaged within the window 
-                        # dat = repeat(dat, s_freq)
-                        
-                        # # Align the filtered data back to the raw EEG recording
-                        # dat_full = reconstruct_stitches(dat, stitches, s_freq,
-                        #                                 replacement=nan)
-                        
-                        # #threshold = percentile(dat, 95)
-                        # threshold = 2*nanstd(dat_full)
-                        # dat_full[dat_full<threshold] = 0
-                        # dat_full[dat_full>=threshold] = 1
-                        # deflections = detect_above_zero_regions(dat_full)
+
                         
                         ## TODO: Step 3. Let's look for sharp slow waves in REM
                         # if 'REM' in stage:
@@ -451,10 +439,8 @@ class SAND:
                         #     REMS = detect_above_zero_regions(dat_reconstructed)
                             
 
-                        ## Step 4. Combine all artefact types
-                        
+                        ## ---- Step 4. Combine all artefact types ----
                         merged = flatlines + deflections +  movements
-                        
                         merged = merge_segments(merged)
                         
                         # Convert times back into seconds for annotations
@@ -471,7 +457,7 @@ class SAND:
                                         ) 
                         return
                     
-                    # Save events to Annotations file
+                    # ---- Append all events in master list ----
                     if label == "allchans":
                         channame = ['']
                     else:
@@ -486,24 +472,29 @@ class SAND:
                                      'quality':'Good',
                                      'cycle':''})
                     
-                    print_memory_usage("End channel")
                     del times
                     gc.collect()
-                    print_memory_usage("After cleanup")
                     
-                # Add to annotations file
+                # ---- Save events to Annotations file ----
                 grapho = graphoelement.Graphoelement()
                 grapho.events = evts          
                 grapho.to_annot(annot)
                 
-                print_memory_usage("Add to XML")
                 del evts, dset
                 gc.collect()
-                print_memory_usage("After cleanup")
                 
-                merge_events(annot, 'Remove duplicates')
-                remove_duplicate_evts(annot, 'Artefact')
-                print_memory_usage("End:")
+                # Remove duplicates
+                if label == 'allchans':
+                    merge_events(annot, 'Artefact')
+                    remove_duplicate_evts(annot, 'Artefact')
+                elif label == 'individual':
+                    for chan in chanset:
+                        merge_events(annot, 'Artefact', 
+                                     chan = f'{chan} ({self.grp_name})')
+                        remove_duplicate_evts(annot, 'Artefact', 
+                                              chan = f'{chan} ({self.grp_name})')
+                        
+                
         return
     
     
@@ -622,57 +613,93 @@ def fast_normalized_cross_correlation(signal, template):
     return norm_corr
 
 
+
 def detect_above_zero_regions(signal):
     """
-    Detects regions where the signal is above zero.
+    Detects regions where the signal is above zero, excluding values
+    that are adjacent to NaN periods.
 
     Parameters:
-    - signal: 1D array
-        Input signal where the regions of interest (above zero) are detected.
+    - signal: 1D array-like
 
     Returns:
-    - regions: list of tuples
-        Each tuple contains the start and end indices of regions where the signal is above zero.
+    - regions: list of tuples (start_idx, end_idx)
     """
     signal = asarray(signal)
-    valid = ~isnan(signal)
+    nans = isnan(signal)
+    is_above_zero = signal > 0
 
-    # Compute diffs and mask invalid transitions
-    diffs = diff(signal.astype(float))
-    valid_diffs = valid[:-1] & valid[1:]
+    # Flag values adjacent to NaNs
+    padded_nan = pad(nans, (1, 1), constant_values=False)
+    adjacent_to_nan = padded_nan[:-2] | padded_nan[2:]
 
-    raw_starts = where((diffs > 0) & valid_diffs)[0] + 1
-    raw_ends = where((diffs < 0) & valid_diffs)[0] + 1
+    # Remove values that are adjacent to NaNs
+    clean_mask = is_above_zero & ~adjacent_to_nan
 
-    # Edge case: signal starts above 0 and is valid
-    if valid[0] and signal[0] > 0:
-        raw_starts = insert(raw_starts, 0, 0)
+    # Extract contiguous regions
+    mask_diff = diff(clean_mask.astype(int))
+    starts = where(mask_diff == 1)[0] + 1
+    ends = where(mask_diff == -1)[0] + 1
 
-    # Edge case: signal ends above 0 and is valid
-    if valid[-1] and signal[-1] > 0:
-        raw_ends = append(raw_ends, len(signal))
-
-    # Now, match starts to ends
-    starts = []
-    ends = []
-    s_idx = 0
-    e_idx = 0
-
-    while s_idx < len(raw_starts) and e_idx < len(raw_ends):
-        if raw_starts[s_idx] < raw_ends[e_idx]:
-            starts.append(raw_starts[s_idx])
-            # find first end after this start
-            while e_idx < len(raw_ends) and raw_ends[e_idx] < raw_starts[s_idx]:
-                e_idx += 1
-            if e_idx < len(raw_ends):
-                ends.append(raw_ends[e_idx])
-                e_idx += 1
-            s_idx += 1
-        else:
-            # skip any unmatched end that comes before the first start
-            e_idx += 1
+    if clean_mask[0]:
+        starts = insert(starts, 0, 0)
+    if clean_mask[-1]:
+        ends = append(ends, len(clean_mask))
 
     return list(zip(starts, ends))
+
+
+# def detect_above_zero_regions(signal):
+#     """
+#     Detects regions where the signal is above zero.
+
+#     Parameters:
+#     - signal: 1D array
+#         Input signal where the regions of interest (above zero) are detected.
+
+#     Returns:
+#     - regions: list of tuples
+#         Each tuple contains the start and end indices of regions where the signal is above zero.
+#     """
+#     signal = asarray(signal)
+#     valid = ~isnan(signal)
+
+#     # Compute diffs and mask invalid transitions
+#     diffs = diff(signal.astype(float))
+#     valid_diffs = valid[:-1] & valid[1:]
+
+#     raw_starts = where((diffs > 0) & valid_diffs)[0] + 1
+#     raw_ends = where((diffs < 0) & valid_diffs)[0] + 1
+
+#     # Edge case: signal starts above 0 and is valid
+#     if valid[0] and signal[0] > 0:
+#         raw_starts = insert(raw_starts, 0, 0)
+
+#     # Edge case: signal ends above 0 and is valid
+#     if valid[-1] and signal[-1] > 0:
+#         raw_ends = append(raw_ends, len(signal))
+
+#     # Now, match starts to ends
+#     starts = []
+#     ends = []
+#     s_idx = 0
+#     e_idx = 0
+
+#     while s_idx < len(raw_starts) and e_idx < len(raw_ends):
+#         if raw_starts[s_idx] < raw_ends[e_idx]:
+#             starts.append(raw_starts[s_idx])
+#             # find first end after this start
+#             while e_idx < len(raw_ends) and raw_ends[e_idx] < raw_starts[s_idx]:
+#                 e_idx += 1
+#             if e_idx < len(raw_ends):
+#                 ends.append(raw_ends[e_idx])
+#                 e_idx += 1
+#             s_idx += 1
+#         else:
+#             # skip any unmatched end that comes before the first start
+#             e_idx += 1
+
+#     return list(zip(starts, ends))
 
     
 

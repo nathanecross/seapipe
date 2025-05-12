@@ -32,3 +32,6 @@ Beta Version
 0.6 Added S.Q.U.I.D for channel QC, and improved artefact detection
 0.6.1 Minor bug fixes, expanded default QC channel search
 0.6.2 Updates to PAC event dataset
+0.6.3 Bug fix for major tracking function, added broadband to spectral output
+0.6.4 Bug fixes in power spectrum and whales (merge)
+0.6.5 Added C.L.A.M for clustering and low-freq fluctuations

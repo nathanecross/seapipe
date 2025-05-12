@@ -93,6 +93,8 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
             out_dir = f'{outpath}/slowwave'
         elif evt_name in ['pac']:
             out_dir = f'{outpath}/pac'
+        elif evt_name in ['cluster']:
+            out_dir = f'{outpath}/clusterfluc'
             
         elif evt_name in ['staging', 'macro', None]:
             out_dir = [x for x in listdir(outpath) if 'staging' in x]
@@ -648,6 +650,118 @@ def rename_channels(sub, ses, chan, logger):
     
     return newchans
 
+def reverse_chan_lookup(sub, ses, chan, logger):
+    
+    if type(chan) == type(DataFrame()):
+        # Search participant
+        chans = chan[chan['sub']==sub]
+        if len(chans.columns) == 0:
+            return None
+        # Search session
+        chans = chans[chans['ses']==ses]
+        if len(chans.columns) == 0:
+            return None
+        # Search channels
+        newchans = search_chans(chans)
+        chans = chans.filter(regex='^((?!invert).)*$')
+        newchans = newchans.dropna(axis=1, how='all')
+        if len(newchans.columns) == 0:
+            return None
+        oldchans = chans.filter(regex='rename')
+        oldchans = oldchans.dropna(axis=1, how='all')
+        if len(oldchans.columns) == 0:
+            return None
+    else:
+        return None  
+    
+    if isinstance(oldchans,DataFrame):
+        if isinstance(newchans,DataFrame) and len(newchans.columns) != len(oldchans.columns):
+            try:
+                oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
+                oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
+            except:
+                logger.warning(f"There must be the same number of channel sets "
+                               "and channel rename sets in tracking file, but "
+                               f"for {sub}, {ses}, there were {len(oldchans.columns)} "
+                               f"channel sets and {len(newchans.columns)} channel "
+                               "rename sets. For info on how to rename channels, "
+                               "refer to documentation:")
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.warning(f"Using original channel names for {sub}, {ses}...")
+                return None
+        else:
+            oldchans_to_be_renamed = oldchans
+            oldchans_to_be_kept = oldchans
+        
+        # Split cells in tracking
+        # OLD Channels to be renamed
+        oldchans_to_be_renamed = oldchans_to_be_renamed.to_numpy() 
+        oldchans_to_be_renamed = oldchans_to_be_renamed[0].astype(str)
+        oldchans_all = []
+        for cell in oldchans_to_be_renamed:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            oldchans_all.append(chancell)       
+        oldchans_to_be_renamed = list(chain(*oldchans_all))
+        
+        # OLD Channels to be kept
+        oldchans_to_be_kept = oldchans_to_be_kept.to_numpy() 
+        oldchans_to_be_kept = oldchans_to_be_kept[0].astype(str)
+        oldchans_all = []
+        for cell in oldchans_to_be_kept:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            oldchans_all.append(chancell)       
+        oldchans_to_be_kept = list(chain(*oldchans_all))
+        
+        if type(newchans) == DataFrame:
+            newchans = newchans.to_numpy() 
+            newchans = newchans[0].astype(str)
+            newchans_all = []
+            for cell in newchans:
+                cell = cell.split(', ')
+                chancell = []
+                for x in cell:
+                    if ',' in x: 
+                        x = x.split(',')
+                        chancell = chancell + x
+                    else:
+                        chancell.append(x)
+                chancell = [x for x in chancell if not x=='']
+                newchans_all.append(chancell)       
+            newchans = list(chain(*newchans_all))
+        
+        if len(oldchans_to_be_renamed) == len(newchans):
+            newchans = {chn:newchans[i] for i,chn in enumerate(oldchans_to_be_renamed)}
+            n = {x:x for x in oldchans_to_be_kept}
+            newchans = n | newchans
+        else:
+            logger.warning(f"There must be the same number of original channel "
+                           f"names and new renamed channels in tracking file, "
+                           f"but for {sub}, {ses}, there were {len(oldchans)} old "
+                           f"channel and {len(newchans)} new channel names. For "
+                           "info on how to rename channels, refer to documentation:")
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.warning(f"Using original channel names for {sub}, {ses}...")
+            return None
+    else:
+        return None
+    
+    return newchans
 
 def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
     # verbose = 0 (error only)
@@ -979,7 +1093,7 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
     
     try:
         freq = (peaks[chans.index(chan)] - adap_bw/2, 
-            peaks[chans.index(chan)] + adap_bw/2)
+                peaks[chans.index(chan)] + adap_bw/2)
     except:
         logger.warning('Inconsistent number of peaks and number of channels '
                        'listed in tracking sheet for {sub}, {ses}. Will use '
@@ -1076,6 +1190,8 @@ def read_inversion(sub, ses, invert, chan, logger):
         
         if len(inversion) == len(chans):
             inversion = inversion[chans.index(chan)]
+            return inversion
+        elif len(inversion) == 1:
             return inversion
         else:
             logger.warning(f"Error reading inversion info for {sub}, {ses}, {chan} "

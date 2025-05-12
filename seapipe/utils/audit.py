@@ -688,7 +688,6 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
         
         for sub in subs:
            try:
-               lg.info(f'{spath}/{sub}')
                stage_ses = next(walk(f'{spath}/{sub}'))[1]
                fooof_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-') 
                                     for x in tracking['ses'][sub]])

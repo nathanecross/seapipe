@@ -17,7 +17,9 @@ from wonambi.attr import Annotations
 from wonambi.trans import (fetch, get_times)
 from wonambi.trans.analyze import event_params, export_event_params
 from ..utils.logs import create_logger, create_logger_empty
-from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
+from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
+                          read_manual_peaks, read_tracking_sheet,
+                          reverse_chan_lookup)
 
 class FISH:
     
@@ -1132,16 +1134,19 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
     return flag
  
     
-def extract_phase_amp_bw(roothpath, sub, ses, ch, stage, adap_bw,
+def extract_phase_amp_bw(rootpath, sub, ses, ch, stage, adap_bw,
                             adap_bands_phase, frequency_phase, 
                             adap_bands_amplitude, frequency_amplitude,
-                            tracking, logger):
+                            tracking, logger = create_logger("Extract Phase Amplitude Bandwidths")):
     
     def get_band(band_type, method, freq_range, label):
         if method == 'Fixed':
             band = freq_range
         elif method == 'Manual':
-            band = read_manual_peaks(roothpath, sub, ses, ch, adap_bw)
+            chansheet = read_tracking_sheet(rootpath, logger)
+            oldchans = reverse_chan_lookup(sub, ses, chansheet, logger)
+            fnamechan = oldchans[ch]
+            band = read_manual_peaks(rootpath, sub, ses, fnamechan, adap_bw, logger)
         elif method == 'Auto':
             stagename = '-'.join(stage)
             band_limits = f'{freq_range[0]}-{freq_range[1]}Hz'
@@ -1167,14 +1172,14 @@ def extract_phase_amp_bw(roothpath, sub, ses, ch, stage, adap_bw,
 
 
 
-def extract_data_error(logger):
+def extract_data_error(logger = create_logger(" ")):
     logger.critical("Data extraction error: Check that all 'params' are written correctly.")
     logger.info('                      Check documentation for how event parameters need to be written:')
     logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')
     
 
 
-def extract_pac_data(data_file, model, variables, logger):
+def extract_pac_data(data_file, model, variables, logger = create_logger("Extract PAC data")):
     
     data = []
     if not path.exists(data_file):
