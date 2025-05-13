@@ -43,6 +43,7 @@ setup(
                       "pandas",
                       "psutil",
                       "pyedflib",
+                      "PyWavelets",
                       "pinguoin",
                       "safepickle",
                       "scipy<1.13.0",

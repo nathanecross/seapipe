@@ -1416,7 +1416,7 @@ class pipeline:
             out_dir = select_output_dirs(self.outpath, out_dir, 'cluster')
             logger.debug(f'Output being save to: {out_dir}')
             
-            xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name)
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'cluster')
             logger.debug(f'Input annotations being read from: {xml_dir}')
             
             # Check annotations directory exists
@@ -1692,6 +1692,7 @@ class pipeline:
         
         return
     
+    
     def pac_dataset(self, chan, evt_name = None, subs = 'all', sessions = 'all',
                           xml_dir = None, out_dir = None,  stage = None, 
                           concat_stage = False, concat_cycle = True, 
@@ -1774,6 +1775,79 @@ class pipeline:
                               logger = logger)
         
         return
+    
+    
+    def cluster_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
+                                subs = 'all', sessions = 'all', 
+                                stage = ['NREM2'], freq_bands = ('SWA', 'Sigma'),
+                                params = 'all', outfile=True):
+        
+        # Set up logging
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/cluster_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
+            logger.info('')
+            logger.info(f'-------------- New call of Cluster dataset evoked at {now} --------------')
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
+        else:
+            logger = create_logger('Event dataset')
+        logger = create_logger('Event dataset')
+        
+        # Force evt_name into list, and loop through events    
+        if isinstance(evt_name, str):
+            evts = [evt_name]
+        elif isinstance(evt_name, list):
+            evts = evt_name
+        else:
+            logger.error(TypeError("'evt_name' can only be a str or a list of str, "
+                                   f"but {type(evt_name)} was passed."))
+            logger.info('Check documentation for how to create an event_dataset:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        
+        for evt_name in evts:    
+            # Set input/output directories
+            in_dir = self.datapath
+            if not out_dir:    
+                if not path.exists(self.outpath + '/datasets/'):
+                    mkdir(self.outpath + '/datasets/')
+                outpath = self.outpath + '/datasets/cluster_fluc'
+                if not path.exists(outpath):
+                    mkdir(outpath)
+                outpath = outpath + f'/{evt_name}'
+            else:
+                outpath = out_dir
+            if not path.exists(outpath):
+                mkdir(outpath)
+            logger.debug(f'Output being saved to: {outpath}')
+            
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'cluster')
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+            if not path.exists(xml_dir):
+                logger.info('')
+                logger.critical(f"{xml_dir} doesn't exist. Cluster detection has not "
+                                "been run.")
+                logger.info('Check documentation for how to run a pipeline:')
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
+                return
+            
+            # Format chan
+            if isinstance(chan, str):
+                chan = [chan]
+            
+            fish = FISH(self.rootpath, in_dir, xml_dir, outpath, chan, None, 'eeg', 
+                        stage, subs, sessions) 
+            
+            fish.scalops(chan, evt_name, freq_bands, params, logger)
+        
+        return
+    
 
     def powerspec_dataset(self, chan, xml_dir = None, out_dir = None, 
                                 subs = 'all', sessions = 'all', 

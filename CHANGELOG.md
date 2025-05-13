@@ -13,7 +13,7 @@ Beta Version
 0.3.4 More bug fixes in spindle detection for when running only some subjects at a time
 0.3.5 Added functionality to read sub and ses from tracking sheet
 0.3.7 Removed redundant scripts from pac
-0.3.9 Added first artefact detection (SAND)
+0.3.9 Added first artefact detection (S.A.N.D)
 0.4 Added continuous PAC and fixed bugs with event PAC
 0.4.1 Updated format bids to allow subject-level exectution
 0.4.2 Updates to export PAC summary
@@ -35,3 +35,4 @@ Beta Version
 0.6.3 Bug fix for major tracking function, added broadband to spectral output
 0.6.4 Bug fixes in power spectrum and whales (merge)
 0.6.5 Added C.L.A.M for clustering and low-freq fluctuations
+0.6.6 Added S.C.A.L.O.P.S for clustering summary dataset creation

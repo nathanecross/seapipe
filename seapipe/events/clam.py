@@ -293,7 +293,7 @@ class clam:
                                              f"{band} infraslow peak: {round(peak_freq,3)}; "
                                              f"Peak power: {round(avg_peak_power,3)}")
                                 
-                                stats[f'{band}_peak_freq'] = round(peak_freq,3),
+                                stats[f'{band}_peak_freq'] = round(peak_freq,3)
                                 stats[f'{band}_avg_peak_power'] = round(avg_peak_power,3)
                                 
                                 # Histogram of events

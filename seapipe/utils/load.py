@@ -55,6 +55,9 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
         elif evt_name in ['pac']:
             xml_dir = f'{outpath}/pac' 
             
+        elif evt_name in ['cluster']:
+            xml_dir = f'{outpath}/clusterfluc'
+            
         elif evt_name in ['staging', 'macro', None]:
             xml_dir = [x for x in listdir(outpath) if 'staging' in x]
             
