@@ -159,7 +159,7 @@ EEG configurations (e.g. channel names, online references, sampling_frequencies 
 trying to conduct pipeline analyses across datasets with inconsistences in these certain parameters.
 
 One way that **seapipe** gets around this is with the use of a tracking file. This file can be in .tsv or .xlsx format.
-However it *must* be named: **tracking.tsv/xslx** and placed at the `root level directory in the dataset <_data_preparation_and_setup>`_
+However it *must* be named: **tracking.tsv/xslx** and placed at the root level directory in the dataset (see :ref:`Data Preparation and Setup`)
 
 It's structure should look like this:
 ::
