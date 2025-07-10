@@ -69,23 +69,16 @@ Finally, the true PAC is corrected by the calculated surrogate distribution. Ten
 To read more about thse approaches, `see here <https://etiennecmb.github.io/tensorpac/auto_examples/index.html#tutorials>`_
 
 
-.. _Functions:
-Functions to analyse Phase Amplitude Coupling
-----------------
-| **Analysing phase amplitude coupling and extracting the relevant parameters will involve three functions:**
 
-1) Detect spindles events:  
-
-.. code-block:: python
-
-   project_name.pac()
-|
-    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
-|
 
 .. _detection_pac:
 Run Phase Amplitude Coupling
 ----------------
+
+|
+    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
+|
+
 *Command line argument:*
 
 .. code-block:: python
