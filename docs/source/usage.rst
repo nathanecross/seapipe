@@ -44,6 +44,7 @@ An example of the datastructure would look like this:
       └─ derivatives/
          ├─ seapipe/
          └─ ...
+      └─ tracking.tsv
 
 
 .. admonition:: NOTE - BIDS🧠
