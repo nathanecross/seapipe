@@ -42,8 +42,8 @@ An example of the datastructure would look like this:
       │  ├─ dataset_description.json 
       │  └─ participants.tsv
       └─ derivatives/
-         ├─ seapipe/
-         └─ ...
+      │  ├─ seapipe/
+      │  └─ ...
       └─ tracking.tsv
 
 
