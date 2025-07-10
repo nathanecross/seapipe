@@ -46,7 +46,7 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
     else:
         logger.debug('Reading participant list from tracking sheet.')
         tracking = read_tracking_sheet(rootpath, logger)
-        subs = tracking['sub'].drop_duplicates()
+        subs = tracking['sub'].drop_duplicates().to_list()
     subs.sort()
     
     # Initialise certain reporting metrics
@@ -60,7 +60,6 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
         filetype = [filetype]
     
     for sub in subs:
-        
         real_files = [x for x in listdir(path.join(datapath, sub)) if not x.startswith('.')]
         sessions = [x for x in real_files if path.isdir(path.join(datapath, sub, x))]
         files = [x for x in real_files if path.isfile(path.join(datapath, sub, x))]

@@ -95,14 +95,19 @@ class seasnakes:
                                           •   •.
                               •.         •      •       
                            .•  •        •        •.       .•.
-           . .      .•.   •    •       •           •.   .•   •. .       
-              •. .•    •.•     •      •              •..         
+           . .      .•.   •    •       •           •.   .•   •.¸.^8›      
+              •. .•    •.•     •      •              •..        ˜¯
                                •     •                  
                                •    •                
                                •   •                  
                                •  •           
                                •.•  
                                 
+          
+          Sleep Events Analysis of Slow Neocortical oscillations And 
+                     K-complexES (S.E.A.S.N.A.K.E.S)                      
+                                
+                               
                                                     """,)
         ### 1. First we check the directories
         # a. Check for output folder, if doesn't exist, create
@@ -191,7 +196,7 @@ class seasnakes:
                         if not inversion:
                             logger.debug(f'Inferring channel polarity {ch} for {sub}, {ses}')
                             inversion = infer_polarity(dset, annot, ch, chanset[ch], 
-                                                       cat, None, self.stage, 
+                                                       (1,1,1,1), None, self.stage, 
                                                        cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert

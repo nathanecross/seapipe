@@ -141,8 +141,9 @@ class pipeline:
         if not outfile and not self.outfile:
             logger = create_logger("Audit")
             logger.propagate = False
-            self.audit_update = check_dataset(self.rootpath, False, filetype, 
-                                                             tracking, logger)
+            self.audit_update = check_dataset(self.rootpath, self.datapath,
+                                              outfile, filetype, tracking,  
+                                              logger)
         else:
             if not outfile:
                 outfile = self.outfile
@@ -151,8 +152,9 @@ class pipeline:
                 remove(out)
             logger = create_logger_outfile(outfile, name = 'Audit')
             logger.propagate = False
-            self.audit_update = check_dataset(self.rootpath, out, filetype, 
-                                                             tracking, logger)
+            self.audit_update = check_dataset(self.rootpath, self.datapath,
+                                              outfile, filetype, tracking,  
+                                              logger)
             
         logger.info('')
         logger.info(self.audit_update)
@@ -1265,7 +1267,7 @@ class pipeline:
         if not path.exists(xml_dir):
             logger.info('')
             logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
-                            "run or hasn't been converted correctly.")
+                            f"run or Events: {evt_name} haven't been detected.")
             logger.info('Check documentation for how to set up staging data:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)

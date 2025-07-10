@@ -399,8 +399,9 @@ class octopus:
                         inversion = read_inversion(sub, ses, invert, ch, logger)
                         if not inversion:
                             inversion = infer_polarity(dset, annot, ch, 
-                                                       chanset[ch], cat, evt_type, 
-                                                       self.stage, cycle, logger)
+                                                       chanset[ch], (1,1,1,1), 
+                                                       evt_type, self.stage, 
+                                                       cycle, logger)
                     elif type(invert) == bool:
                         inversion = invert
                     else:
