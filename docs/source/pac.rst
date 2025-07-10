@@ -70,7 +70,6 @@ To read more about thse approaches, `see here <https://etiennecmb.github.io/tens
 
 
 
-
 .. _detection_pac:
 Run Phase Amplitude Coupling
 ----------------
