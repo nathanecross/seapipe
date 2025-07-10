@@ -187,6 +187,16 @@ If you create this tracking file, then you can read parameters such as channel n
 
 ** Coming soon ** The function to read from a channels.tsv file in a BIDS dataset
 
+
+.. _Contributing_and_troubleshooting:
+Contributing and troubleshooting
+----------------
+
+If you run into any issues with using seapipe, notice any documentation is incorrect, or have any suggested functions that you would like to see implemented - please either:
+   - raise an issue on `GitHub. <https://github.com/nathanecross/seapipe>`_
+   - or contact me directly: nathan.cross.90@gmail.com 
+
+
 .. The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
 .. or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
 .. will raise an exception.

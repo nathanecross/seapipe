@@ -36,3 +36,4 @@ Beta Version
 0.6.4 Bug fixes in power spectrum and whales (merge)
 0.6.5 Added C.L.A.M for clustering and low-freq fluctuations
 0.6.6 Added S.C.A.L.O.P.S for clustering summary dataset creation
+0.6.7 Minor bug fixes and documenation updates
