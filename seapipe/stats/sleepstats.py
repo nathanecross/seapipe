@@ -74,7 +74,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
         if not sub_ses[sub]:
             logger.warning(f'No visits found in {xml_dir}/{sub}. Skipping..')
             flag +=1
-            break
+            continue
         for v, ses in enumerate(sub_ses[sub]): #for each visit...
             logger.debug(f'Export macro statistics for {sub}, {ses}')
 

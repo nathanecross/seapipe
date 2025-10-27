@@ -268,6 +268,10 @@ class clam:
                                     trace[band] = concatenate((trace[band], 
                                                                vstack((l, signal_1s))),
                                                               axis = 1)
+                                    
+                                # End the analysis (only analyse the first segment >300 sec)    
+                                break
+                                
       
                                  
                         # Peak of averaged power spectrum

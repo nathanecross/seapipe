@@ -66,7 +66,7 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
                 logger.warning(f">1 derivatives directories have 'staging' in the "
                                f"name. Will default to {xml_dir}")
                 
-            if len(xml_dir) == 1:
+            elif len(xml_dir) == 1:
                 xml_dir = f'{outpath}/{xml_dir[0]}'
 
             else:
@@ -104,12 +104,11 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
             
             if len(out_dir) > 1:
                 out_dir = [x for x in out_dir if 'manual' in x]
-                
-            if len(out_dir) == 1:
-                out_dir = f'{outpath}/{out_dir[0]}'
                 logger.warning(f">1 derivatives directories have 'staging' in "
                                f"the name. Will default to {out_dir}")
-                
+            if len(out_dir) == 1:
+                out_dir = f'{outpath}/{out_dir[0]}'
+
             else:
                 logger.error(" 'xml_dir' wasn't specified and it cannot be "
                                 "determined from inside the derivatives directory. "
@@ -526,10 +525,10 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
             chans_all.append(chancell)
         chans = chans_all
 
-        if len(ref_chans)>0:
-            chanset = {key:ref_chans[i] for i,chn in enumerate(chans) for key in chn}
+        if len(ref_chans) > 0:
+            chanset = {key: ref_chans for chn in chans for key in chn}
         else:
-            chanset = {key:[] for i,chn in enumerate(chans) for key in chn}
+            chanset = {key: [] for chn in chans for key in chn}
         
     else:
         logger.error("The variable 'chan' should be a [list] or definied in the "

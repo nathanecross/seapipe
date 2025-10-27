@@ -37,3 +37,4 @@ Beta Version
 0.6.5 Added C.L.A.M for clustering and low-freq fluctuations
 0.6.6 Added S.C.A.L.O.P.S for clustering summary dataset creation
 0.6.7 Minor bug fixes and documenation updates
+0.6.8 Bug fixes to reading channel names and searching for specparams files

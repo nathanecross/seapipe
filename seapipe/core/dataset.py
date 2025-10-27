@@ -477,7 +477,7 @@ class pipeline:
             out_dir = f'{self.outpath}/powerspectrum' 
         if not path.exists(out_dir):
             mkdir(out_dir)
-        logger.debug(f'Output being saved to: {xml_dir}')
+        logger.debug(f'Output being saved to: {out_dir}')
         
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
@@ -731,7 +731,7 @@ class pipeline:
             out_dir = f'{self.outpath}/fooof' 
         if not path.exists(out_dir):
             mkdir(out_dir)
-        logger.debug(f'Output being saved to: {xml_dir}')
+        logger.debug(f'Output being saved to: {out_dir}')
             
         # Check subs
         if not subs:
@@ -1728,7 +1728,7 @@ class pipeline:
                        else f'{self.outpath}/datasets/pac') 
         if not path.exists(out_dir):
             mkdir(out_dir)
-        logger.debug(f'Output being saved to: {xml_dir}')
+        logger.debug(f'Output being saved to: {out_dir}')
         
         # Check if event-based or continuous PAC
         if isinstance(evt_name, str):
@@ -1887,7 +1887,7 @@ class pipeline:
             out_dir = f'{self.outpath}/datasets/powerspectrum'
             if not path.exists(out_dir):
                 mkdir(out_dir)
-        logger.debug(f'Output being saved to: {xml_dir}')
+        logger.debug(f'Output being saved to: {out_dir}')
         
         xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name = 'powerspectrum')
         logger.debug(f'Input annotations being read from: {xml_dir}')

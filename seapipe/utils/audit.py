@@ -709,7 +709,7 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                     if not fooof_dict[sub][ses] == '-': 
                         files = [x for x in listdir(f'{spath}/{sub}/{ses}') if '.csv' in x]
                         
-                        chans = sorted(set([file.split('_')[2] for file in files]))
+                        chans = sorted(set([file.split(ses)[1].split('_')[1] for file in files]))
                         if chan:
                             chans = [x for x in chans for y in chan if y in x]
                         if len(chans) == 0:
@@ -719,14 +719,14 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                             fooof_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),fooof_df.loc[sub]))
                             break
                         else:
-                            for chan in chans:
-                                tracking['fooof'][sub][ses][chan] = []
-                                chan_files = [file for file in files if chan in file]
+                            for channel in chans:
+                                tracking['fooof'][sub][ses][channel] = []
+                                chan_files = [file for file in files if f'_{channel}_' in file]
                                 for chanfile in chan_files:
                                     update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{chanfile}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                    tracking['fooof'][sub][ses][chan].append({'Stage':chanfile.split('_')[3],      
+                                    tracking['fooof'][sub][ses][channel].append({'Stage':chanfile.split(f'_{channel}_')[1].split('_')[0],      
                                                                               'Cycle':'',      # FLAG FOR UPDATE
-                                                                              'Bandwidth':chanfile.split('_')[-1].split('.csv')[0],
+                                                                              'Bandwidth':chanfile.split('specparams_')[1].split('.csv')[0],
                                                                               'File':f'{spath}/{sub}/{ses}/{chanfile}',
                                                                               'Updated':update})
         df['fooof'] = fooof_df
