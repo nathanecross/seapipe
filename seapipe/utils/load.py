@@ -169,7 +169,8 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                      1: 'NREM1',
                      2: 'NREM2',
                      3: 'NREM3',
-                     4: 'REM'}
+                     4: 'REM',
+                     9: 'Undefined'}
     
     # Define subs    
     if subs == 'all':
@@ -230,7 +231,10 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
             stage_flag = 0
             for i in range(0, stagedf.shape[0]):
                 epoch_beg = stagedf.loc[i, 'onset']
-                one_stage = stage_key[stagedf.loc[i, 'staging']]
+                try:
+                    one_stage = stage_key[stagedf.loc[i, 'staging']]
+                except:
+                    one_stage = 'Undefined'
                 try:
                     annot.set_stage_for_epoch(epoch_beg, one_stage,
                                          attr='stage',
