@@ -32,6 +32,8 @@ from seapipe.utils.misc import adap_bands_setup
 
 ## TO DO:
 #   - adapt load channels to be flexible for non-equivalent refsets and chansets
+#   - related to the above, fix logging when using adapted bands but chan or ref_chan
+#               are set to something other than None - e.g. psa.py, line 367
 #   - add in log for detection whether auto, fixed or adapted bands was run
 #   - add logging to save to output file (not implemented for all functions)
 #   - update adapted bands in tracking.tsv
@@ -1569,6 +1571,13 @@ class pipeline:
             logger = create_logger_outfile(logfile=logfile, name='Export params')
         else:
             logger = create_logger('Export params')
+            
+            
+        frequency, flag = adap_bands_setup(self, adap_bands, None, None, 
+                                           None, None, None, stage, None, 
+                                           concat_cycle, cycle_idx, logger)
+        if flag == 'error':
+            return
         
         # Set input/output directories
         in_dir = self.datapath
@@ -1649,6 +1658,12 @@ class pipeline:
             logger.info('Check documentation for how to create an event_dataset:')
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
+            return
+        
+        frequency, flag = adap_bands_setup(self, adap_bands, None, None, 
+                                           None, None, None, stage, None, 
+                                           concat_cycle, cycle_idx, logger)
+        if flag == 'error':
             return
         
         for evt_name in evts:

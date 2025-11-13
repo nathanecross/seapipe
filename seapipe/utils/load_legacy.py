@@ -8,76 +8,33 @@ Created on Mon Jan 29 18:02:41 2024
 from itertools import chain
 from os import listdir, mkdir, path
 from numpy import char, reshape
-from pandas import DataFrame, isna, read_csv, read_excel
+from pandas import DataFrame, read_csv, read_excel
 from wonambi import Dataset
 from wonambi.attr import Annotations, create_empty_annotations
 from .logs import create_logger
 
-
-''' 
-    load.py bundles the utilities that pull subject/session metadata from 
-    tracking sheets and wire it up to downstream Wonambi processing.
-'''
-
-
-### Some helper functions
-
-def _split_chanset_cell(cell_value):
-    """
-    Normalize a tracking-sheet cell into a list of channel names.
-    Accepts strings, numbers, NaNs, or iterables and always returns a flat list.
-    """
-    if isinstance(cell_value, list):
-        parts = cell_value
-    else:
-        value = '' if cell_value is None or isna(cell_value) else str(cell_value)
-        parts = value.replace(', ', ',').split(',')
-    return [p for p in parts if p]
-
-def _flatten_sets(series):
-    """
-    Receives an iterable (Series, numpy row, list, etc.) of cells and returns a single
-    flat list of channel names using `_split_chanset_cell`.
-    """
-    split_cells = (_split_chanset_cell(cell) for cell in series)
-    return list(chain.from_iterable(split_cells))
-
-#####
-
-### Main functions
-
 def read_tracking_sheet(filepath, logger):
-    
-    """
-    locates the single tracking spreadsheet under a directory and loads it via 
-    pandas (.tsv or .xls[x]), logging errors if none or multiple are found.
-    """
         
-    track_file = [x for x in listdir(filepath) if 'tracking' in x]
+        track_file = [x for x in listdir(filepath) if 'tracking' in x]
+        
+        if len(track_file) > 1:
+            logger.error('>1 tracking file found.')
+            logger.warning("Is the tracking file currently open?")
+            return 'error'
+        elif len(track_file) == 0:
+            logger.error('No tracking file found.')
+            return 'error'
+        else:
+            track_file = track_file[0]
+            if '.tsv' in track_file:
+                track = read_csv(f'{filepath}/{track_file}' , sep='\t')
+            elif '.xls' in track_file:
+                track = read_excel(f'{filepath}/{track_file}')
     
-    if len(track_file) > 1:
-        logger.error('>1 tracking file found.')
-        logger.warning("Is the tracking file currently open?")
-        return 'error'
-    elif len(track_file) == 0:
-        logger.error('No tracking file found.')
-        return 'error'
-    else:
-        track_file = track_file[0]
-        if '.tsv' in track_file:
-            track = read_csv(f'{filepath}/{track_file}' , sep='\t')
-        elif '.xls' in track_file:
-            track = read_excel(f'{filepath}/{track_file}')
-
-    return track
+        return track
 
 def select_input_dirs(outpath, xml_dir, evt_name=None, 
                       logger = create_logger('Select inputs')):
-    
-    """
-    resolve derivative directory paths for given event names, defaulting to 
-    common subfolders and creating output directories on demand.
-    """
     if not xml_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
                         'Moelle2011', 'Wamsley2012', 'Ray2015', 'Lacourse2018', 
@@ -124,11 +81,6 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
 
 def select_output_dirs(outpath, out_dir, evt_name=None, 
                       logger = create_logger('Select outputs')):
-    
-    """
-    resolve derivative directory paths for given event names, defaulting to 
-    common subfolders and creating output directories on demand.
-    """
             
     if not out_dir:
         if evt_name in ['spindle', 'Ferrarelli2007', 'Nir2011', 'Martin2013', 
@@ -298,11 +250,6 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
     return flag
 
 def check_chans(datapath, chan, ref_chan, logger):
-    
-    """
-    verifies that requested channel and reference sets exist in the tracking 
-    DataFrame or list, logging warnings for missing entries.
-    """
     if chan is None:
         chan = read_tracking_sheet(f'{datapath}', logger)
         if not isinstance(chan, DataFrame) and chan == 'error':
@@ -550,22 +497,37 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
             flag+=1
             return flag, None
         elif isinstance(ref_chans, DataFrame):
-            row = ref_chans.to_numpy()
-            if row.size == 0:
-                logger.warning("No reference rows for %s, %s", sub, ses)
-                flag += 1
-                return flag, None
-            per_set = [_split_chanset_cell(cell) for cell in row[0]]
-            ref_chans = per_set if len(per_set) > 1 else per_set[0]
-
+            ref_chans = ref_chans.to_numpy()[0]
+            ref_chans = ref_chans.astype(str)
+            ref_chans_all = []
+            for cell in ref_chans:
+                cell = cell.split(', ')
+                refcell = []
+                for x in cell:
+                    if ',' in x: 
+                        x = x.split(',')
+                        refcell = refcell + x
+                    else:
+                        refcell.append(x)
+                refcell = [x for x in refcell if not x=='']
+                ref_chans_all.extend(refcell)
+            ref_chans = [x for x in ref_chans_all if not x=='']
         
-        row = chans.to_numpy()
-        if row.size == 0:
-            logger.warning("No channel rows for %s, %s", sub, ses)
-            flag += 1
-            return flag, None
-        chans = [_split_chanset_cell(cell) for cell in row[0]]
-
+        chans = chans.to_numpy()[0]
+        chans = chans.astype(str)
+        chans_all = []
+        for cell in chans:
+            cell = cell.split(', ')
+            chancell = []
+            for x in cell:
+                if ',' in x: 
+                    x = x.split(',')
+                    chancell = chancell + x
+                else:
+                    chancell.append(x)
+            chancell = [x for x in chancell if not x=='']
+            chans_all.append(chancell)
+        chans = chans_all
 
         if len(ref_chans) > 0:
             chanset = {key: ref_chans for chn in chans for key in chn}
@@ -582,11 +544,6 @@ def load_channels(sub, ses, chan, ref_chan, flag = 0,
 
 
 def rename_channels(sub, ses, chan, logger):
-    
-    """
-    reads any rename instructions in the tracking sheet and returns a dict mapping 
-    old channel names to replacements, handling partial rename sets safely.
-    """
     
     if type(chan) == type(DataFrame()):
         # Search participant
@@ -701,11 +658,6 @@ def rename_channels(sub, ses, chan, logger):
 
 def reverse_chan_lookup(sub, ses, chan, logger):
     
-    """
-    finds the tracking-set name that contains a given channel so other tables 
-    can reference it.
-    """
-    
     if type(chan) == type(DataFrame()):
         # Search participant
         chans = chan[chan['sub']==sub]
@@ -818,12 +770,6 @@ def reverse_chan_lookup(sub, ses, chan, logger):
     return newchans
 
 def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
-    
-    """
-    merges stage-channel associations, combining channel sets with reference sets
-    and logging when data are missing.
-    """
-    
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
@@ -954,11 +900,6 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
 
 
 def load_eog(sub, ses, chan, flag, logger, verbose=2):
-    
-    """
-    pull EOG channels from tracking metadata and ensure the necessary recordings 
-    exist before returning the sets.
-    """
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
@@ -998,12 +939,6 @@ def load_eog(sub, ses, chan, flag, logger, verbose=2):
 
 
 def load_emg(sub, ses, chan, flag, logger, verbose=2):
-    
-    """
-    pull EMG channels from tracking metadata and ensure the necessary recordings 
-    exist before returning the sets.
-    """
-    
     # verbose = 0 (error only)
     # verbose = 1 (warning only)
     # verbose = 2 (debug)
