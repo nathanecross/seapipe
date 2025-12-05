@@ -8,19 +8,11 @@ Created on Tue Jul 25 12:07:36 2023
 from datetime import datetime, date
 from os import listdir, mkdir, path, remove, walk
 from pandas import DataFrame
-from seapipe.events.clam import clam
 from seapipe.events.fish import FISH
 from seapipe.events.whales import whales
-from seapipe.events.remora import remora
-from seapipe.events.seasnakes import seasnakes
-from seapipe.events.seabass import seabass
-from seapipe.events.sand import SAND
-from seapipe.pac.octopus import octopus, pac_method
-from seapipe.pac.pacats import pacats
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
-from seapipe.spectrum.spectrogram import event_spectrogram
 from seapipe.utils.squid import SQUID, gather_qc_reports
 from seapipe.stats import sleepstats
 from seapipe.utils.audit import (check_dataset, extract_channels, make_bids,
@@ -288,7 +280,8 @@ class pipeline:
         extract_channels(self.datapath, exclude)
         
     def QC_channels(self, subs = 'all', sessions = 'all', filetype = '.edf',
-                chantype = ['eeg', 'eog', 'emg', 'ecg'], outfile=True):
+                    filt = None, chantype = ['eeg', 'eog', 'emg', 'ecg'], 
+                    outfile=True):
         
         """
         Run automated quality control (QC) on physiological channels for all subjects and sessions.
@@ -314,6 +307,10 @@ class pipeline:
     
         filetype : str, default='.edf'
             File format to look for in BIDS dataset (e.g., '.edf', '.set', '.vhdr').
+            
+        filt : list or None
+            Explicit list of channels to process for EEG. If None, then standard 10-20 EEG channel 
+            names will be used. 
     
         chantype : list of str, default=['eeg', 'eog', 'emg', 'ecg']
             Channel types to process. Accepted values: ['eeg', 'eog', 'emg', 'ecg'].
@@ -358,7 +355,7 @@ class pipeline:
             sessions = None
         squid = SQUID(self.rootpath, filetype = filetype, subjects = subs, 
                      sessions = sessions )
-        squid.process_all(chantype)
+        squid.process_all(filt, chantype)
         
     def QC_summary(self, qc_dir = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
         
@@ -547,6 +544,8 @@ class pipeline:
                                   eog_chan = None, emg_chan = None, 
                                   rater = None, invert = False, outfile = True):
         
+        from seapipe.events.seabass import seabass
+
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
@@ -613,11 +612,13 @@ class pipeline:
                                subs = 'all', sessions = 'all', filetype = '.edf', 
                                method = 'seapipe', win_size = 5,
                                chan = None, ref_chan = None, 
-                               label = 'allchans',
+                               label = 'individual',
                                rater = None, grp_name = 'eeg', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                outfile = True):
         
+        from seapipe.events.sand import SAND
+
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
@@ -789,6 +790,8 @@ class pipeline:
                                        reject_artf = ['Artefact', 'Arou', 'Arousal'],
                                        average_channels = False, outfile = True):
         
+        from seapipe.events.seasnakes import seasnakes
+
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
@@ -1067,6 +1070,8 @@ class pipeline:
                           reject_artf = ['Artefact', 'Arou', 'Arousal'],
                           average_channels = False, outfile = True):
         
+        from seapipe.events.remora import remora
+
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
@@ -1152,6 +1157,8 @@ class pipeline:
                           evt_type = None, buffer = 0, invert = None, 
                           filter_opts = None, progress=True, outfile=False):
         
+        from seapipe.spectrum.spectrogram import event_spectrogram
+
         # Set up logging
         logger = create_logger('Event spectrogram')
         logger.info('')
@@ -1241,6 +1248,9 @@ class pipeline:
                   reject_artf = ['Artefact', 'Arou', 'Arousal'], 
                   progress = True, outfile = True):
         
+        from seapipe.pac.octopus import octopus, pac_method
+        from seapipe.pac.pacats import pacats
+
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
@@ -1391,6 +1401,8 @@ class pipeline:
                             rater = None, 
                             outfile = True):
         
+        from seapipe.events.clam import clam
+
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
             evts = [evt_name]
@@ -1946,9 +1958,107 @@ class pipeline:
                                    epoch_opts, event_opts, logger)
         
         return
-    
-    
-    
+
+    def bandpower_timecourse(self, band, xml_dir = None, out_dir = None,
+                                   subs = 'all', sessions = 'all',
+                                   filetype = '.edf', chan = None,
+                                   ref_chan = None, grp_name = 'eeg',
+                                   rater = None,
+                                   stage = ['NREM1','NREM2','NREM3', 'REM'],
+                                   cycle_idx = None, concat_cycle = True,
+                                   concat_stage = True,
+                                   general_opts = None, filter_opts = None,
+                                   epoch_opts = None, event_opts = None,
+                                   bandpower_opts = None, outfile = True):
+        
+        """Convenience wrapper that exports band-limited power vs. time."""
+
+        # Local import avoids touching module-level imports per request
+        from seapipe.spectrum.bandpower import (
+            BandPowerTimecourse,
+            default_bandpower_opts,
+        )
+
+        # Logging
+        if outfile is True:
+            subs_str, ses_str = out_names(subs, sessions)
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H%M%S")
+            logfile = (f'{self.log_dir}/bandpower_timecourse_'
+                       f'subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt')
+            logger = create_logger_outfile(logfile=logfile,
+                                           name='Bandpower timecourse')
+            logger.info('')
+            logger.info("-------------- New call of 'Bandpower timecourse' "
+                        f"evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile,
+                                           name='Bandpower timecourse')
+        else:
+            logger = create_logger('Bandpower timecourse')
+        logger.info('')
+
+        # Directories
+        in_dir = self.datapath
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evt_name = 'staging')
+        logger.debug(f'Input annotations being read from: {xml_dir}')
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not "
+                            "been run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+
+        if not out_dir:
+            out_dir = f'{self.outpath}/bandpower_timecourse'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output being saved to: {out_dir}')
+
+        # Channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if isinstance(chan, str):
+            return
+
+        # Defaults
+        if general_opts is None:
+            general_opts = default_general_opts()
+        if filter_opts is None:
+            filter_opts = default_filter_opts()
+        if epoch_opts is None:
+            epoch_opts = default_epoch_opts()
+        if event_opts is None:
+            event_opts = default_event_opts()
+        if bandpower_opts is None:
+            bandpower_opts = default_bandpower_opts()
+
+        # Concatenation mask for Spectrum
+        cat = (int(concat_cycle),
+               int(concat_stage),
+               1,
+               int(event_opts['concat_events']))
+
+        tracker = BandPowerTimecourse(in_dir, xml_dir, out_dir, chan, ref_chan,
+                                      grp_name, stage, cat, rater, cycle_idx,
+                                      subs, sessions, self.tracking)
+        tracker.bandpower_timecourse(
+            band=band,
+            general_opts=general_opts,
+            filter_opts=filter_opts,
+            epoch_opts=epoch_opts,
+            bandpower_opts=bandpower_opts,
+            event_opts=event_opts,
+            filetype=filetype,
+            split_by_stage=not concat_stage,
+            logger=logger,
+        )
+
+        return
+
+
 def out_names(subs, sessions):
     if isinstance(subs, list):
         subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')

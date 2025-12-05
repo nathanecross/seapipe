@@ -979,4 +979,8 @@ def flip_and_switch(data):
     return result
 
 
-
+def check_data_length(data, duration, logger = create_logger('Data check')):
+    
+    if any([data(trial=x).shape[1]<= duration*data.s_freq for 
+            x in range(data.number_of('trial'))]):
+        logger.warning('Length of data too short!!')

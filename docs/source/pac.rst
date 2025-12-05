@@ -261,14 +261,14 @@ Run Phase Amplitude Coupling
 
             * If entering an event name (e.g. ``'SO'``) that event will need to be already detected in the :ref:`Annotations file` and named exactly as entered here.
 
-    **min_dur** *(tuple)*
-        * Minimum duration of events that will be detected. Any events with durations that are outside these limits will be discarded
+    **min_dur** *(float)*
+        * Minimum duration (seconds) of events that will be detected. Any events with durations that are outside these limits will be discarded
 
         * *Acceptable options:*
 
-            * Default is ``(0.5, 3)`` (in seconds)
+            * Default is ``1`` (in seconds)
 
-            * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of float with length 2 (e.g., ``(0.5, 2)``)  will limit the detection to events with a duration within this range
+            * Entering a float (e.g., ``1.4``)  will limit the detection to events with a duration above this threshold
 
     **nbins** *(int)*
         * Number of phase bins to discretize the signal for calculation of preferred phase and coupling strength.

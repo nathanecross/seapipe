@@ -6,10 +6,9 @@ Created on Wed May  7 15:47:20 2025
 @author: ncro8394
 """
 
-from numpy import (angle, arange, array, average, ceil, concatenate, degrees, diff, exp,
-                   hamming, hanning, histogram,  inf, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
-                   nanargmin, nanmax, nanmean, nanmedian, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
-from numpy.fft import rfft, rfftfreq
+from numpy import (angle, arange, array, average, concatenate, degrees, diff, exp,
+                   histogram,  inf, isnan, linspace, max, min, nan, nanmean,
+                   nanmedian, nanstd, pi, random, sort, vstack, where, zeros)
 from pandas import DataFrame, Series
 from collections import Counter, defaultdict
 from copy import deepcopy
@@ -19,8 +18,7 @@ import shutil
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 from scipy.signal import (butter, firwin, filtfilt, find_peaks, detrend, 
-                          hilbert, morlet2, periodogram, resample, sosfiltfilt, welch) 
-import builtins
+                          hilbert, morlet2, periodogram, resample, welch) 
 from sklearn.cluster import DBSCAN
 from wonambi import Dataset
 from wonambi.attr import Annotations
@@ -195,217 +193,141 @@ class clam:
                             
                             
                             
-                        # ---- Analyse low-frequency fluctuations (human-style settings) ----
+                        # ---- Analyse low-frequency fluctuations ----
                         logger.debug('Analysing low frequency fluctuations for '
                                      f"{', '.join([band for band in freq_bands])} "
                                      f'in channel: {fnamechan}: {chanset[ch]}')
+                        segs = fetch(dset, annot, cat = (0,1,1,1), 
+                                     stage = self.stage,
+                                      reject_artf = True)
+                        segs.read_data(chan = [ch], ref_chan = chanset[ch])
+                        baseline_data = segs[0]['data'].data[0][0]
+                        sampling_rate = segs[0]['data'].s_freq
+                        baseline_data = baseline_data[0:int(sampling_rate*100)]
+                        
                         segs = fetch(dset, annot, cat = (0,0,0,0), 
                                      stage = self.stage,
-                                     reject_artf = True)
+                                      reject_artf = True)
                         segs.read_data(chan = [ch], ref_chan = chanset[ch])
-
-                        window_sec = 5
-                        overlap_sec = 4
-                        step_sec = window_sec - overlap_sec  # 1 s steps
-                        baseline_limit_sec = 100 * 60  # first 100 min for normalization
-                        min_bout_sec = 120  # human-style minimum bout length
-                        infraslow_step_hz = 0.001
-                        infraslow_max_hz = 0.125
-
-                        per_seg_series = []
-                        baseline_ffts = []
-                        freqs_fft_ref = None
-                        max_series_len = 0
-
-                        for seg in segs:
+                        
+                        psd = {band:[] for band in freq_bands}
+                        dur = {band:[] for band in freq_bands}
+                        phases = {band:[] for band in freq_bands}
+                        trace = {band:zeros((2,1)) for band in freq_bands}
+                        results = None
+                        for i, seg in enumerate(segs):
                             signal_data = seg['data'].data[0][0]
-                            sampling_rate = seg['data'].s_freq
-                            if sampling_rate is None or sampling_rate <= 0:
-                                logger.warning('Sampling rate not found for segment; skipping.')
-                                continue
+                            if len(signal_data)/sampling_rate > 300:
+                                results = extract_infraslow_spectral_profile(signal_data, 
+                                                                             sampling_rate,
+                                                                             baseline_data,
+                                                                             band_defs=freq_bands)
+                                
+                                for band in freq_bands:
+                                    psd[band].append(results[band]['psd'])
+                                    dur[band].append(results[band]['duration'])
 
-                            window_samp = int(window_sec * sampling_rate)
-                            step_samp = int(step_sec * sampling_rate)
-                            if len(signal_data) < window_samp:
-                                continue
-
-                            start_seg = seg['data'].axis['time'][0].min()
-                            hanning_win = hanning(window_samp)
-                            freqs_fft = rfftfreq(window_samp, d=1/sampling_rate)
-                            freqs_fft_ref = freqs_fft
-
-                            band_power_raw = {band: [] for band in freq_bands}
-                            window_times = []
-
-                            idx = 0
-                            while idx + window_samp <= len(signal_data):
-                                window_data = signal_data[idx:idx + window_samp]
-                                tapered = window_data * hanning_win
-                                fft_vals = rfft(tapered)
-                                power_spectrum = (abs(fft_vals) ** 2) / window_samp
-
-                                if baseline_limit_sec > 0:
-                                    baseline_ffts.append(power_spectrum)
-                                    baseline_limit_sec -= step_sec
-
-                                for band, (fmin, fmax) in freq_bands.items():
-                                    mask = (freqs_fft >= fmin) & (freqs_fft <= fmax)
-                                    if not mask.any():
-                                        band_power = nan
-                                    else:
-                                        band_power = nanmean(power_spectrum[mask])
-                                    band_power_raw[band].append(band_power)
-
-                                window_mid_time = start_seg + (idx + (window_samp / 2)) / sampling_rate
-                                window_times.append(window_mid_time)
-                                idx += step_samp
-
-                            if len(window_times) == 0:
-                                continue
-
-                            max_series_len = builtins.max(max_series_len, len(window_times))
-                            per_seg_series.append({
-                                'start_time': window_times[0],
-                                'end_time': window_times[-1],
-                                'times': array(window_times),
-                                'band_power_raw': {b: array(v) for b, v in band_power_raw.items()},
-                                'sampling_rate_band': 1 / step_sec
-                            })
-
-                        if len(per_seg_series) == 0:
-                            logger.warning(f'No valid non-REM segments found for {sub}. {ses}. Skipping...')
-                            flag += 1
-                            continue
-
-                        if len(baseline_ffts) == 0:
-                            logger.warning('No baseline FFT windows found within first 100 min; normalization may be invalid.')
-                            baseline_fft_avg = None
-                        else:
-                            baseline_fft_avg = nanmean(array(baseline_ffts), axis=0)
-
-                        # Band-specific baseline power for normalization
-                        baseline_band_power = {}
-                        if baseline_fft_avg is not None and freqs_fft_ref is not None:
-                            freqs_baseline = freqs_fft_ref
-                            for band, (fmin, fmax) in freq_bands.items():
-                                mask = (freqs_baseline >= fmin) & (freqs_baseline <= fmax)
-                                baseline_band_power[band] = nanmean(baseline_fft_avg[mask]) if mask.any() else nan
-                        else:
-                            baseline_band_power = {band: nan for band in freq_bands}
-
-                        # Normalize band power time courses and keep bouts >=120 s
-                        for seg_series in per_seg_series:
+                                    ## ---- PHASE ANGLE OF SPINDLE OCCURENCES ----
+                                    # Get spindle events
+                                    start_seg = seg['data'].axis['time'][0].min()
+                                    end_seg = seg['data'].axis['time'][0].max()
+                                    events = [x for x in annot.get_events(evt_type, chan = f'{ch} ({grp_name})') if 
+                                              x['start'] > start_seg and x['end'] < end_seg]
+                                    evts_mid = [ (x['start'] - start_seg) + 
+                                                ((x['end'] - start_seg) - (x['start'] - start_seg))/2
+                                                for x in events]
+                                    #evts_idx = round(array(evts_mid) * resample_rate).astype(int)
+                                    evts_idx = [int(x*2) for x in evts_mid]
+                                    
+                                    # Calculate phase angle of spindle mid-point
+                                    sigma_trace = results[band]['smoothed_power_trace']
+                                    sigma_trace = sigma_trace - nanmean(sigma_trace)
+                                    
+                                    smoothed_signal = Series(sigma_trace).rolling(window=5, 
+                                                                                center=True,
+                                                                                min_periods=1).mean().to_numpy()
+                                    
+                                    smoothed_signal = resample(smoothed_signal, 
+                                                               len(sigma_trace))
+                                    analytic_signal = hilbert(smoothed_signal)
+                                    instantaneous_phase = angle(analytic_signal)
+                                    event_phases = instantaneous_phase[evts_idx]
+                                    phases[band].extend(event_phases.tolist())
+                                    
+                                    # Save filtered trace
+                                    l = linspace(int(start_seg),
+                                                 int(end_seg), 
+                                                 int(end_seg)- int(start_seg)+1)
+                                    
+                                    signal_1s = smoothed_signal[::2]
+                                    
+                                    if len(signal_1s) > len(l):
+                                        signal_1s = signal_1s[:len(l)]
+                                    elif len(signal_1s) < len(l):
+                                        l = l[:len(signal_1s)]
+                                    trace[band] = concatenate((trace[band], 
+                                                               vstack((l, signal_1s))),
+                                                              axis = 1)
+                                    
+                                # End the analysis (only analyse the first segment >300 sec)    
+                                break
+                                
+      
+                                 
+                        # Peak of averaged power spectrum
+                        if results:
+                            stats = {}
                             for band in freq_bands:
-                                denom = baseline_band_power.get(band, nan)
-                                seg_series[f'{band}_norm'] = seg_series['band_power_raw'][band] / denom
-
-                        target_nfft = int(ceil((1 / step_sec) / infraslow_step_hz))
-                        target_nfft = builtins.max(target_nfft, max_series_len)
-                        freqs_infraslow = rfftfreq(target_nfft, d=step_sec)
-                        freq_mask = freqs_infraslow < infraslow_max_hz
-                        freqs_low = freqs_infraslow[freq_mask]
-
-                        trace_segments = {band: [] for band in freq_bands}
-                        psd_accum = {band: [] for band in freq_bands}
-                        dur_accum = {band: [] for band in freq_bands}
-
-                        for seg_series in per_seg_series:
-                            duration_sec = len(seg_series['times']) * step_sec
-                            if duration_sec < min_bout_sec:
-                                continue
-                            for band in freq_bands:
-                                series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
-                                                     nan=nanmean(seg_series[f'{band}_norm']))
-                                centered = series - nanmean(series)
-                                tapered = centered * hamming(len(centered))
-                                fft_vals = rfft(tapered, n=target_nfft)
-                                power_spec = (abs(fft_vals) ** 2) / sum(hamming(len(centered)) ** 2)
-                                power_spec = power_spec[freq_mask]
-                                psd_accum[band].append(power_spec)
-                                dur_accum[band].append(duration_sec)
-
-                        stats = {}
-                        for band in freq_bands:
-                            arrays = array(psd_accum[band])
-                            weights = array(dur_accum[band])
-                            if len(arrays) == 0:
-                                logger.warning(f'No valid bouts >= {min_bout_sec}s for {band}; skipping.')
-                                continue
-                            weighted_avg = average(arrays, axis=0, weights=weights) if len(weights) > 0 else average(arrays, axis=0)
-                            mean_psd = weighted_avg / nanmean(weighted_avg)
-
-                            peak_freq, sigma_val, avg_peak_power = fit_gaussian(
-                                freqs_low, mean_psd, num_components=3)
-
-                            logger.debug(f"Chan: {fnamechan}: {chanset[ch]} - "
-                                         f"{band} infraslow peak: {round(peak_freq,3)}; "
-                                         f"Peak power: {round(avg_peak_power,3)}")
-
-                            stats[f'{band}_peak_freq'] = round(peak_freq, 3)
-                            stats[f'{band}_avg_peak_power'] = round(avg_peak_power, 3)
-                            stats[f'{band}_sigma'] = round(sigma_val, 3)
-
-                            # Phase estimation using band-pass around peak ±1*SD
-                            if isnan(peak_freq) or isnan(sigma_val):
-                                logger.warning(f'Gaussian fit failed for {band}; skipping phase and trace outputs.')
-                                continue
-
-                            passband = (builtins.max(peak_freq - sigma_val, 0.0005), builtins.min(peak_freq + sigma_val, infraslow_max_hz))
-                            if passband[0] <= 0 or passband[0] >= passband[1]:
-                                logger.warning(f'Invalid passband for {band}: {passband}; skipping.')
-                                continue
-                            sos = butter(4, [passband[0], passband[1]], btype='bandpass',
-                                         fs=1 / step_sec, output='sos')
-                            band_phases = []
-                            for seg_series in per_seg_series:
-                                series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
-                                                     nan=nanmean(seg_series[f'{band}_norm']))
-                                if len(series) * step_sec < min_bout_sec:
-                                    continue
-                                filtered = sosfiltfilt(sos, series)
-                                analytic_signal = hilbert(filtered)
-                                inst_phase = angle(analytic_signal)
-                                start_seg = seg_series['start_time']
-                                end_seg = seg_series['end_time']
-                                events = [x for x in annot.get_events(evt_type, chan=f'{ch} ({grp_name})')
-                                          if x['start'] > start_seg and x['end'] < end_seg]
-                                evts_mid = [((x['start'] + x['end']) / 2) for x in events]
-                                times_vec = seg_series['times']
-                                evts_idx = [nanargmin(abs(times_vec - mid)) for mid in evts_mid] if len(evts_mid) > 0 else []
-                                if len(evts_idx) > 0:
-                                    band_phases.extend(inst_phase[evts_idx].tolist())
-                                # Save filtered trace (aligned to original times)
-                                trace_segments[band].append(vstack((times_vec, filtered)))
-                            # Histogram of events
-                            bins = linspace(-pi, pi, 19)
-                            hist, bin_edges = histogram(band_phases, bins=bins)
-                            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-                            hist_df = DataFrame(hist).transpose()
-                            hist_df.columns = [int(round(degrees(x))) for x in bin_centers]
-                            hist_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_{band}_coupling.csv')
-
-                            # PSD of LowFreq-Fluctuation
-                            psd_df = DataFrame(mean_psd).transpose()
-                            psd_df.columns = [f'{round(f,3)} Hz' for f in freqs_low]
-                            psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
-
-                            # Filtered trace
-                            if trace_segments[band]:
-                                combined_trace = concatenate(trace_segments[band], axis=1)
-                                ts_df = DataFrame([combined_trace[1]],
-                                                  columns=combined_trace[0])
+                                arrays = array(psd[band])           
+                                weights = array(dur[band])
+                                weighted_avg = average(arrays, 
+                                                       axis=0, 
+                                                       weights=weights) if len(weights)>0 else average(arrays, axis=0)
+                                mean_psd = weighted_avg / nanmean(weighted_avg)
+                                             
+                                # Gaussian fit 
+                                freqs_low = results[band]['infraslow_freqs']
+                                (peak_freq, 
+                                 sigma, 
+                                 avg_peak_power) = fit_gaussian(
+                                                                freqs_low[(freqs_low > 0.01) & (freqs_low < 0.05)],
+                                                                mean_psd[(freqs_low > 0.01) & (freqs_low < 0.05)]
+                                                                )
+                                logger.debug(f"Chan: {fnamechan}: {chanset[ch]} - "
+                                             f"{band} infraslow peak: {round(peak_freq,3)}; "
+                                             f"Peak power: {round(avg_peak_power,3)}")
+                                
+                                stats[f'{band}_peak_freq'] = round(peak_freq,3)
+                                stats[f'{band}_avg_peak_power'] = round(avg_peak_power,3)
+                                
+                                # Histogram of events
+                                bins = linspace(-pi, pi, 19)
+                                hist, bin_edges = histogram(phases[band], bins=bins)
+                                bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+                                hist_df = DataFrame(hist).transpose()
+                                hist_df.columns = [int(round(degrees(x))) for x in bin_centers]
+                                hist_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_{band}_coupling.csv')
+                                
+                                # PSD of LowFreq-Fluctuation
+                                psd_df = DataFrame(mean_psd).transpose()
+                                psd_df.columns = [f'{round(f,3)} Hz' for f in freqs_low]
+                                psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
+                                
+                                # Filtered trace
+                                ts_df = DataFrame([trace[band][1]], 
+                                                  columns = trace[band][0])
                                 ts_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_timeseries.csv')
-
-                        # Save stats to file
-                        if len(stats) == 0:
-                            logger.warning(f'No valid infraslow stats computed for {sub}. {ses}. Skipping...')
-                            flag += 1
-                        else:
+    
+                                
+                            # Save stats to file
                             df = DataFrame([stats])
-                            df.insert(0, 'sub', sub)
-                            df.insert(1, 'ses', ses)
+                            df.insert(0, 'sub', sub)  
+                            df.insert(1, 'ses', ses)   
                             bandnames = '-'.join([band for band in freq_bands])
                             df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{bandnames}_fluctuation_stats.csv')
+                        else:
+                            logger.warning(f'No valid segments found for {sub}. {ses}. Skipping...')
+                            flag +=1
 
             ### 3. Check completion status and print
             if flag == 0:
@@ -574,9 +496,6 @@ def cluster_metrics(annot, chan, evt_name = 'spindle', stage = None,
     
     # Monte Carlo Simulation
     vmr_null = []
-    event_indices = sort(random.choice(arange(100), 
-                                             size=10, 
-                                             replace=False))  # Random non-adjacent events
     for _ in range(num_permutations):
         shuffled_series = zeros(100)
         shuffled_events = random.choice(arange(100), size=len(event_indices), replace=False)
@@ -840,17 +759,9 @@ def extract_infraslow_spectral_profile(eeg_signal, fs, baseline_data,
 def gaussian(x, a, mu, sigma):
     return a * exp(-((x - mu) ** 2) / (2 * sigma ** 2))
 
-def multi_gaussian(x, *params):
-    """Sum of multiple Gaussian components."""
-    y = zeros_like(x, dtype=float)
-    for i in range(0, len(params), 3):
-        a, mu, sigma = params[i:i+3]
-        y += gaussian(x, a, mu, sigma)
-    return y
-
-def fit_gaussian(freqs_low, psd_vals, num_components=1):
+def fit_gaussian(freqs_low, psd_vals):
     """
-    Fit a Gaussian (or sum of Gaussians) to a 1D power spectrum and compute peak characteristics.
+    Fit a Gaussian curve to a 1D power spectrum and compute peak characteristics.
 
     Parameters
     ----------
@@ -858,9 +769,6 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1):
         1D array of frequency values (e.g., in the infraslow range).
     psd_vals : array_like
         1D array of power spectral density (PSD) values corresponding to `freqs_low`.
-
-    num_components : int
-        Number of Gaussian components to fit. Defaults to 1.
 
     Returns
     -------
@@ -875,41 +783,20 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1):
     """
     
     try:
-        if num_components == 1:
-            bounds = ([0, 0.001, 1e-4], [inf, 0.12, 0.1])  # [a, mu, sigma]
-            popt, _ = curve_fit(gaussian, freqs_low, psd_vals, 
-                                p0 = [nanmax(psd_vals), 0.02, 0.01],
-                                bounds = bounds,
-                                maxfev = 8000)
-            a, peak_freq, sigma = popt
-            fit_curve = gaussian(freqs_low, *popt)
-        else:
-            centers = linspace(0.01, 0.09, num_components)
-            p0 = []
-            bounds_low = []
-            bounds_high = []
-            for c in centers:
-                p0.extend([nanmax(psd_vals), c, 0.01])
-                bounds_low.extend([0, 0.001, 1e-4])
-                bounds_high.extend([inf, 0.12, 0.1])
-            popt, _ = curve_fit(multi_gaussian, freqs_low, psd_vals,
-                                p0 = p0,
-                                bounds = (bounds_low, bounds_high),
-                                maxfev = 12000)
-            components = []
-            for k in range(num_components):
-                a_k, mu_k, sig_k = popt[3*k:3*k+3]
-                components.append((a_k, mu_k, sig_k))
-            dominant = builtins.max(components, key=lambda x: x[0])
-            a, peak_freq, sigma = dominant
-            fit_curve = multi_gaussian(freqs_low, *popt)
-
+        # Example: constrain mu to [0.01, 0.05], and sigma > 0
+        bounds = ([0, 0.01, 1e-4], [inf, 0.05, 0.1])  # [a, mu, sigma]
+        
+        # Fit Gaussian
+        popt, _ = curve_fit(gaussian, freqs_low, psd_vals, 
+                            p0 = [1.0, 0.02, 0.01],
+                            bounds = bounds)
+        a, peak_freq, sigma = popt
         peak_band = (peak_freq - 0.5 * sigma, peak_freq + 0.5 * sigma)
         
         # Clip window to valid frequency range
         peak_band = (
-                    builtins.max((peak_band[0], freqs_low.min())),
-                    builtins.min((peak_band[1], freqs_low.max()))
+                    max((peak_band[0], freqs_low.min())),
+                    min((peak_band[1], freqs_low.max()))
                     )
         
         # Interpolate PSD for smoother power estimate in peak window

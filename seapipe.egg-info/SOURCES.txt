@@ -15,6 +15,7 @@ seapipe/core/__init__.py
 seapipe/core/dataset.py
 seapipe/events/__init__.py
 seapipe/events/clam.py
+seapipe/events/clam_legacy.py
 seapipe/events/eel.py
 seapipe/events/fish.py
 seapipe/events/marker_detect.py
@@ -31,6 +32,8 @@ seapipe/pac/pacats.py
 seapipe/pac/plots.py
 seapipe/pac/synchrony.py
 seapipe/spectrum/__init__.py
+seapipe/spectrum/bandpower.py
+seapipe/spectrum/bin_bandpower.py
 seapipe/spectrum/psa.py
 seapipe/spectrum/spectrogram.py
 seapipe/stats/__init__.py
@@ -39,6 +42,7 @@ seapipe/stats/sleepstats.py
 seapipe/utils/__init__.py
 seapipe/utils/audit.py
 seapipe/utils/load.py
+seapipe/utils/load_legacy.py
 seapipe/utils/logs.py
 seapipe/utils/misc.py
 seapipe/utils/process.py

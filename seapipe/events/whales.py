@@ -224,7 +224,8 @@ class whales:
                     # h. Read data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     try:
-                        segments = fetch(dset, annot, cat=cat, stage=self.stage, 
+                        segments = fetch(dset, annot, cat=cat, chan_full = [ch],
+                                         stage=self.stage, 
                                          cycle=cycle, reject_epoch=True, 
                                          reject_artf=self.reject)
                         segments.read_data([ch], ref_chan=chanset[ch], grp_name=self.grp_name)
@@ -395,14 +396,18 @@ class whales:
                             logger.warning(f'No events: {m} found for {sub}, {ses} on {ch}')
                             flag += 1
                         all_events.append(sorted(evts, key=lambda d: d['end']))
-                        logger.debug(f'Combining events for {sub}, {ses}, {ch}')
-                        cons = consensus(all_events, cs_thresh, s_freq, 
-                                         min_duration = duration[0],
-                                         weights = weights)
+                    
+                    if all(len(arr) == 0 for arr in all_events):
+                        logger.warning(f'No events to merge for {sub}, {ses} on {ch}, skipping...')
+                        continue
+                    logger.debug(f'Combining events for {sub}, {ses}, {ch}')
+                    cons = consensus(all_events, cs_thresh, s_freq, 
+                                     min_duration = duration[0],
+                                     weights = weights)
 
-                        cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
-                        remove_duplicate_evts(annot, evt_name = evt_out, 
-                                              chan=f'{ch} ({self.grp_name})')
+                    cons.to_annot(annot, evt_out, chan= f'{ch} ({grp_name})')
+                    remove_duplicate_evts(annot, evt_name = evt_out, 
+                                          chan=f'{ch} ({self.grp_name})')
                     
         ### 3. Check completion status and print
         if flag == 0:

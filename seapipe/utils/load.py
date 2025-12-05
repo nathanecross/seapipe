@@ -53,7 +53,8 @@ def read_tracking_sheet(filepath, logger):
     pandas (.tsv or .xls[x]), logging errors if none or multiple are found.
     """
         
-    track_file = [x for x in listdir(filepath) if 'tracking' in x]
+    track_file = [x for x in listdir(filepath) if 'tracking' in x 
+                  if not x.startswith('.') if not x.startswith('~')]
     
     if len(track_file) > 1:
         logger.error('>1 tracking file found.')
@@ -106,6 +107,7 @@ def select_input_dirs(outpath, xml_dir, evt_name=None,
             
             if len(xml_dir) > 1:
                 xml_dir = [x for x in xml_dir if 'manual' in x]
+                xml_dir = f'{outpath}/{xml_dir[0]}'
                 logger.warning(f">1 derivatives directories have 'staging' in the "
                                f"name. Will default to {xml_dir}")
                 

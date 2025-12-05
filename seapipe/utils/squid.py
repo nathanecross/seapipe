@@ -71,7 +71,7 @@ class SQUID:
         self.results = []
 
     
-    def process_all(self, chantype = ['eeg', 'eog', 'emg', 'ecg']):
+    def process_all(self, filt = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
         """
         Iterates over all subjects and sessions to run quality control.
         """
@@ -83,12 +83,12 @@ class SQUID:
             for sess in sessions:
                 try:
                     self.logger.debug(f"Processing {subj}, {sess}")
-                    self.process_subject(subj, chantype, sess)
+                    self.process_subject(subj, chantype, filt, sess)
                 except Exception as e:
                     self.logger.warning(f"Failed to process {subj}, {sess}: {e}")
                     continue
 
-    def process_subject(self, subject_id, chantype, session_id=None):
+    def process_subject(self, subject_id, chantype, filt=None, session_id=None):
         """
         Process a single subject/session: infer, choose best, and compute QC.
 
@@ -120,7 +120,7 @@ class SQUID:
                 self.logger.warning(f"Unsupported chantype: {c}")
                 continue
     
-            chans = candidate_funcs[c](dset, logger=self.logger)
+            chans = candidate_funcs[c](dset, filt, logger=self.logger)
             if not chans:
                 continue
     
@@ -217,7 +217,7 @@ class SQUID:
 
 
 
-def get_candidate_eeg(dset, filt=None, logger=create_logger('Get Candidate EEG')):
+def get_candidate_eeg(dset, filt=None,logger=create_logger('Get Candidate EEG')):
     """Return a list of plausible EEG channel names based on known naming conventions.
 
     Parameters
@@ -243,15 +243,17 @@ def get_candidate_eeg(dset, filt=None, logger=create_logger('Get Candidate EEG')
 
     else:
         eeg = [x for x in h["chan_name"] if any(l in x for l in ['C1', 'C2', 
-                                                                 'C3', 'C4', 
-                                                                 'C5', 'C6', 
-                                                                 'Cz', 'CZ',
-                                                                 'F1', 'F2', 
-                                                                 'F3', 'F4', 
-                                                                 'F5', 'F6', 
-                                                                 'Fz', 'FZ',
-                                                                 'Fpz', 'Oz',
-                                                                 'O1', 'O2'])]
+                                                                'C3', 'C4', 
+                                                                'C5', 'C6', 
+                                                                'Cz', 'CZ',
+                                                                'F1', 'F2', 
+                                                                'F3', 'F4', 
+                                                                'F5', 'F6', 
+                                                                'Fz', 'FZ',
+                                                                'Pz', 'PZ',
+                                                                'P3', 'P4',
+                                                                'Fpz', 'Oz',
+                                                                'O1', 'O2'])]
 
         if len(eeg) == 0:
             eeg = [x for x in h["chan_name"] if 'E' in x and not 

@@ -62,7 +62,7 @@ class SAND:
         self.tracking = tracking
 
 
-    def detect_artefacts(self, method, label = "allchans", win_size = 5,
+    def detect_artefacts(self, method, label = "individual", win_size = 5,
                                filetype = '.edf', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                logger = create_logger('Detect artefacts')):
@@ -174,8 +174,15 @@ class SAND:
                 
                 # Check if applying to all channels or chan-by-chan
                 if label == "allchans":
+                    def _freeze_ref(val):
+                        """Recursively convert nested iterables to tuples for hashing."""
+                        if isinstance(val, (list, tuple)):
+                            return tuple(_freeze_ref(v) for v in val)
+                        if hasattr(val, "tolist"):
+                            return _freeze_ref(val.tolist())
+                        return val
                     # Check if references are the same for each channel
-                    ref_chans = {tuple(val) for val in chanset.values()}
+                    ref_chans = {_freeze_ref(val) for val in chanset.values()}
                     # If not, setup for running per channel
                     if len(ref_chans) > 1:
                         logger.warning("Channel setup 'all_chans' was set 'True', but "
@@ -396,8 +403,8 @@ class SAND:
                         dat_full[dat_full<threshold] = 0
                         dat_full[dat_full>=threshold] = 1
                         deflections = detect_above_zero_regions(dat_full)
-                        deflections = [(x[0] - (s_freq/2), 
-                                        x[1] + (s_freq/2)) for x in deflections]
+                        deflections = [(x[0] - int(s_freq/2), 
+                                        x[1] + int(s_freq/2)) for x in deflections]
 
                         
                         ## TODO: Step 3. Let's look for sharp slow waves in REM
@@ -464,6 +471,9 @@ class SAND:
                         channame = f'{chan} ({self.grp_name})'
                         
                     for x in times:
+                        if x[1] - x[0] > 400:
+                            logger.warning('Artefact >400s detected. Review.')
+                        
                         evts.append({'name':'Artefact',
                                      'start':float(x[0]),
                                      'end':float(x[1]),

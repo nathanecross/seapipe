@@ -38,3 +38,7 @@ Beta Version
 0.6.6 Added S.C.A.L.O.P.S for clustering summary dataset creation
 0.6.7 Minor bug fixes and documenation updates
 0.6.8 Bug fixes to reading channel names and searching for specparams files
+0.6.9 More bug fixes to load.py and improved error logging
+0.7 Updates and fixes to SAND, whales and logging
+0.7.1 Bug fixes & better logs for crashes when data is incongruent 
+0.7.2 Bug fixes for PSA (reading in channel names to filter functions)

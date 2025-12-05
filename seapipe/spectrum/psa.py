@@ -23,7 +23,8 @@ from wonambi import ChanFreq, Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, frequency, get_descriptives, export_freq, 
                            export_freq_band)
-from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
+from ..utils.misc import (bandpass_mne, laplacian_mne, notch_mne, notch_mne2, 
+                          check_data_length)
 from ..utils.logs import create_logger
 from ..utils.load import infer_ref, load_channels, load_sessions, rename_channels
 
@@ -231,7 +232,7 @@ class Spectrum:
         freq_bw = frequency_opts['frequency']
         if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz with the stages/cycles merged.')
         elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
             logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
@@ -390,7 +391,7 @@ class Spectrum:
                         continue
                     
                     for sg, seg in enumerate(segments):
-                        logger.debug(f'Analysing segment {sg+1} of {len(segments)}')
+                        logger.debug(f"Analysing segment {sg+1} of {len(segments)} ({seg['stage']})")
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -667,8 +668,8 @@ class Spectrum:
                     # 5.b Rename channel for output file (if required)
                     if newchans:
                         fnamechan = newchans[ch]
-                        #filter_opts['renames'] = {newchans[ch]:ch}
-                        #filter_opts['laplacian_rename'] = True
+                        filter_opts['renames'] = {newchans[ch]:ch}
+                        filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
                         #filter_opts['laplacian_rename'] = False
@@ -753,6 +754,7 @@ class Spectrum:
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
                     
                     segments = fetch(dset, annot, cat = cat, 
+                                     chan_full = [ch],
                                      evt_type = event_opts['evt_type'], 
                                      stage = self.stage, cycle=cycle,   
                                      epoch = epoch_opts['epoch'], 
@@ -784,7 +786,7 @@ class Spectrum:
                     
                     # Loop over segments and apply transforms
                     for sg, seg in enumerate(segments):
-                        logger.debug(f'Analysing segment {sg+1} of {len(segments)}')
+                        logger.debug(f"Analysing segment {sg+1} of {len(segments)} ({seg['stage']})")
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -853,7 +855,10 @@ class Spectrum:
                             break
                         
                         ### Frequency transformation
-                        Sxx = frequency(data, output=frequency_opts['output'], 
+                        try:
+                            check_data_length(data, frequency_opts['duration'],
+                                              logger)
+                            Sxx = frequency(data, output=frequency_opts['output'], 
                                         scaling=frequency_opts['scaling'], 
                                         sides=frequency_opts['sides'], 
                                         taper=frequency_opts['taper'],
@@ -866,6 +871,12 @@ class Spectrum:
                                         n_fft=n_fft, 
                                         log_trans=frequency_opts['log_trans'], 
                                         centend=frequency_opts['centend'])
+                        except Exception as error:
+                            logger.error(error.args[0])
+                            logger.warning(f"Skipping {seg['stage']} for channel {str(ch)} ... ")
+                            flag+=1
+                            continue
+                            
                         
                         # Baseline normalisation
                         if norm:
