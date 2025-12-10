@@ -42,3 +42,4 @@ Beta Version
 0.7 Updates and fixes to SAND, whales and logging
 0.7.1 Bug fixes & better logs for crashes when data is incongruent 
 0.7.2 Bug fixes for PSA (reading in channel names to filter functions)
+0.7.3 Updated default settings for loading in chan names and for fetching data on individual channels

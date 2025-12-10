@@ -365,8 +365,8 @@ class pacats:
                         return
     
                     # 5.a. Fetch data
-                    segments = fetch(dset, annot, cat = cat, stage = self.stage,  
-                                     cycle = cycle)
+                    segments = fetch(dset, annot, cat = cat, chan_full = [ch],
+                                     stage = self.stage, cycle = cycle)
 
                     if len(segments)==0:
                         logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, Cycles:{cycle}.")

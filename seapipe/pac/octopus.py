@@ -418,9 +418,9 @@ class octopus:
                     # 5.a. Fetch data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     try:
-                        segments = fetch(dset, annot, cat = cat, evt_type = evt_type, 
-                                     stage = self.stage, cycle = cycle, 
-                                     buffer = event_opts['buffer'])
+                        segments = fetch(dset, annot, cat = cat, chan_full = [ch],
+                                         evt_type = evt_type, stage = self.stage, 
+                                         cycle = cycle, buffer = event_opts['buffer'])
                     except Exception as error:
                         logger.error(error.args[0])
                         logger.warning(f"Skipping {sub}, {ses}, channel {str(ch)} ... ")

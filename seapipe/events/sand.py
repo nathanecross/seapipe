@@ -204,11 +204,11 @@ class SAND:
                 
                 xml_file = [x for x in listdir(f'{xdir}') if '.xml' in x]
                 if len(xml_file) > 1:
-                    logger.warning(f'More than 1 annotations file found for '
+                    logger.warning('More than 1 annotations file found for '
                                    f'{sub}, {ses} in {xdir}. Skipping...')
                     continue
                 if len(xml_file) < 1:
-                    logger.warning(f'No annotations file was found for '
+                    logger.warning('No annotations file was found for '
                                    f'{sub}, {ses} in {xdir}. Skipping...')
                     continue
                 else:
@@ -308,14 +308,14 @@ class SAND:
                                          stage=stage)
                         
                         if len(segments) < 1:
-                            logger.warning('No valid data found, skipping {chan}')
+                            logger.warning(f'No valid data found, skipping {chan}')
                             continue
                         
                         # Save stitches (to recompute times later)
                         try:
                             stitches = segments[0]['times']
                         except:
-                            logger.warning('No valid data found, skipping {chan}')
+                            logger.warning(f'No valid data found, skipping {chan}')
                             
                         # Read data
                         segments.read_data(chan, ref_chan = chanset[chan], 
