@@ -1026,7 +1026,12 @@ class Spectrum:
         for s, sub in enumerate(subs):
             if self.sessions == 'all':
                 sessions[sub] = next(walk(f'{self.xml_dir}/{sub}'))[1]
-        sessions = list(set([y for x in sessions.values() for y in x]))           
+            elif isinstance(self.sessions, list):
+                sessions = self.sessions
+                  
+        if isinstance(sessions, dict):
+            sessions = list(set([y for x in sessions.values() for y in x])) 
+            
         sessions.sort() 
   
         # 4. Begin data extraction
