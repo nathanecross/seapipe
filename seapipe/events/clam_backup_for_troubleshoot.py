@@ -18,7 +18,6 @@ import pywt
 import shutil
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter1d
 from scipy.signal import (butter, firwin, filtfilt, find_peaks, detrend, 
                           hilbert, morlet2, periodogram, resample, sosfiltfilt, welch) 
 import builtins
@@ -205,18 +204,18 @@ class clam:
                                      reject_artf = True)
                         segs.read_data(chan = [ch], ref_chan = chanset[ch])
 
-                        # Human method: Morlet CWT 0.5–24 Hz, 0.2 Hz step, 4-cycle; 4-s smoothing; 0.5 s sampling
                         window_sec = 5
-                        overlap_sec = 4.5
-                        step_sec = window_sec - overlap_sec  # 0.5 s steps
+                        overlap_sec = 4
+                        step_sec = window_sec - overlap_sec  # 1 s steps
                         baseline_limit_sec = 100 * 60  # first 100 min for normalization
-                        min_bout_sec = 300  # align with 300 s PSD window
+                        min_bout_sec = 120  # human-style minimum bout length
                         infraslow_step_hz = 0.001
-                        infraslow_max_hz = 0.5  # compute up to 0.5, crop to 0.1 for fitting (Matlab style)
+                        infraslow_max_hz = 0.125
 
                         per_seg_series = []
-                        baseline_vals = {band: [] for band in freq_bands}
-                        freqs_high = arange(0.5, 24.1, 0.2)
+                        baseline_ffts = []
+                        freqs_fft_ref = None
+                        max_series_len = 0
 
                         for seg in segs:
                             signal_data = seg['data'].data[0][0]
@@ -225,56 +224,86 @@ class clam:
                                 logger.warning('Sampling rate not found for segment; skipping.')
                                 continue
 
-                            dt = 1 / sampling_rate
-                            # High-frequency CWT 0.5–24 Hz, 4-cycle Morlet
-                            scales_high = pywt.central_frequency('cmor4.0-1.0') / (freqs_high * dt)
-                            coeffs, freqs_used = pywt.cwt(signal_data, scales_high, 'cmor4.0-1.0', sampling_period=dt)
-                            power = abs(coeffs) ** 2
+                            window_samp = int(window_sec * sampling_rate)
+                            step_samp = int(step_sec * sampling_rate)
+                            if len(signal_data) < window_samp:
+                                continue
 
-                            band_power_raw = {}
-                            for band, (fmin, fmax) in freq_bands.items():
-                                band_idx = (freqs_used >= fmin) & (freqs_used <= fmax)
-                                band_power = power[band_idx].mean(axis=0)
-                                # 4-s moving average
-                                win_samples = int(4 * sampling_rate)
-                                band_power = Series(band_power).rolling(win_samples, center=True, min_periods=1).mean().to_numpy()
-                                # Downsample to 0.5 s
-                                step = int(step_sec * sampling_rate)
-                                band_power = band_power[::step]
-                                band_power_raw[band] = band_power
-                                # Accumulate baseline (first 100 min)
-                                if baseline_limit_sec > 0:
-                                    n_take = int(builtins.min(len(band_power), builtins.max(0, baseline_limit_sec / step_sec)))
-                                    if n_take > 0:
-                                        baseline_vals[band].extend(band_power[:n_take].tolist())
-                            # Time vector for band power
                             start_seg = seg['data'].axis['time'][0].min()
-                            times = start_seg + arange(len(list(band_power_raw.values())[0])) * step_sec
+                            hanning_win = hanning(window_samp)
+                            freqs_fft = rfftfreq(window_samp, d=1/sampling_rate)
+                            freqs_fft_ref = freqs_fft
 
+                            band_power_raw = {band: [] for band in freq_bands}
+                            window_times = []
+
+                            idx = 0
+                            while idx + window_samp <= len(signal_data):
+                                window_data = signal_data[idx:idx + window_samp]
+                                tapered = window_data * hanning_win
+                                fft_vals = rfft(tapered)
+                                power_spectrum = (abs(fft_vals) ** 2) / window_samp
+
+                                if baseline_limit_sec > 0:
+                                    baseline_ffts.append(power_spectrum)
+                                    baseline_limit_sec -= step_sec
+
+                                for band, (fmin, fmax) in freq_bands.items():
+                                    mask = (freqs_fft >= fmin) & (freqs_fft <= fmax)
+                                    if not mask.any():
+                                        band_power = nan
+                                    else:
+                                        band_power = nanmean(power_spectrum[mask])
+                                    band_power_raw[band].append(band_power)
+
+                                window_mid_time = start_seg + (idx + (window_samp / 2)) / sampling_rate
+                                window_times.append(window_mid_time)
+                                idx += step_samp
+
+                            if len(window_times) == 0:
+                                continue
+
+                            max_series_len = builtins.max(max_series_len, len(window_times))
                             per_seg_series.append({
-                                'start_time': times[0],
-                                'end_time': times[-1],
-                                'times': times,
-                                'band_power_raw': band_power_raw,
+                                'start_time': window_times[0],
+                                'end_time': window_times[-1],
+                                'times': array(window_times),
+                                'band_power_raw': {b: array(v) for b, v in band_power_raw.items()},
                                 'sampling_rate_band': 1 / step_sec
                             })
-                            baseline_limit_sec = builtins.max(0, baseline_limit_sec - len(times) * step_sec)
 
                         if len(per_seg_series) == 0:
                             logger.warning(f'No valid non-REM segments found for {sub}. {ses}. Skipping...')
                             flag += 1
                             continue
 
-                        baseline_band_power = {}
-                        for band in freq_bands:
-                            vals = array(baseline_vals[band])
-                            baseline_band_power[band] = nanmean(vals) if len(vals) > 0 else nan
+                        if len(baseline_ffts) == 0:
+                            logger.warning('No baseline FFT windows found within first 100 min; normalization may be invalid.')
+                            baseline_fft_avg = None
+                        else:
+                            baseline_fft_avg = nanmean(array(baseline_ffts), axis=0)
 
-                        # Normalize band power time courses and keep bouts >= min_bout_sec
+                        # Band-specific baseline power for normalization
+                        baseline_band_power = {}
+                        if baseline_fft_avg is not None and freqs_fft_ref is not None:
+                            freqs_baseline = freqs_fft_ref
+                            for band, (fmin, fmax) in freq_bands.items():
+                                mask = (freqs_baseline >= fmin) & (freqs_baseline <= fmax)
+                                baseline_band_power[band] = nanmean(baseline_fft_avg[mask]) if mask.any() else nan
+                        else:
+                            baseline_band_power = {band: nan for band in freq_bands}
+
+                        # Normalize band power time courses and keep bouts >=120 s
                         for seg_series in per_seg_series:
                             for band in freq_bands:
                                 denom = baseline_band_power.get(band, nan)
                                 seg_series[f'{band}_norm'] = seg_series['band_power_raw'][band] / denom
+
+                        target_nfft = int(ceil((1 / step_sec) / infraslow_step_hz))
+                        target_nfft = builtins.max(target_nfft, max_series_len)
+                        freqs_infraslow = rfftfreq(target_nfft, d=step_sec)
+                        freq_mask = freqs_infraslow < infraslow_max_hz
+                        freqs_low = freqs_infraslow[freq_mask]
 
                         trace_segments = {band: [] for band in freq_bands}
                         psd_accum = {band: [] for band in freq_bands}
@@ -287,33 +316,12 @@ class clam:
                             for band in freq_bands:
                                 series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
                                                      nan=nanmean(seg_series[f'{band}_norm']))
-                                # High-pass to suppress slow drift; then detrend
-                                hp_cut = 0.01
-                                if len(series) > 3:
-                                    sos_hp = butter(4, hp_cut, btype='high', fs=1 / step_sec, output='sos')
-                                    series = sosfiltfilt(sos_hp, series)
-                                series = detrend(series, type='linear')
                                 centered = series - nanmean(series)
-                                # PWELCH on band-power timecourse
-                                nperseg = builtins.min(len(centered), int(300 / step_sec))
-                                if nperseg < 1:
-                                    continue
-                                noverlap = int(nperseg * 0.5)
-                                freqs_pwel, power_pwel = welch(centered, fs=1 / step_sec,
-                                                               window='hann',
-                                                               nperseg=nperseg,
-                                                               noverlap=noverlap,
-                                                               nfft=int(300 / step_sec),
-                                                               detrend=False,
-                                                               scaling='density')
-                                mask = freqs_pwel <= infraslow_max_hz
-                                freqs_pwel = freqs_pwel[mask]
-                                power_pwel = power_pwel[mask]
-                                # Interpolate to common grid (0..infraslow_max_hz, fixed spacing)
-                                freqs_low = arange(0, infraslow_max_hz + infraslow_step_hz, infraslow_step_hz)
-                                interp_fn = interp1d(freqs_pwel, power_pwel, bounds_error=False, fill_value='extrapolate')
-                                power_interp = interp_fn(freqs_low)
-                                psd_accum[band].append(power_interp)
+                                tapered = centered * hamming(len(centered))
+                                fft_vals = rfft(tapered, n=target_nfft)
+                                power_spec = (abs(fft_vals) ** 2) / sum(hamming(len(centered)) ** 2)
+                                power_spec = power_spec[freq_mask]
+                                psd_accum[band].append(power_spec)
                                 dur_accum[band].append(duration_sec)
 
                         stats = {}
@@ -324,17 +332,10 @@ class clam:
                                 logger.warning(f'No valid bouts >= {min_bout_sec}s for {band}; skipping.')
                                 continue
                             weighted_avg = average(arrays, axis=0, weights=weights) if len(weights) > 0 else average(arrays, axis=0)
-                            # Normalize by mean power in 0.0075–0.1 Hz (Matlab style)
-                            norm_mask = (freqs_low >= 0.0075) & (freqs_low <= 0.1)
-                            mean_psd = weighted_avg / nanmean(weighted_avg[norm_mask])
-                            # No extra smoothing beyond PWELCH interpolation
+                            mean_psd = weighted_avg / nanmean(weighted_avg)
 
-                            fit_mask = (freqs_low >= 0.0075) & (freqs_low <= 0.1)
-                            if not fit_mask.any():
-                                logger.warning(f'No frequencies in fit window for {band}; skipping.')
-                                continue
-                            peak_freq, sigma_val, avg_peak_power, fit_curve = fit_gaussian(
-                                freqs_low[fit_mask], mean_psd[fit_mask], num_components=2, full_freqs=freqs_low)
+                            peak_freq, sigma_val, avg_peak_power = fit_gaussian(
+                                freqs_low, mean_psd, num_components=3)
 
                             logger.debug(f"Chan: {fnamechan}: {chanset[ch]} - "
                                          f"{band} infraslow peak: {round(peak_freq,3)}; "
@@ -384,11 +385,8 @@ class clam:
                             hist_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_{band}_coupling.csv')
 
                             # PSD of LowFreq-Fluctuation
-                            psd_df = DataFrame({
-                                'freq_hz': freqs_low,
-                                'welch_psd': mean_psd,
-                                'fit_psd': fit_curve
-                            })
+                            psd_df = DataFrame(mean_psd).transpose()
+                            psd_df.columns = [f'{round(f,3)} Hz' for f in freqs_low]
                             psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
 
                             # Filtered trace
@@ -525,12 +523,12 @@ def cluster_metrics(annot, chan, evt_name = 'spindle', stage = None,
     if stage:
         merged = [x for x in merged if x['stage'] in stage]
     
-        # Get Spindles
-        chan_full = chan + ' (' + grp_name + ')'
-        events = annot.get_events(evt_name, chan = chan_full, stage = stage)
-        if len(events) == 0:
-            logger.warning(f'No {evt_name} events found in Annotations file.')
-            return 'error'
+    # Get Spindles
+    chan_full = chan + ' (' + grp_name + ')'
+    events = annot.get_events(evt_name, chan = chan_full, stage = stage)
+    if len(events) == 0:
+        logger.warning(f'No {evt_name} events found in Annotations file.')
+        return 'error'
     evt_array = zeros(leng)
     
     for ev in events:
@@ -850,7 +848,7 @@ def multi_gaussian(x, *params):
         y += gaussian(x, a, mu, sigma)
     return y
 
-def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
+def fit_gaussian(freqs_low, psd_vals, num_components=1):
     """
     Fit a Gaussian (or sum of Gaussians) to a 1D power spectrum and compute peak characteristics.
 
@@ -867,29 +865,24 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
     Returns
     -------
     peak_freq : float
-        Estimated peak frequency (global maximum) of the fitted Gaussian mixture [Hz].
+        Estimated peak frequency (mu) of the fitted Gaussian [Hz].
     sigma : float
-        Standard deviation (spread) of the component nearest the peak [Hz].
+        Standard deviation (spread) of the fitted Gaussian [Hz].
     avg_peak_power : float
         Average PSD value in the frequency window centered at the peak frequency
         and spanning ±0.5 * sigma, computed via linear interpolation.
         Returns NaN for all outputs if the fit fails.
-    fit_curve : ndarray
-        Fitted curve evaluated at `full_freqs` if provided, otherwise at `freqs_low`.
     """
     
     try:
-        x_eval = full_freqs if full_freqs is not None else freqs_low
-        components = []
         if num_components == 1:
             bounds = ([0, 0.001, 1e-4], [inf, 0.12, 0.1])  # [a, mu, sigma]
             popt, _ = curve_fit(gaussian, freqs_low, psd_vals, 
                                 p0 = [nanmax(psd_vals), 0.02, 0.01],
                                 bounds = bounds,
                                 maxfev = 8000)
-            a, mu, sigma = popt
-            components.append((a, mu, sigma))
-            fit_curve = gaussian(x_eval, *popt)
+            a, peak_freq, sigma = popt
+            fit_curve = gaussian(freqs_low, *popt)
         else:
             centers = linspace(0.01, 0.09, num_components)
             p0 = []
@@ -903,22 +896,15 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
                                 p0 = p0,
                                 bounds = (bounds_low, bounds_high),
                                 maxfev = 12000)
+            components = []
             for k in range(num_components):
                 a_k, mu_k, sig_k = popt[3*k:3*k+3]
                 components.append((a_k, mu_k, sig_k))
-            fit_curve = multi_gaussian(x_eval, *popt)
+            dominant = builtins.max(components, key=lambda x: x[0])
+            a, peak_freq, sigma = dominant
+            fit_curve = multi_gaussian(freqs_low, *popt)
 
-        # Peak from fitted curve (global max), then choose nearest component for sigma
-        peak_idx = nanargmax(fit_curve)
-        peak_freq = x_eval[peak_idx]
-        if len(components) == 1:
-            sigma_sel = components[0][2]
-        else:
-            mu_candidates = [c[1] for c in components]
-            idx_near = nanargmin([abs(m - peak_freq) for m in mu_candidates])
-            sigma_sel = components[idx_near][2]
-
-        peak_band = (peak_freq - 0.5 * sigma_sel, peak_freq + 0.5 * sigma_sel)
+        peak_band = (peak_freq - 0.5 * sigma, peak_freq + 0.5 * sigma)
         
         # Clip window to valid frequency range
         peak_band = (
@@ -937,9 +923,8 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
         avg_peak_power = nanmean(fine_power)
         
     except RuntimeError:
-        peak_freq, sigma_sel, avg_peak_power = nan, nan, nan
-        fit_curve = full_freqs * nan if full_freqs is not None else freqs_low * nan
+        peak_freq, sigma, avg_peak_power = nan, nan, nan
 
-    return peak_freq, sigma_sel if 'sigma_sel' in locals() else nan, avg_peak_power, fit_curve
+    return peak_freq, sigma, avg_peak_power
     
             

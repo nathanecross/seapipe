@@ -9,10 +9,16 @@ from datetime import datetime, date
 from itertools import product
 from os import listdir, mkdir, path
 import shutil
+from pathlib import Path
+import csv
+
+import numpy as np
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.detect import consensus, DetectSpindle
 from wonambi.trans import fetch
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import find_peaks
 from ..utils.logs import create_logger, create_logger_outfile
 from ..utils.load import (load_channels, load_adap_bands, load_sessions, 
                           rename_channels, read_manual_peaks)
@@ -418,5 +424,152 @@ class whales:
         return 
     
 
+def _is_number(text):
+    try:
+        float(text)
+        return True
+    except ValueError:
+        return False
 
+
+def _load_peak_frequencies(path, target_column="Peak power frequency (Hz)", cluster_column="Peak cluster"):
+    header = None
+    freq_idx = -1
+    cluster_idx = None
+    freqs = []
+    rows = []
+    count_value = None
+
+    with path.open(newline="") as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if not row:
+                continue
+
+            if header is None:
+                if row[0].strip() == "Count" and len(row) > 1 and _is_number(row[1]):
+                    count_value = float(row[1])
+                    rows.append(row)
+                    continue
+                if target_column in row:
+                    header = row
+                    freq_idx = row.index(target_column)
+                    if cluster_column in row:
+                        cluster_idx = row.index(cluster_column)
+                    rows.append(row)
+                else:
+                    rows.append(row)
+                continue
+
+            rows.append(row)
+            if len(row) <= freq_idx:
+                continue
+            if not row[0].strip().isdigit():
+                continue
+            freq_text = row[freq_idx].strip()
+            if not _is_number(freq_text):
+                continue
+            freqs.append(float(freq_text))
+
+    if header is None or freq_idx < 0:
+        raise ValueError(f"{path} is missing the '{target_column}' column.")
+    if not freqs:
+        raise ValueError(f"No usable frequency values found in {path}.")
+
+    return header, freq_idx, cluster_idx, freqs, rows, count_value
+
+
+def _two_peak_threshold(freqs, bins=60, smooth_sigma=1.5):
+    freqs_arr = np.asarray(freqs, dtype=float)
+    counts, edges = np.histogram(freqs_arr, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    smoothed = gaussian_filter1d(counts.astype(float), sigma=smooth_sigma)
+
+    peak_indices, _ = find_peaks(smoothed)
+    if len(peak_indices) >= 2:
+        top_two = peak_indices[np.argsort(smoothed[peak_indices])[-2:]]
+        top_two.sort()
+        peak_positions = centers[top_two]
+    elif len(peak_indices) == 1:
+        peak_positions = np.array([centers[peak_indices[0]], np.median(freqs_arr)])
+    else:
+        peak_positions = np.array([freqs_arr.min(), freqs_arr.max()])
+
+    low_peak, high_peak = np.sort(peak_positions)
+    return float(0.5 * (low_peak + high_peak))
+
+
+def _append_cluster_column(rows, header_row_idx, freq_idx, cluster_idx, threshold, cluster_column):
+    updated = []
+    for idx, row in enumerate(rows):
+        if idx < header_row_idx:
+            updated.append(row)
+            continue
+        if idx == header_row_idx:
+            if cluster_idx is None:
+                updated.append(row + [cluster_column])
+                cluster_idx = len(row)
+            else:
+                updated.append(row)
+            continue
+
+        if (
+            idx > header_row_idx
+            and len(row) > freq_idx
+            and row
+            and row[0].strip().isdigit()
+            and _is_number(row[freq_idx])
+        ):
+            freq_value = float(row[freq_idx])
+            cluster = "low_peak" if freq_value < threshold else "high_peak"
+            if cluster_idx is None:
+                updated.append(row + [cluster])
+            else:
+                if len(row) <= cluster_idx:
+                    row = row + [""] * (cluster_idx - len(row) + 1)
+                row[cluster_idx] = cluster
+                updated.append(row)
+        else:
+            if cluster_idx is None:
+                updated.append(row + [""])
+            else:
+                if len(row) <= cluster_idx:
+                    row = row + [""] * (cluster_idx - len(row) + 1)
+                updated.append(row)
+    return updated
+
+
+def cluster_peaks(csv_dir, target_column="Peak power frequency (Hz)", cluster_column="Peak cluster", bins=60, smooth_sigma=1.5):
+    """
+    Add a 'Peak cluster' column to every CSV in the provided directory tree by
+    locating two peaks in the target column's distribution and labeling events
+    as low/high relative to the midpoint between the peaks.
+    """
+    logger = create_logger("Cluster peaks")
+    csv_dir = Path(csv_dir)
+    if not csv_dir.exists():
+        raise FileNotFoundError(f"{csv_dir} does not exist")
+
+    csv_paths = [p for p in csv_dir.rglob("*.csv") if p.is_file()]
+    if not csv_paths:
+        logger.warning(f"No CSV files found under {csv_dir}")
+        return []
+
+    results = []
+    for csv_path in csv_paths:
+        try:
+            header, freq_idx, cluster_idx, freqs, rows, _ = _load_peak_frequencies(
+                csv_path, target_column=target_column, cluster_column=cluster_column
+            )
+            threshold = _two_peak_threshold(freqs, bins=bins, smooth_sigma=smooth_sigma)
+            header_row_idx = rows.index(header)
+            updated_rows = _append_cluster_column(rows, header_row_idx, freq_idx, cluster_idx, threshold, cluster_column)
+            with csv_path.open("w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerows(updated_rows)
+            results.append((csv_path, threshold))
+            logger.debug(f"Clustered {csv_path} at threshold={threshold:.4f} Hz")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Failed to cluster {csv_path}: {exc}")
+    return results
       

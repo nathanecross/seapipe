@@ -592,13 +592,13 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                     spin_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),spin_df.loc[sub]))
                                     break
                                 else:
-                                    for chan in chans:
-                                        tracking['spindle'][sub][ses][chan] = []
+                                    for spinchan in chans:
+                                        tracking['spindle'][sub][ses][spinchan] = []
                                         methlist = sorted(set([x['name'] for x in events]))
                                         if len(methlist) > 0:
                                             for method in methlist:
                                                 update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                                tracking['spindle'][sub][ses][chan].append({'Method':method,
+                                                tracking['spindle'][sub][ses][spinchan].append({'Method':method,
                                                                                      'Stage':'',      # FLAG FOR UPDATE
                                                                                      'Cycle':'',      # FLAG FOR UPDATE
                                                                                      'File':f'{spath}/{sub}/{ses}/{xml}',
@@ -661,19 +661,19 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                     so_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),so_df.loc[sub]))
                                     break
                                 else:
-                                    for chan in chans:
-                                        tracking['slow_osc'][sub][ses][chan] = []
+                                    for sochan in chans:
+                                        tracking['slow_osc'][sub][ses][sochan] = []
                                         methlist = sorted(set([x['name'] for x in events]))
                                         if len(methlist) > 0:
                                             for method in methlist:
                                                 update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{xml}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                                tracking['slow_osc'][sub][ses][chan].append({'Method':method,
-                                                                                     'Stage':'',      # FLAG FOR UPDATE
+                                                tracking['slow_osc'][sub][ses][sochan].append({'Method':method,
+                                                                                     'Stage':xml.split(f'_{sochan}_')[1].split('_')[0],      # FLAG FOR UPDATE
                                                                                      'Cycle':'',      # FLAG FOR UPDATE
                                                                                      'File':f'{spath}/{sub}/{ses}/{xml}',
                                                                                      'Updated':update}) 
                             except:
-                                lg.warning(f'Error loading nnotations found for {sub}, {ses}')
+                                lg.warning(f'Error loading Annotations found for {sub}, {ses}')
 
         df['slow_osc'] = so_df
     
@@ -719,12 +719,12 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                             fooof_df.loc[sub] = list(map(lambda x: x.replace(ses,'-'),fooof_df.loc[sub]))
                             break
                         else:
-                            for channel in chans:
-                                tracking['fooof'][sub][ses][channel] = []
-                                chan_files = [file for file in files if f'_{channel}_' in file]
+                            for fooofchan in chans:
+                                tracking['fooof'][sub][ses][fooofchan] = []
+                                chan_files = [file for file in files if f'_{fooofchan}_' in file]
                                 for chanfile in chan_files:
                                     update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{chanfile}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                    tracking['fooof'][sub][ses][channel].append({'Stage':chanfile.split(f'_{channel}_')[1].split('_')[0],      
+                                    tracking['fooof'][sub][ses][fooofchan].append({'Stage':chanfile.split(f'_{fooofchan}_')[1].split('_')[0],      
                                                                               'Cycle':'',      # FLAG FOR UPDATE
                                                                               'Bandwidth':chanfile.split('specparams_')[1].split('.csv')[0],
                                                                               'File':f'{spath}/{sub}/{ses}/{chanfile}',
