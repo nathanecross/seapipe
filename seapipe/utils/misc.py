@@ -70,7 +70,10 @@ def remove_duplicate_evts(annot, evt_name, chan = None, stage = None):
                         del(evts_trim[ee])
                     i=+1
     
-    evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    if chan:
+        evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    else:
+        evts = []
     
     annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
@@ -115,12 +118,18 @@ def merge_events(annot, evt_name, chan = None, stage = None, segments = None):
                          evt['start'] == m['start'] if evt['end'] == m['end']]
                 removed.append(index)
     
-    events_trim = [evts[1] for i, x in enumerate (evts) if not i in removed]
+    events_trim = [evts[i] for i, x in enumerate (evts) if not i in removed]
     merged_events = merged_events + events_trim
+    
+    
+    if chan:
+        evts = [x for x in annot.get_events(name = evt_name) if chan not in x['chan']]
+    else:
+        evts = []
     
     annot.remove_event_type(name = evt_name)
     grapho = graphoelement.Graphoelement()
-    grapho.events = merged_events         
+    grapho.events = evts + merged_events         
     grapho.to_annot(annot, evt_name)       
 
 
@@ -821,10 +830,14 @@ def reconstruct_stitches(dat, stitches, s_freq, replacement = 0):
 
 def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan,
                      stage, cat, concat_cycle, cycle_idx, logger):
-
+    
+    if adap_bands not in ['Fixed', 'Auto', 'Manual']:
+        logger.critical("The argument 'adap_bands' must be either one of"
+                        f"'Fixed', 'Auto', 'Manual', not: '{adap_bands}'")
+        flag = 'error'
    
     if adap_bands == 'Fixed':
-        flag = None
+        flag = 'None'
         if not frequency:
             frequency = (11,16)
     elif adap_bands == 'Manual':
@@ -832,7 +845,7 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
         flag = check_adap_bands(self.rootpath, subs, sessions, chan, logger)
         if flag == 'error':
             logger.critical('Spindle detection finished with ERRORS. See log for details.')
-            return
+            
         elif flag == 'review':
             logger.info('')
             logger.warning("Some spectral peak entries in 'tracking.tsv' are "
@@ -841,7 +854,8 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
             logger.info('')
     elif adap_bands == 'Auto': 
         if not frequency:
-            frequency = (9,16)           
+            frequency = (9,16) 
+            flag = 'None'
         self.track(subs, sessions, step = 'fooof', show = False, log = False)
         if not type(chan) == type(DataFrame()):
             logger.critical("For adap_bands = Auto, the argument 'chan' must "
@@ -854,23 +868,22 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
                                                               cat,
                                                               cycle_idx, 
                                                               logger)
-        if flag == 'error':
-            logger.critical('Error in reading channel names, check tracking sheet.')
-            logger.info("Check documentation for how to set up channel names in tracking.tsv':")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            logger.info('-' * 10)
-            return
-        elif flag == 'review':
-            logger.debug("Spectral peaks have not been found for all subs, "
-                         "analysing the spectral parameters prior to spindle detection..")
-            for (sub,ses) in zip(pk_sub, pk_ses):
-                self.detect_spectral_peaks(subs = [sub], 
-                                       sessions = [ses], 
-                                       chan = pk_chan, 
-                                       frequency = frequency,
-                                       stage = stage, cycle_idx = cycle_idx,
-                                       concat_cycle = concat_cycle, 
-                                       concat_stage=True)    
+            if flag == 'error':
+                logger.critical('Error in reading channel names, check tracking sheet.')
+                logger.info("Check documentation for how to set up channel names in tracking.tsv':")
+                logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+                logger.info('-' * 10)
+            elif flag == 'review':
+                logger.debug("Spectral peaks have not been found for all subs, "
+                             "analysing the spectral parameters prior to spindle detection..")
+                for (sub,ses) in zip(pk_sub, pk_ses):
+                    self.detect_spectral_peaks(subs = [sub], 
+                                           sessions = [ses], 
+                                           chan = pk_chan, 
+                                           frequency = frequency,
+                                           stage = stage, cycle_idx = cycle_idx,
+                                           concat_cycle = concat_cycle, 
+                                           concat_stage=True)    
     return frequency, flag
 
 
@@ -966,4 +979,8 @@ def flip_and_switch(data):
     return result
 
 
-
+def check_data_length(data, duration, logger = create_logger('Data check')):
+    
+    if any([data(trial=x).shape[1]<= duration*data.s_freq for 
+            x in range(data.number_of('trial'))]):
+        logger.warning('Length of data too short!!')

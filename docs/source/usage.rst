@@ -42,8 +42,9 @@ An example of the datastructure would look like this:
       │  ├─ dataset_description.json 
       │  └─ participants.tsv
       └─ derivatives/
-         ├─ seapipe/
-         └─ ...
+      │  ├─ seapipe/
+      │  └─ ...
+      └─ tracking.tsv
 
 
 .. admonition:: NOTE - BIDS🧠
@@ -79,7 +80,7 @@ To receive an overview of your dataset, including whether the each participant's
 how many sessions, recording (e.g. edfs) and annotation files they contain, you can call the ``pipeline.audit`` property 
 of every dataset:
  
->>> pipeline.audit()
+>>> project_name.audit()
  
 ::
 
@@ -124,7 +125,7 @@ To retrieve a table of all the analyses that have been run (and are located in `
 
 .. code-block:: python
 
-    project.track(subs = 'tracking.tsv',
+    project_name.track(subs = 'tracking.tsv',
                   step=['staging','spindles', 'so', 'fooof'], 
                   chan = ['Fz (eeg)'],
                   outfile='progress.csv')
@@ -159,7 +160,7 @@ EEG configurations (e.g. channel names, online references, sampling_frequencies 
 trying to conduct pipeline analyses across datasets with inconsistences in these certain parameters.
 
 One way that **seapipe** gets around this is with the use of a tracking file. This file can be in .tsv or .xlsx format.
-However it *must* be named: **tracking.csv** and placed at the same level in the dataset structure as `participants.tsv <_data_preparation_and_setup>`_
+However it *must* be named: **tracking.tsv/xslx** and placed at the root level directory in the dataset (see :ref:`Data Preparation and Setup`)
 
 It's structure should look like this:
 ::
@@ -185,6 +186,16 @@ If you create this tracking file, then you can read parameters such as channel n
  in the calls to functions.
 
 ** Coming soon ** The function to read from a channels.tsv file in a BIDS dataset
+
+
+.. _Contributing_and_troubleshooting:
+Contributing and troubleshooting
+----------------
+
+If you run into any issues with using seapipe, notice any documentation is incorrect, or have any suggested functions that you would like to see implemented - please either:
+   - raise an issue on `GitHub. <https://github.com/nathanecross/seapipe>`_
+   - or contact me directly: nathan.cross.90@gmail.com 
+
 
 .. The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
 .. or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`

@@ -69,23 +69,15 @@ Finally, the true PAC is corrected by the calculated surrogate distribution. Ten
 To read more about thse approaches, `see here <https://etiennecmb.github.io/tensorpac/auto_examples/index.html#tutorials>`_
 
 
-.. _Functions:
-Functions to analyse Phase Amplitude Coupling
-----------------
-| **Analysing phase amplitude coupling and extracting the relevant parameters will involve three functions:**
-
-1) Detect spindles events:  
-
-.. code-block:: python
-
-   project_name.pac()
-|
-    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
-|
 
 .. _detection_pac:
 Run Phase Amplitude Coupling
 ----------------
+
+|
+    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
+|
+
 *Command line argument:*
 
 .. code-block:: python
@@ -269,14 +261,14 @@ Run Phase Amplitude Coupling
 
             * If entering an event name (e.g. ``'SO'``) that event will need to be already detected in the :ref:`Annotations file` and named exactly as entered here.
 
-    **min_dur** *(tuple)*
-        * Minimum duration of events that will be detected. Any events with durations that are outside these limits will be discarded
+    **min_dur** *(float)*
+        * Minimum duration (seconds) of events that will be detected. Any events with durations that are outside these limits will be discarded
 
         * *Acceptable options:*
 
-            * Default is ``(0.5, 3)`` (in seconds)
+            * Default is ``1`` (in seconds)
 
-            * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of float with length 2 (e.g., ``(0.5, 2)``)  will limit the detection to events with a duration within this range
+            * Entering a float (e.g., ``1.4``)  will limit the detection to events with a duration above this threshold
 
     **nbins** *(int)*
         * Number of phase bins to discretize the signal for calculation of preferred phase and coupling strength.

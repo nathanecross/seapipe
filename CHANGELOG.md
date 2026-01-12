@@ -13,7 +13,7 @@ Beta Version
 0.3.4 More bug fixes in spindle detection for when running only some subjects at a time
 0.3.5 Added functionality to read sub and ses from tracking sheet
 0.3.7 Removed redundant scripts from pac
-0.3.9 Added first artefact detection (SAND)
+0.3.9 Added first artefact detection (S.A.N.D)
 0.4 Added continuous PAC and fixed bugs with event PAC
 0.4.1 Updated format bids to allow subject-level exectution
 0.4.2 Updates to export PAC summary
@@ -32,3 +32,14 @@ Beta Version
 0.6 Added S.Q.U.I.D for channel QC, and improved artefact detection
 0.6.1 Minor bug fixes, expanded default QC channel search
 0.6.2 Updates to PAC event dataset
+0.6.3 Bug fix for major tracking function, added broadband to spectral output
+0.6.4 Bug fixes in power spectrum and whales (merge)
+0.6.5 Added C.L.A.M for clustering and low-freq fluctuations
+0.6.6 Added S.C.A.L.O.P.S for clustering summary dataset creation
+0.6.7 Minor bug fixes and documenation updates
+0.6.8 Bug fixes to reading channel names and searching for specparams files
+0.6.9 More bug fixes to load.py and improved error logging
+0.7 Updates and fixes to SAND, whales and logging
+0.7.1 Bug fixes & better logs for crashes when data is incongruent 
+0.7.2 Bug fixes for PSA (reading in channel names to filter functions)
+0.7.3 Updated default settings for loading in chan names and for fetching data on individual channels

@@ -23,7 +23,8 @@ from wonambi import ChanFreq, Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, frequency, get_descriptives, export_freq, 
                            export_freq_band)
-from ..utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
+from ..utils.misc import (bandpass_mne, laplacian_mne, notch_mne, notch_mne2, 
+                          check_data_length)
 from ..utils.logs import create_logger
 from ..utils.load import infer_ref, load_channels, load_sessions, rename_channels
 
@@ -66,7 +67,7 @@ def default_frequency_opts():
                       'overlap': 0.5,
                       'step': None,
                       'centend':'mean',
-                      'log_trans': True,
+                      'log_trans': False,
                       'halfbandwidth': 3,
                       'NW': None}
     return frequency_opts
@@ -231,7 +232,7 @@ class Spectrum:
         freq_bw = frequency_opts['frequency']
         if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+            logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz with the stages/cycles merged.')
         elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
             logger.debug(f'Parameterizing power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
@@ -365,7 +366,7 @@ class Spectrum:
                 # get segments
                 for c, ch in enumerate(chanset):
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
-                    segments = fetch(dset, annot, cat = cat, 
+                    segments = fetch(dset, annot, cat = cat, chan_full = [ch],
                                      evt_type = event_opts['evt_type'], 
                                      stage = self.stage, cycle=cycle,  
                                      epoch = epoch_opts['epoch'], 
@@ -390,7 +391,7 @@ class Spectrum:
                         continue
                     
                     for sg, seg in enumerate(segments):
-                        logger.debug(f'Analysing segment {sg+1} of {len(segments)}')
+                        logger.debug(f"Analysing segment {sg+1} of {len(segments)} ({seg['stage']})")
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -529,26 +530,36 @@ class Spectrum:
         freq_bw = frequency_opts['frequency']
         if self.cat[0] + self.cat[1] == 2:
             model = 'whole_night'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz for the whole night.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz for the whole night.')
         elif self.cat[0] + self.cat[1] == 0:
             model = 'stage*cycle'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage and cycle separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per stage and cycle separately.')
         elif self.cat[0] == 0:
             model = 'per_cycle'
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per cycle separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per cycle separately.')
         elif self.cat[1] == 0:
             model = 'per_stage'  
-            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per stage separately.')
+            logger.debug(f'Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} '
+                         'Hz per stage separately.')
         
         if self.cat[3] == 0:
             ev_model = True
-            logger.debug(f"Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} Hz per event: {event_opts['evt_type']} separately.")
+            logger.debug(f"Calculating power spectrum in range {freq_bw[0]}-{freq_bw[1]} "
+                         f"Hz per event: {event_opts['evt_type']} separately.")
         else:
             ev_model = False
         if 'cycle' in model and self.cycle_idx == None:
             logger.info('')
-            logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx cannot be 'None'")
+            logger.critical("To run cycles separately (i.e. cat[0] = 0), cycle_idx "
+                            "cannot be 'None'")
             return
+        if not ev_model and not epoch_opts['concat_signal']:
+            logger.warning("If not running PSA per event, epoch_opts['concat_signal'] "
+                           "must be set to True. Setting now."  )
+            epoch_opts['concat_signal'] = True
         cat = self.cat
         #cat = tuple((self.cat[0],self.cat[1],1,1)) # force concatenation of discontinuous & events
         
@@ -661,7 +672,7 @@ class Spectrum:
                         filter_opts['laplacian_rename'] = True
                     else:
                         fnamechan = ch
-                        filter_opts['laplacian_rename'] = False
+                        #filter_opts['laplacian_rename'] = False
                         
                     if ch == '_REF':
                         filter_opts['laplacian_rename'] = False
@@ -742,7 +753,7 @@ class Spectrum:
                     ## Get segments of data
                     logger.debug(f"Reading data for {ch}:{'/'.join(chanset[ch])}")
                     
-                    segments = fetch(dset, annot, cat = cat, 
+                    segments = fetch(dset, annot, cat = cat, chan_full = [ch],
                                      evt_type = event_opts['evt_type'], 
                                      stage = self.stage, cycle=cycle,   
                                      epoch = epoch_opts['epoch'], 
@@ -774,7 +785,7 @@ class Spectrum:
                     
                     # Loop over segments and apply transforms
                     for sg, seg in enumerate(segments):
-                        logger.debug(f'Analysing segment {sg+1} of {len(segments)}')
+                        logger.debug(f"Analysing segment {sg+1} of {len(segments)} ({seg['stage']})")
                         out = dict(seg)
                         data = seg['data']
                         timeline = data.axis['time'][0]
@@ -843,7 +854,10 @@ class Spectrum:
                             break
                         
                         ### Frequency transformation
-                        Sxx = frequency(data, output=frequency_opts['output'], 
+                        try:
+                            check_data_length(data, frequency_opts['duration'],
+                                              logger)
+                            Sxx = frequency(data, output=frequency_opts['output'], 
                                         scaling=frequency_opts['scaling'], 
                                         sides=frequency_opts['sides'], 
                                         taper=frequency_opts['taper'],
@@ -856,6 +870,12 @@ class Spectrum:
                                         n_fft=n_fft, 
                                         log_trans=frequency_opts['log_trans'], 
                                         centend=frequency_opts['centend'])
+                        except Exception as error:
+                            logger.error(error.args[0])
+                            logger.warning(f"Skipping {seg['stage']} for channel {str(ch)} ... ")
+                            flag+=1
+                            continue
+                            
                         
                         # Baseline normalisation
                         if norm:

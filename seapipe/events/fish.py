@@ -10,14 +10,16 @@ import re
 from itertools import product
 from numpy import (asarray, full, nan, ndarray, sum)
 from os import listdir, mkdir, path, walk
-from pandas import DataFrame, read_csv
+from pandas import concat, DataFrame, read_csv
 from pathlib import Path
 from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, get_times)
 from wonambi.trans.analyze import event_params, export_event_params
 from ..utils.logs import create_logger, create_logger_empty
-from ..utils.load import (load_channels, load_adap_bands, rename_channels, read_manual_peaks)
+from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
+                          read_manual_peaks, read_tracking_sheet,
+                          reverse_chan_lookup)
 
 class FISH:
     
@@ -333,8 +335,7 @@ class FISH:
                                         logger.debug(f'No. Events = {count}, Total duration (s) = {total_dur}')
                                         logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                         logger.info('')
-                                        # Export event parameters 
-                                        lg = create_logger_empty()
+                                        # Export event parameters
                                         try:
                                             data = event_params(segments, params=param_keys, 
                                                                 band=freq, n_fft=None)
@@ -409,9 +410,7 @@ class FISH:
                                                 logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                                 logger.info('')
     
-                                                
-                                                # Export event parameters 
-                                                lg = create_logger_empty()
+                                                # Export event parameters
                                                 data = event_params(segments, params=params, 
                                                                     band=freq, n_fft=None)
                                                 if not path.exists(self.out_dir + '/' + sub):
@@ -463,7 +462,6 @@ class FISH:
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
                                             # Export event parameters 
-                                            lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
                                                                 band=freq, n_fft=None)
                                             if not data:
@@ -501,7 +499,7 @@ class FISH:
                                                              min_dur=0.5)
                                             segments.read_data([channel], chanset[channel], 
                                                                grp_name=self.grp_name)
-                                        except Exception as e:
+                                        except Exception:
                                             logger.error(e)
                                             logger.warning(f'Error reading data for {sub}, {ses}, CHANNEL {channel}, CYCLE {cy}.')
                                             flag +=1
@@ -536,7 +534,6 @@ class FISH:
                                             logger.debug(f'Density = {round(density, ndigits=2)} per epoch')
                                             logger.info('')
                                             # Export event parameters 
-                                            lg = create_logger_empty()
                                             data = event_params(segments, params=params, 
                                                                 band=freq, n_fft=None)
                                             if not path.exists(self.out_dir + '/' + sub):
@@ -596,10 +593,12 @@ class FISH:
                 ### 3. Check completion status and print
                 if flag == 0:
                     logger.info('')
-                    logger.debug('Event parameter export finished without ERROR.')  
+                    logger.debug('Listing Individual aNnotated Events (L.I.N.E) '
+                                 'finished without ERROR.')  
                 else:
                     logger.info('')
-                    logger.warning('Event parameter export  finished with WARNINGS. See log for details.')
+                    logger.warning('Listing Individual aNnotated Events (L.I.N.E) ' 
+                                   f'finished with {flag} WARNINGS. See log for details.')
                 return 
     
                     
@@ -724,7 +723,10 @@ class FISH:
                                 return
                         else:
                             flag +=1
-                            logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                            logger.warning(f'Data not found for {sub}, {ses}, '
+                                           f'{ch}, {stagename}, Event: {evt_name} '
+                                           '- has export_eventparams been run for '
+                                           f'{model}, using adap_bands = {adap_bands}?')
                     if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                         mkdir(f'{self.out_dir}/{evt_name}_{model}')
                     df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}.csv")
@@ -748,7 +750,11 @@ class FISH:
                                         return
                                 else:
                                     flag +=1
-                                    logger.warning(f'Data not found for {sub}, {ses}, {ch}, {st}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                                    logger.warning(f'Data not found for {sub}, '
+                                                   f'{ses}, {ch}, {st}, Event: '
+                                                   f'{evt_name} - has export_eventparams '
+                                                   f'been run for {model}, '
+                                                   f'using adap_bands = {adap_bands}?')
                             if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                                 mkdir(f'{self.out_dir}/{evt_name}_{model}')
                             df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{st}_{cycle}.csv")
@@ -759,7 +765,8 @@ class FISH:
                         stagename = '-'.join(self.stage)
                         st_columns = [x + f'_{stagename}_{cycle}' for x in columns]
                         df = DataFrame(index=subs, columns=st_columns,dtype=float) 
-                        logger.debug(f'Collating {evt_name} parameters from {ch}, {stagename}, {cycle}..')
+                        logger.debug(f'Collating {evt_name} parameters from {ch}, '
+                                     f'{stagename}, {cycle}..')
                         for s, sub in enumerate(subs): 
                             logger.debug(f'Extracting from {sub}, {ses}')
                             data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{cycle}_{evt_name}.csv'
@@ -772,7 +779,11 @@ class FISH:
                                     return
                             else:
                                 flag +=1
-                                logger.warning(f'Data not found for {sub}, {ses}, {ch}, {stagename}, {cycle}, Event: {evt_name} - has export_eventparams been run for {model}, using adap_bands = {adap_bands}?')
+                                logger.warning(f'Data not found for {sub}, {ses}, '
+                                               f'{ch}, {stagename}, {cycle}, Event: '
+                                               f'{evt_name} - has export_eventparams '
+                                               f'been run for {model}, using adap_bands '
+                                               f'= {adap_bands}?')
                         if not path.exists(f'{self.out_dir}/{evt_name}_{model}'):
                             mkdir(f'{self.out_dir}/{evt_name}_{model}')
                         df.to_csv(f"{self.out_dir}/{evt_name}_{model}/{evt_name}_{ses}_{ch}_{stagename}_{cycle}.csv")
@@ -805,12 +816,225 @@ class FISH:
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
-            logger.debug('Create event dataset finished without ERROR.')  
+            logger.debug('aNnotated Events Tabulation (N.E.T) finished without ERROR.')  
         else:
             logger.info('')
-            logger.warning('Create event dataset finished with WARNINGS. See log for details.')
+            logger.warning('aNnotated Events Tabulation (N.E.T) finished with '
+                           f'{flag} WARNINGS. See log for details.')
         return 
+
+    
+    def scalops(self, chan, evt_name, bands, params = 'all', 
+                 logger = create_logger('Cluster dataset')):
+        
+        '''
+            Summary of Clustering And Low-frequency Oscillatory Power Signatures
+            S.C.A.L.O.P.S
+            
+            This function extracts individual parameters of 
+            clustering and LFF stats from the whole cohort and creates a 
+            master-level dataframe tabulating this information.
+            This function can only be used one-event-at-a-time.
+        '''
+        
+        ### 0.a Set up logging
+        flag = 0
+        logger.info('')
+        logger.debug(r""" Commencing Event Dataset Creation
+
+                     
+                               _.---._              _.---._
+                           .'"".'/|\`.""'.      .'""/     \""'. 
+                          :  .' / | \ `.  :    :  .'\-___-/`.  :
+                          '.'  /  |  \  `.'    '.'  /  |  \  `.'
+                           `. /   |   \ .'      `. /   |   \ .'
+                             `-.__|__.-'          `-.__|__.-'
+                                                    
+                    Summary of Clustering And Low-frequency Oscillatory Power Signatures
+                    S.C.A.L.O.P.S
+                                
+                                                    """,)
+        
+        ### 1. First check the directories
+        # a. Check for output folder, if doesn't exist, create
+        if not path.exists(self.out_dir):
+                mkdir(self.out_dir)
+        
+        # b. Get subject IDs
+        subs = self.subs
+        if isinstance(subs, list):
+            None
+        elif subs == 'all':
+                subs = next(walk(self.xml_dir))[1]
+        else:
+            logger.error("'subs' must either be an array of participant ids or = 'all' ")
+            
+        # c. Take a look through directories to get sessions
+        subs.sort()
+        if isinstance(self.sessions, str) and self.sessions == "all":
+            sessions = set()
+            for subdir in Path(self.xml_dir).iterdir():
+                if subdir.is_dir() and subdir.name.startswith("sub-"):
+                    for sesdir in subdir.iterdir():
+                        if sesdir.is_dir() and sesdir.name.startswith("ses-"):
+                            sessions.add(sesdir.name)
+            sessions = sorted(sessions)
+        elif isinstance(self.sessions, list):
+            sessions = self.sessions
+        else:
+            raise ValueError("sessions must be a list or 'all'")
  
+        # 3. Set variable names and combine with visits 
+        if params == 'all':
+            variables = ['cv','cv_p_value','VMR','VMR_p_value',
+                         'num_clusters_n','average_cluster_size_n',
+                         'max_cluster_size_n','min_cluster_size_n',
+                         'clusters_per_60s','ave_within_cluster_freq',
+                         'mean_iei_s','median_iei_s','min_interval_s',
+                         'mean_interval_s','max_interval_s',
+                         'min_cluster_duration_s','avg_cluster_duration_s',
+                         'max_cluster_duration_s']
+            for band in bands:
+                variables.extend([f'{band}_peak_freq', f'{band}_avg_peak_power'])
+        else:
+            variables = params
+        
+        # band names
+        fbandnames = '-'.join(bands)
+        
+        # 4. Begin data extraction
+        for c, ch in enumerate(chan):
+            logger.debug(f'Collating cluster parameters for {fbandnames}, {evt_name} in {ch}..')
+            # a. Create column names (append chan and ses names)
+            for v, ses in enumerate(sessions):
+                sesvar = []
+                for pair in product(variables, [ses]):
+                    sesvar.append('_'.join(pair))
+                columns = []
+                for pair in product([evt_name], sesvar, [ch]):
+                    columns.append('_'.join(pair))
+                
+                stagename = '-'.join(self.stage)
+                st_columns = [x + f'_{stagename}' for x in columns]
+                df_stats = DataFrame(index=subs, columns=st_columns, dtype=float)
+                df_hist = []
+                for s, sub in enumerate(subs): 
+                    logger.debug(f'Extracting from {sub}, {ses}')
+                    
+                    # Cluster metrics
+                    ar = []
+                    data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{evt_name}_clustering.csv'     
+                    if path.isfile(data_file):
+                        try:
+                            ar.extend(extract_cluster_data(data_file, variables))
+                        except:
+                            extract_data_error(logger)
+                            flag +=1
+                            continue
+                    else:
+                        flag +=1
+                        logger.warning(f'*clustering.csv not found for {sub}, '
+                                       f'{ses}, {ch}, {stagename}, {fbandnames}'
+                                       f'in {self.xml_dir}/{sub}/{ses}/')
+                        continue
+                    
+                    # Peak data
+                    data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{fbandnames}_fluctuation_stats.csv'     
+                    if path.isfile(data_file):
+                        try:
+                            ar.extend(extract_cluster_data(data_file, variables))
+                        except:
+                            extract_data_error(logger)
+                            flag +=1
+                            continue
+                    else:
+                        flag +=1
+                        logger.warning(f'*fluctuation_stats.csv not found for {sub}, '
+                                       f'{ses}, {ch}, {stagename}, {fbandnames} '
+                                       f'in {self.xml_dir}/{sub}/{ses}/')
+                        continue
+                        
+                    # Save to df
+                    df_stats.loc[sub] = ar
+                 
+                df_stats.to_csv(f"{self.out_dir}/{evt_name}_{ses}_{ch}_{stagename}_cluster_stats.csv")
+                
+        for c, ch in enumerate(chan):
+            for band in bands:
+                logger.debug(f'Collating phase-histograms for {band}, {evt_name} in {ch}..')
+                
+                # a. Create column names (append chan and ses names)
+                for v, ses in enumerate(sessions):
+                    # Histogram
+                    df_hist = []
+                    for s, sub in enumerate(subs): 
+                        logger.debug(f'Extracting from {sub}, {ses}')   
+                        data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{evt_name}_{band}_coupling.csv'
+                        if path.isfile(data_file):
+                            try:
+                                hist = read_csv(data_file, index_col = 0)
+                                hist.index = [sub]
+                                df_hist.append(hist)
+                            except:
+                                extract_data_error(logger)
+                                flag +=1
+                                continue
+                        else:
+                            flag +=1
+                            logger.warning(f'*coupling.csv not found for {sub}, '
+                                           f'{ses}, {ch}, {stagename}, {evt_name}, {band} '
+                                           f'in {self.xml_dir}/{sub}/{ses}/')
+                            
+                            
+                   
+                    # Concatenate all dataframes vertically (row-wise)
+                    master_df = concat(df_hist)
+                    master_df.to_csv(f"{self.out_dir}/{evt_name}-{band}_{ses}_{ch}_{stagename}_histogram.csv")
+            
+        for c, ch in enumerate(chan):
+            for band in bands:
+                logger.debug(f'Collating PSD for {band}, {evt_name} in {ch}..')
+                
+                # a. Create column names (append chan and ses names)
+                for v, ses in enumerate(sessions):
+                    # Histogram
+                    df_psd = []
+                    for s, sub in enumerate(subs): 
+                        logger.debug(f'Extracting from {sub}, {ses}')   
+                        data_file = f'{self.xml_dir}/{sub}/{ses}/{sub}_{ses}_{ch}_{stagename}_{band}_fluctuations_psd.csv'
+                        if path.isfile(data_file):
+                            try:
+                                psd = read_csv(data_file, index_col = 0)
+                                psd.index = [sub]
+                                df_psd.append(psd)
+                            except:
+                                extract_data_error(logger)
+                                flag +=1
+                                continue
+                        else:
+                            flag +=1
+                            logger.warning(f'*fluctuations_psd.csv not found for {sub}, '
+                                           f'{ses}, {ch}, {stagename}, {evt_name}, {band} '
+                                           f'in {self.xml_dir}/{sub}/{ses}/')
+                            
+                            
+                   
+                    # Concatenate all dataframes vertically (row-wise)
+                    master_df = concat(df_psd)
+                    master_df.to_csv(f"{self.out_dir}/{band}_{ses}_{ch}_{stagename}_fluctuations_psd.csv")
+                        
+                  
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.info('')
+            logger.debug('Summary of Clustering And Low-frequency Oscillatory Power Signatures '
+                         '(S.C.A.L.O.P.S) finished without ERROR.')  
+        else:
+            logger.info('')
+            logger.warning('Summary of Clustering And Low-frequency Oscillatory Power Signatures '
+                           f'(S.C.A.L.O.P.S) finished with {flag} WARNINGS. See log for details.')
+        return            
+                    
     
     def pac_summary(self, chan, evt_name = None, 
                           adap_bands_phase = 'Fixed', 
@@ -1013,7 +1237,8 @@ class FISH:
             logger.debug('Create PAC dataset finished without ERROR.')  
         else:
             logger.info('')
-            logger.warning('Create PAC dataset finished with WARNINGS. See log for details.')
+            logger.warning(f'Create PAC dataset finished with {missing_data_flag} WARNINGS. '
+                           'See log for details.')
         
         return 
        
@@ -1132,16 +1357,19 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
     return flag
  
     
-def extract_phase_amp_bw(roothpath, sub, ses, ch, stage, adap_bw,
+def extract_phase_amp_bw(rootpath, sub, ses, ch, stage, adap_bw,
                             adap_bands_phase, frequency_phase, 
                             adap_bands_amplitude, frequency_amplitude,
-                            tracking, logger):
+                            tracking, logger = create_logger("Extract Phase Amplitude Bandwidths")):
     
     def get_band(band_type, method, freq_range, label):
         if method == 'Fixed':
             band = freq_range
         elif method == 'Manual':
-            band = read_manual_peaks(roothpath, sub, ses, ch, adap_bw)
+            chansheet = read_tracking_sheet(rootpath, logger)
+            oldchans = reverse_chan_lookup(sub, ses, chansheet, logger)
+            fnamechan = oldchans[ch]
+            band = read_manual_peaks(rootpath, sub, ses, fnamechan, adap_bw, logger)
         elif method == 'Auto':
             stagename = '-'.join(stage)
             band_limits = f'{freq_range[0]}-{freq_range[1]}Hz'
@@ -1167,14 +1395,14 @@ def extract_phase_amp_bw(roothpath, sub, ses, ch, stage, adap_bw,
 
 
 
-def extract_data_error(logger):
+def extract_data_error(logger = create_logger(" ")):
     logger.critical("Data extraction error: Check that all 'params' are written correctly.")
     logger.info('                      Check documentation for how event parameters need to be written:')
     logger.info('                      https://seapipe.readthedocs.io/en/latest/index.html')
     
 
 
-def extract_pac_data(data_file, model, variables, logger):
+def extract_pac_data(data_file, model, variables, logger = create_logger("Extract PAC data")):
     
     data = []
     if not path.exists(data_file):
@@ -1231,15 +1459,16 @@ def extract_event_data(data_file, variables):
     column_names = [i for i in range(0, largest_column_count)]
     
     # Read csv
-    df = read_csv(data_file, header=None, delimiter=data_file_delimiter, names=column_names,
-                  index_col=0)
+    df = read_csv(data_file, header=None, delimiter=data_file_delimiter, 
+                  names=column_names, index_col=0)
     
     data = []
     if 'Count' in variables:
         data.append(float(df.loc['Count'][1]))
     if 'Density' in variables:
        data.append(round(float(df.loc['Density'][1]),3))
-    
+       
+       
     df = read_csv(data_file, skiprows=3, header=0, delimiter=data_file_delimiter, 
                    index_col=0)
     
@@ -1273,11 +1502,28 @@ def extract_event_data(data_file, variables):
     if 'Peak_power_frequency_std' in variables:
         data.append(df['Peak power frequency (Hz)'].loc['SD'])
     
+    
     data = asarray(data)
 
     return data
     
- 
+
+def extract_cluster_data(data_file, variables):
+    
+    # Delimiter
+    data_file_delimiter = ','
+    
+    # Read csv
+    df = read_csv(data_file, index_col=0, delimiter=data_file_delimiter)
+    
+    data = []
+    for col in df.columns:
+        if col in variables:
+            data.append(df.loc[0,col])
+            
+    return data
+
+        
     
 def trawls():
     
