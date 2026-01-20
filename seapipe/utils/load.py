@@ -289,12 +289,13 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                     annot.set_stage_for_epoch(epoch_beg, one_stage,
                                          attr='stage',
                                          save=False)
-                except:
+                except Exception as e:
+                    logger.warning(e)
                     stage_flag += 1
             if stage_flag > 0:
                 logger.warning("Some epochs in staging file were outside the length "
                                "of the edf. It looks as though the staging file is "
-                               "not the same length as the edf for {sub}, {ses}. REVIEW.")
+                               f"not the same length as the edf for {sub}, {ses}. REVIEW.")
             annot.save()
     
     return flag

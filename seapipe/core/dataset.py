@@ -933,6 +933,11 @@ class pipeline:
         logger.debug(f'Output annotations being saved to: {out_dir}')
         
         # Check subs
+        logger.warning(
+                            f"[DEBUG whales] entering fallback check: "
+                            f"subs={subs!r} (type={type(subs)}), "
+                            f"sessions={sessions!r} (type={type(sessions)})"
+                        )
         if not subs:
             tracking = read_tracking_sheet(self.rootpath, logger)
             subs = [x for x in list(set(tracking['sub']))]
@@ -1588,9 +1593,10 @@ class pipeline:
             logger = create_logger('Export params')
             
             
-        frequency, flag = adap_bands_setup(self, adap_bands, None, None, 
-                                           None, None, None, stage, None, 
-                                           concat_cycle, cycle_idx, logger)
+        frequency, flag = adap_bands_setup(self, adap_bands, frequency, 
+                                                 subs, sessions, 
+                                                 chan, ref_chan, stage, None, 
+                                                 concat_cycle, cycle_idx, logger)
         if flag == 'error':
             return
         

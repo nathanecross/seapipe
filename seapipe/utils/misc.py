@@ -690,8 +690,16 @@ def notch_mne(data, channel, freq, oREF = None, rename=False, renames=None,
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
     
+    flag = 0
     if rename:
-        dig.rename_channels(renames, allow_duplicates=False)
+        try:
+            dig.rename_channels(renames, allow_duplicates=False)
+        except:
+            for x in renames:
+                try:
+                    dig.rename_channels(x, allow_duplicates=False)
+                except:
+                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
         
     if oREF:
         try:
@@ -704,7 +712,8 @@ def notch_mne(data, channel, freq, oREF = None, rename=False, renames=None,
             logger.info("Check documentation for how to set up channel data: "
                         "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
-            return data, 1
+            flag +=1
+            return data, flag
     
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -715,7 +724,7 @@ def notch_mne(data, channel, freq, oREF = None, rename=False, renames=None,
     anotch = a.notch_filter(freq,verbose=40)
     data = anotch.get_data(picks=channel)
     
-    return data, 0 
+    return data, flag 
 
 def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
                montage = 'standard_alphabetic', 
@@ -724,8 +733,17 @@ def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
     
+    flag = 0
     if rename:
-        dig.rename_channels(renames, allow_duplicates=False)
+        try:
+            dig.rename_channels(renames, allow_duplicates=False)
+        except:
+            for x in renames:
+                try:
+                    dig.rename_channels(x, allow_duplicates=False)
+                except:
+                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
+                    
         
     if oREF:
         try:
@@ -738,7 +756,8 @@ def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
             logger.info("Check documentation for how to set up channel data: "
                         "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
-            return data, 1
+            flag +=1
+            return data, flag
         
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -751,7 +770,7 @@ def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
                             method='spectrum_fit', verbose=None)
     data = anotch.get_data(picks=channel)
     
-    return data, 0
+    return data, flag
     
 
 def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
@@ -761,8 +780,17 @@ def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
     ch_names = list(data.axis['chan'][0])
     dig = mne.channels.make_standard_montage(montage)
     
+    flag = 0
     if rename:
-        dig.rename_channels(renames, allow_duplicates=False)
+        try:
+            dig.rename_channels(renames, allow_duplicates=False)
+        except:
+            for x in renames:
+                try:
+                    dig.rename_channels(x, allow_duplicates=False)
+                except:
+                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
+                    
         
     if oREF:
         try:
@@ -775,7 +803,8 @@ def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
             logger.info("Check documentation for how to set up channel data: "
                         "https://seapipe.readthedocs.io/en/latest/index.html")
             logger.info('-' * 10)
-            return data, 1
+            flag+=1
+            return data, flag
         
     info = mne.create_info(ch_names, data.s_freq,verbose=40)
     mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
@@ -786,7 +815,7 @@ def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
     a_filt = a.filter(highpass, lowpass,verbose=40)
     data = a_filt.get_data(picks=channel)
     
-    return data, 0
+    return data, flag
 
 def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     
