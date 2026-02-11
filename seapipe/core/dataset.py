@@ -6,13 +6,14 @@ Created on Tue Jul 25 12:07:36 2023
 @author: nathancross
 """
 from datetime import datetime, date
-from os import listdir, mkdir, path, remove, walk
+from os import listdir, mkdir, path, remove, walk, rename
+import shutil
 from pathlib import Path
 import numpy as np
 import csv
 from pandas import DataFrame
 from seapipe.events.fish import FISH
-from seapipe.events.whales import cluster_peaks, whales
+from seapipe.events.whales import cluster_peaks, cluster_peaks_preferred, whales
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
@@ -1405,7 +1406,7 @@ class pipeline:
                             subs = 'all', sessions = 'all', 
                             filetype = '.edf',
                             chan = None, ref_chan = None, grp_name = 'eeg', 
-                            stage = ['NREM2'], 
+                            stage = ['NREM2'], concat_stage = False,
                             rater = None, 
                             outfile = True):
         
@@ -1730,34 +1731,44 @@ class pipeline:
         
         return
 
-    
-    def cluster_peak_dataset(self, chan, evt_name, xml_dir = None, out_dir = None,
-                                   subs = 'all', sessions = 'all', 
-                                   stage = ['NREM2','NREM3'], concat_stage = False, 
-                                   concat_cycle = True, cycle_idx = None, 
-                                   grp_name = 'eeg', adap_bands = 'Fixed',  
-                                   params = 'all', bins = 60, smooth_sigma = 1.5,
-                                   cluster_labels = ('low_peak', 'high_peak'),
-                                   outfile = True):
+
+
+    def split_events_freq(self, chan, evt_name, 
+                                xml_dir = None, out_dir = None,
+                                subs = 'all', sessions = 'all',
+                                stage = ['NREM2','NREM3'], concat_stage = False,
+                                concat_cycle = True, cycle_idx = None,
+                                grp_name = 'eeg', adap_bands = 'Fixed',
+                                params = 'all', 
+                                bins = 60, smooth_sigma = 1.5,
+                                preferred_split = 13.0, 
+                                prefer_window = (11.0, 15.0),
+                                prefer_ratio = 0.6,
+                                target_column="Peak power frequency (Hz)",
+                                cluster_labels = ('low_peak', 'high_peak'),
+                                export_only = False,
+                                outfile = True):
         """
-        Apply peak clustering to exported event parameter CSVs, then create
-        event datasets per peak cluster (mirroring event_dataset outputs).
+            Cluster events in exported event parameter CSVs file based on a
+            specific parameter column, with a bias toward a preferred split 
+            value within a window. Can be skipped with export_only=True.
+            Also exports event datasets per cluster.
         """
 
         # Set up logging
         if outfile == True:
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/cluster_peak_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset')
+            logfile = f'{self.log_dir}/cluster_peak_dataset_pref_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset (preferred)')
             logger.info('')
-            logger.info(f'-------------- New call of Cluster peak dataset evoked at {now} --------------')
+            logger.info(f'-------------- New call of Cluster peak dataset (preferred) evoked at {now} --------------')
         elif outfile:
             logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset')
+            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset (preferred)')
         else:
-            logger = create_logger('Cluster peak dataset')
-        logger = create_logger('Cluster peak dataset')
+            logger = create_logger('Cluster peak dataset (preferred)')
+        logger = create_logger('Cluster peak dataset (preferred)')
 
         # Force evt_name into list
         if isinstance(evt_name, str):
@@ -1771,6 +1782,16 @@ class pipeline:
 
         # Format concatenation
         cat = (int(concat_cycle), int(concat_stage), 1, 1)
+        if cat[0] + cat[1] == 2:
+            model = 'whole_night'
+        elif cat[0] + cat[1] == 0:
+            model = 'stage*cycle'
+        elif cat[0] == 0:
+            model = 'per_cycle'
+        elif cat[1] == 0:
+            model = 'per_stage'
+        else:
+            model = 'whole_night'
 
         # Format channels
         if isinstance(chan, str):
@@ -1786,26 +1807,43 @@ class pipeline:
             if not out_dir:
                 if not path.exists(self.outpath + '/datasets/'):
                     mkdir(self.outpath + '/datasets/')
-                out_dir_evt = self.outpath + f'/datasets/{evt}'
-            else:
-                out_dir_evt = out_dir
-            if not path.exists(out_dir_evt):
-                mkdir(out_dir_evt)
-
-            logger.debug(f'Clustering peak frequencies in: {xml_dir_evt}')
-            cluster_peaks(xml_dir_evt, bins=bins, smooth_sigma=smooth_sigma)
+                out_dir = self.outpath + '/datasets/spindle_types'
+            if not path.exists(out_dir):
+                mkdir(out_dir)
+            final_out_dir = path.join(out_dir, f'spindle_{model}')
+            if not path.exists(final_out_dir):
+                mkdir(final_out_dir)
+            
+            if not export_only:
+                logger.debug(f'Clustering peak frequencies in: {xml_dir_evt}')
+                cluster_peaks_preferred(
+                    xml_dir_evt, evt, chan,
+                    bins=bins, smooth_sigma=smooth_sigma,
+                    preferred_split=preferred_split,
+                    prefer_window=prefer_window,
+                    prefer_ratio=prefer_ratio,
+                )
 
             cluster_root = Path(self.outpath) / "cluster_peaks" / evt
             cluster_root.mkdir(parents=True, exist_ok=True)
-
-            for cluster_label in cluster_labels:
-                logger.debug(f'Building cluster-specific files for {evt} ({cluster_label})')
-                cluster_dir = cluster_root / cluster_label
-                _build_cluster_param_tree(xml_dir_evt, cluster_dir, evt, cluster_label, logger)
-
-                fish = FISH(self.rootpath, self.datapath, str(cluster_dir), out_dir_evt,
-                            chan, None, grp_name, stage, subs=subs, sessions=sessions)
-                fish.net(chan, f"{evt}_{cluster_label}", adap_bands, params, cat, cycle_idx, logger)
+            for ch in chan:
+                for cluster_label in cluster_labels:
+                    logger.debug(f'Building cluster-specific files for {evt} ({cluster_label})')
+                    cluster_dir = cluster_root / cluster_label
+                    _build_cluster_param_tree(xml_dir_evt, cluster_dir, evt, ch, cluster_label, logger)
+                    fish = FISH(self.rootpath, self.datapath, 
+                                str(cluster_dir), out_dir,
+                                chan, None, grp_name, 
+                                stage, subs=subs, sessions=sessions)
+                    fish.net(chan, evt, adap_bands, params, cat, cycle_idx, logger)
+                    temp_dir = path.join(out_dir, f"{evt}_{model}")
+                    if path.exists(temp_dir):
+                        for fname in listdir(temp_dir):
+                            if not fname.endswith(".csv"):
+                                continue
+                            new_name = fname.replace(f"{evt}_", f"{evt}_{cluster_label}_", 1)
+                            rename(path.join(temp_dir, fname), path.join(final_out_dir, new_name))
+                        shutil.rmtree(temp_dir, ignore_errors=True)
 
         return
     
@@ -1897,7 +1935,7 @@ class pipeline:
     def cluster_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
                                 subs = 'all', sessions = 'all', 
                                 stage = ['NREM2'], freq_bands = ('SWA', 'Sigma'),
-                                params = 'all', outfile=True):
+                                params = 'all', outfile = True):
         
         # Set up logging
         if outfile == True:
@@ -2174,6 +2212,7 @@ def _load_cluster_events(csv_path, target_column="Peak power frequency (Hz)", cl
     events = []
     count_meta = None
     density_meta = None
+    wonambi_row = None
 
     with open(csv_path, newline="") as f:
         reader = csv.reader(f)
@@ -2181,6 +2220,9 @@ def _load_cluster_events(csv_path, target_column="Peak power frequency (Hz)", cl
             if not row:
                 continue
             if header is None:
+                if wonambi_row is None and row[0].strip().startswith("Wonambi"):
+                    wonambi_row = row
+                    continue
                 if row[0].strip() == "Count" and len(row) > 1:
                     count_meta = _safe_float(row[1])
                     continue
@@ -2200,7 +2242,7 @@ def _load_cluster_events(csv_path, target_column="Peak power frequency (Hz)", cl
                 continue
             events.append(row)
 
-    return header, cluster_idx, events, count_meta, density_meta
+    return header, cluster_idx, events, count_meta, density_meta, wonambi_row
 
 
 def _summarize_cluster_events(header, cluster_idx, events, cluster_label, count_meta, density_meta):
@@ -2256,7 +2298,7 @@ def _summarize_cluster_events(header, cluster_idx, events, cluster_label, count_
     return summary, filtered
 
 
-def _write_cluster_summary_csv(out_path, header, cluster_idx, cluster_label, summary, filtered):
+def _write_cluster_summary_csv(out_path, header, cluster_idx, cluster_label, summary, filtered, wonambi_row=None):
     cluster_column = "Peak cluster"
     if cluster_idx is None:
         header = header + [cluster_column]
@@ -2264,6 +2306,8 @@ def _write_cluster_summary_csv(out_path, header, cluster_idx, cluster_label, sum
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     writer_rows = []
+    if wonambi_row is not None:
+        writer_rows.append(wonambi_row)
     writer_rows.append(["Count", summary["count"]])
     writer_rows.append(["Density", summary["density"]])
     writer_rows.append(header)
@@ -2292,13 +2336,19 @@ def _write_cluster_summary_csv(out_path, header, cluster_idx, cluster_label, sum
         writer.writerows(writer_rows)
 
 
-def _build_cluster_param_tree(src_root, dest_root, evt_name, cluster_label, logger):
+def _build_cluster_param_tree(src_root, dest_root, evt_name, chan, cluster_label, logger):
     src_root = Path(src_root)
     dest_root = Path(dest_root)
-    for csv_path in src_root.rglob("*.csv"):
+    csv_paths = [
+        p for p in src_root.rglob("*.csv")
+        if p.is_file()
+        and evt_name in str(p)
+        and chan in str(p)
+    ]
+    for csv_path in csv_paths:
         if not csv_path.stem.endswith(evt_name):
             continue
-        header, cluster_idx, events, count_meta, density_meta = _load_cluster_events(csv_path)
+        header, cluster_idx, events, count_meta, density_meta, wonambi_row = _load_cluster_events(csv_path)
         if header is None:
             logger.warning(f"Skipping {csv_path}: no header found.")
             continue
@@ -2307,7 +2357,9 @@ def _build_cluster_param_tree(src_root, dest_root, evt_name, cluster_label, logg
             continue
 
         try:
-            summary, filtered = _summarize_cluster_events(header, cluster_idx, events, cluster_label, count_meta, density_meta)
+            summary, filtered = _summarize_cluster_events(header, cluster_idx, 
+                                                          events, cluster_label, 
+                                                          count_meta, density_meta)
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Skipping {csv_path}: {exc}")
             continue
@@ -2317,7 +2369,7 @@ def _build_cluster_param_tree(src_root, dest_root, evt_name, cluster_label, logg
             base = csv_path.stem[: -len(evt_name)]
         else:
             base = f"{csv_path.stem}_"
-        new_stem = f"{base}{evt_name}_{cluster_label}"
+        new_stem = f"{base}{evt_name}"
         dest_file = dest_root / rel_parent / f"{new_stem}{csv_path.suffix}"
-        _write_cluster_summary_csv(dest_file, header, cluster_idx, cluster_label, summary, filtered)
+        _write_cluster_summary_csv(dest_file, header, cluster_idx, cluster_label, summary, filtered, wonambi_row)
         

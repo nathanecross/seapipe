@@ -77,6 +77,30 @@ class SQUID:
         """
         subjects = self.subjects or self._get_all_subjects()
 
+        self.logger.debug(r"""Commencing signal quality detection... 
+                     
+                                
+                              ^
+                            /   \
+                            \   /
+                            |   |
+                            |   |
+                            | 0 |
+                           // ||\\
+                          (( // ||
+                           \\))  \\
+                         //||    ))
+                         ( ))   //
+                          //   ((
+              
+              
+              Signal Quality Inference and Detection
+              (S.Q.U.I.D)
+
+                                
+                                                    """)
+
+
         for subj in subjects:
             sessions = self.sessions or self._get_sessions(subj)
 
@@ -262,7 +286,7 @@ def get_candidate_eeg(dset, filt=None,logger=create_logger('Get Candidate EEG'))
     return eeg
 
 
-def get_candidate_eog(dset, logger=create_logger('Get Candidate EOG')):
+def get_candidate_eog(dset, filt=None, logger=create_logger('Get Candidate EOG')):
     """
     Identify potential EOG channels from the dataset header based on naming heuristics.
 
@@ -279,19 +303,26 @@ def get_candidate_eog(dset, logger=create_logger('Get Candidate EOG')):
         List of candidate EOG channel names (may be empty if no candidates found).
     """
     h = dset.header
+    
+    if filt:
+        if not isinstance(filt, list):
+            raise ValueError("`filt` must be a list")
+        eyes = [x for x in h["chan_name"] if any(l in x for l in filt)]
 
-    # First and most obvious EOG label
-    eyes = [x for x in h['chan_name'] if 'EOG' in x]
+    else:
+        
+        # First and most obvious EOG label
+        eyes = [x for x in h['chan_name'] if 'EOG' in x]
 
-    # Fallback: channels with 'E' but excluding non-EOG types
-    if len(eyes) == 0:
-        eyes = [x for x in h['chan_name'] if 'E' in x and 
-                all(excl not in x for excl in ['EMG', 'ECG'])]
+        # Fallback: channels with 'E' but excluding non-EOG types
+        if len(eyes) == 0:
+            eyes = [x for x in h['chan_name'] if 'E' in x and 
+                    all(excl not in x for excl in ['EMG', 'ECG'])]
 
     return eyes
 
 
-def get_candidate_emg(dset, logger=create_logger('Get Candidate EMG')):
+def get_candidate_emg(dset, filt=None, logger=create_logger('Get Candidate EMG')):
     """
     Identify potential EMG channels from the dataset header based on naming heuristics.
 
@@ -308,9 +339,15 @@ def get_candidate_emg(dset, logger=create_logger('Get Candidate EMG')):
         List of candidate EMG channel names.
     """
     h = dset.header
+    
+    if filt:
+        if not isinstance(filt, list):
+            raise ValueError("`filt` must be a list")
+        emg = [x for x in h["chan_name"] if any(l in x for l in filt)]
 
-    # Most common EMG indicators
-    emg = [x for x in h['chan_name'] if any(l in x for l in ['EMG', 'Chin', 'CHIN'])]
+    else:
+        # Most common EMG indicators
+        emg = [x for x in h['chan_name'] if any(l in x for l in ['EMG', 'Chin', 'CHIN'])]
 
     return emg
 

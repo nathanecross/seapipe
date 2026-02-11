@@ -43,3 +43,5 @@ Beta Version
 0.7.1 Bug fixes & better logs for crashes when data is incongruent 
 0.7.2 Bug fixes for PSA (reading in channel names to filter functions)
 0.7.3 Updated default settings for loading in chan names and for fetching data on individual channels
+0.7.4 Added cluster_peak_dataset for clustering event types (e.g. fast vs slow spindles), bug fixes
+0.7.5 Major update and fix to clam.py for spindle clustering and sigma fluctuations, some bug fixes

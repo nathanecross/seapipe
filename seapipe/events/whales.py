@@ -539,7 +539,8 @@ def _append_cluster_column(rows, header_row_idx, freq_idx, cluster_idx, threshol
     return updated
 
 
-def cluster_peaks(csv_dir, target_column="Peak power frequency (Hz)", cluster_column="Peak cluster", bins=60, smooth_sigma=1.5):
+def cluster_peaks(csv_dir, evt, chan, target_column="Peak power frequency (Hz)", 
+                  cluster_column="Peak cluster", bins=60, smooth_sigma=1.5):
     """
     Add a 'Peak cluster' column to every CSV in the provided directory tree by
     locating two peaks in the target column's distribution and labeling events
@@ -549,27 +550,118 @@ def cluster_peaks(csv_dir, target_column="Peak power frequency (Hz)", cluster_co
     csv_dir = Path(csv_dir)
     if not csv_dir.exists():
         raise FileNotFoundError(f"{csv_dir} does not exist")
+    for ch in chan:
+        logger.debug(f"Clustering events [{evt}] for channel: {ch}")
+        csv_paths = [
+            p for p in csv_dir.rglob("*.csv") 
+            if p.is_file() 
+            and evt in str(p) 
+            and ch in str(p)
+        ]
+        csv_paths.sort()
+        if not csv_paths:
+            logger.warning(f"No CSV files found under {csv_dir}")
+            return []
+    
+        results = []
+        for csv_path in csv_paths:
+            try:
+                header, freq_idx, cluster_idx, freqs, rows, _ = _load_peak_frequencies(
+                    csv_path, target_column=target_column, cluster_column=cluster_column
+                )
+                threshold = _two_peak_threshold(freqs, bins=bins, smooth_sigma=smooth_sigma)
+                header_row_idx = rows.index(header)
+                updated_rows = _append_cluster_column(rows, header_row_idx, freq_idx, cluster_idx, threshold, cluster_column)
+                with csv_path.open("w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerows(updated_rows)
+                results.append((csv_path, threshold))
+                logger.debug(f"Clustered {csv_path} at threshold={threshold:.4f} Hz")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"Failed to cluster {csv_path}: {exc}")
+    return results
 
-    csv_paths = [p for p in csv_dir.rglob("*.csv") if p.is_file()]
-    if not csv_paths:
-        logger.warning(f"No CSV files found under {csv_dir}")
-        return []
 
-    results = []
-    for csv_path in csv_paths:
-        try:
-            header, freq_idx, cluster_idx, freqs, rows, _ = _load_peak_frequencies(
-                csv_path, target_column=target_column, cluster_column=cluster_column
-            )
-            threshold = _two_peak_threshold(freqs, bins=bins, smooth_sigma=smooth_sigma)
-            header_row_idx = rows.index(header)
-            updated_rows = _append_cluster_column(rows, header_row_idx, freq_idx, cluster_idx, threshold, cluster_column)
-            with csv_path.open("w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerows(updated_rows)
-            results.append((csv_path, threshold))
-            logger.debug(f"Clustered {csv_path} at threshold={threshold:.4f} Hz")
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(f"Failed to cluster {csv_path}: {exc}")
+def _preferred_split_threshold(freqs, preferred_split=13.0, prefer_window=(11.0, 15.0),
+                               prefer_ratio=0.6, bins=60, smooth_sigma=1.5):
+    freqs_arr = np.asarray(freqs, dtype=float)
+    counts, edges = np.histogram(freqs_arr, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    smoothed = gaussian_filter1d(counts.astype(float), sigma=smooth_sigma)
+
+    minima_idx, _ = find_peaks(-smoothed)
+    if len(minima_idx) == 0:
+        return _two_peak_threshold(freqs, bins=bins, smooth_sigma=smooth_sigma)
+
+    def valley_depth(idx):
+        left_max = smoothed[:idx].max() if idx > 0 else smoothed[idx]
+        right_max = smoothed[idx + 1 :].max() if idx < len(smoothed) - 1 else smoothed[idx]
+        return min(left_max, right_max) - smoothed[idx]
+
+    valleys = [(idx, valley_depth(idx)) for idx in minima_idx]
+    global_idx, global_depth = max(valleys, key=lambda item: item[1])
+
+    window_min, window_max = prefer_window
+    preferred_candidates = [(idx, depth) for idx, depth in valleys
+                            if window_min <= centers[idx] <= window_max]
+
+    if preferred_candidates:
+        preferred_idx, preferred_depth = max(preferred_candidates, key=lambda item: item[1])
+        if preferred_depth >= (prefer_ratio * global_depth):
+            return float(centers[preferred_idx])
+
+    return float(centers[global_idx])
+
+
+def cluster_peaks_preferred(csv_dir, evt, chan, target_column="Peak power frequency (Hz)",
+                            cluster_column="Peak cluster", bins=60, smooth_sigma=1.5,
+                            preferred_split=13.0, prefer_window=(11.0, 15.0),
+                            prefer_ratio=0.6):
+    """
+    Like cluster_peaks, but biases the split toward a preferred frequency when
+    a comparable trough exists within the prefer_window.
+    """
+    logger = create_logger("Cluster peaks (preferred)")
+    csv_dir = Path(csv_dir)
+    if not csv_dir.exists():
+        raise FileNotFoundError(f"{csv_dir} does not exist")
+    for ch in chan:
+        logger.debug(f"Clustering events [{evt}] for channel: {ch}")
+        csv_paths = [
+            p for p in csv_dir.rglob("*.csv")
+            if p.is_file()
+            and evt in str(p)
+            and ch in str(p)
+        ]
+        csv_paths.sort()
+        if not csv_paths:
+            logger.warning(f"No CSV files found under {csv_dir}")
+            return []
+
+        results = []
+        for csv_path in csv_paths:
+            try:
+                header, freq_idx, cluster_idx, freqs, rows, _ = _load_peak_frequencies(
+                    csv_path, target_column=target_column, cluster_column=cluster_column
+                )
+                threshold = _preferred_split_threshold(
+                    freqs,
+                    preferred_split=preferred_split,
+                    prefer_window=prefer_window,
+                    prefer_ratio=prefer_ratio,
+                    bins=bins,
+                    smooth_sigma=smooth_sigma,
+                )
+                header_row_idx = rows.index(header)
+                updated_rows = _append_cluster_column(
+                    rows, header_row_idx, freq_idx, cluster_idx, threshold, cluster_column
+                )
+                with csv_path.open("w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerows(updated_rows)
+                results.append((csv_path, threshold))
+                logger.debug(f"Clustered {csv_path} at threshold={threshold:.4f} Hz")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"Failed to cluster {csv_path}: {exc}")
     return results
       

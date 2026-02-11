@@ -15,6 +15,7 @@ seapipe/core/__init__.py
 seapipe/core/dataset.py
 seapipe/events/__init__.py
 seapipe/events/clam.py
+seapipe/events/clam_backup_for_troubleshoot.py
 seapipe/events/clam_legacy.py
 seapipe/events/eel.py
 seapipe/events/fish.py

@@ -210,7 +210,7 @@ class clam:
                         overlap_sec = 4.5
                         step_sec = window_sec - overlap_sec  # 0.5 s steps
                         baseline_limit_sec = 100 * 60  # first 100 min for normalization
-                        min_bout_sec = 300  # align with 300 s PSD window
+                        min_bout_sec = 120  # human method minimum bout length
                         infraslow_step_hz = 0.001
                         infraslow_max_hz = 0.5  # compute up to 0.5, crop to 0.1 for fitting (Matlab style)
 
@@ -218,15 +218,80 @@ class clam:
                         baseline_vals = {band: [] for band in freq_bands}
                         freqs_high = arange(0.5, 24.1, 0.2)
 
+                        epochs = annot.get_epochs()
+                        sleep_onset = None
+                        for i in range(len(epochs) - 1):
+                            if epochs[i]['stage'] in ['NREM1', 'N1', 'S1'] and epochs[i+1]['stage'] in ['NREM2', 'N2', 'S2']:
+                                sleep_onset = epochs[i]['start']
+                                break
+                        if sleep_onset is None and epochs:
+                            sleep_onset = epochs[0]['start']
+                        if sleep_onset is None:
+                            logger.warning('Sleep onset not found; skipping...')
+                            flag += 1
+                            continue
+
+                        analysis_start = sleep_onset
+                        analysis_end = sleep_onset + (210 * 60)
+                        allowed_stages = ['NREM2', 'NREM3', 'S2', 'S3', 'S4']
+
+                        seg_infos = []
                         for seg in segs:
                             signal_data = seg['data'].data[0][0]
                             sampling_rate = seg['data'].s_freq
                             if sampling_rate is None or sampling_rate <= 0:
                                 logger.warning('Sampling rate not found for segment; skipping.')
                                 continue
+                            time_axis = seg['data'].axis['time'][0]
+                            seg_infos.append({
+                                'start': time_axis.min(),
+                                'end': time_axis.max(),
+                                'time': time_axis,
+                                'data': signal_data,
+                                'fs': sampling_rate
+                            })
 
-                            dt = 1 / sampling_rate
-                            # High-frequency CWT 0.5–24 Hz, 4-cycle Morlet
+                        nrem_epochs = []
+                        for ep in epochs:
+                            if ep['stage'] not in allowed_stages:
+                                continue
+                            if ep['start'] < analysis_start or ep['end'] > analysis_end:
+                                continue
+                            if any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos):
+                                nrem_epochs.append(ep)
+
+                        if len(nrem_epochs) == 0:
+                            logger.warning(f'No valid NREM epochs found for {sub}. {ses}. Skipping...')
+                            flag += 1
+                            continue
+
+                        nrem_epochs.sort(key=lambda x: x['start'])
+                        bouts = []
+                        bout_start = nrem_epochs[0]['start']
+                        bout_end = nrem_epochs[0]['end']
+                        for ep in nrem_epochs[1:]:
+                            if abs(ep['start'] - bout_end) < 1e-6:
+                                bout_end = ep['end']
+                            else:
+                                bouts.append((bout_start, bout_end))
+                                bout_start = ep['start']
+                                bout_end = ep['end']
+                        bouts.append((bout_start, bout_end))
+
+                        for bout_start, bout_end in bouts:
+                            if (bout_end - bout_start) < min_bout_sec:
+                                continue
+                            seg_match = next((s for s in seg_infos if s['start'] <= bout_start and s['end'] >= bout_end), None)
+                            if seg_match is None:
+                                continue
+                            fs = seg_match['fs']
+                            time_axis = seg_match['time']
+                            mask = (time_axis >= bout_start) & (time_axis <= bout_end)
+                            if not mask.any():
+                                continue
+                            signal_data = seg_match['data'][mask]
+
+                            dt = 1 / fs
                             scales_high = pywt.central_frequency('cmor4.0-1.0') / (freqs_high * dt)
                             coeffs, freqs_used = pywt.cwt(signal_data, scales_high, 'cmor4.0-1.0', sampling_period=dt)
                             power = abs(coeffs) ** 2
@@ -235,22 +300,16 @@ class clam:
                             for band, (fmin, fmax) in freq_bands.items():
                                 band_idx = (freqs_used >= fmin) & (freqs_used <= fmax)
                                 band_power = power[band_idx].mean(axis=0)
-                                # 4-s moving average
-                                win_samples = int(4 * sampling_rate)
+                                win_samples = int(4 * fs)
                                 band_power = Series(band_power).rolling(win_samples, center=True, min_periods=1).mean().to_numpy()
-                                # Downsample to 0.5 s
-                                step = int(step_sec * sampling_rate)
+                                step = int(step_sec * fs)
                                 band_power = band_power[::step]
                                 band_power_raw[band] = band_power
-                                # Accumulate baseline (first 100 min)
                                 if baseline_limit_sec > 0:
                                     n_take = int(builtins.min(len(band_power), builtins.max(0, baseline_limit_sec / step_sec)))
                                     if n_take > 0:
                                         baseline_vals[band].extend(band_power[:n_take].tolist())
-                            # Time vector for band power
-                            start_seg = seg['data'].axis['time'][0].min()
-                            times = start_seg + arange(len(list(band_power_raw.values())[0])) * step_sec
-
+                            times = bout_start + arange(len(list(band_power_raw.values())[0])) * step_sec
                             per_seg_series.append({
                                 'start_time': times[0],
                                 'end_time': times[-1],
@@ -261,7 +320,7 @@ class clam:
                             baseline_limit_sec = builtins.max(0, baseline_limit_sec - len(times) * step_sec)
 
                         if len(per_seg_series) == 0:
-                            logger.warning(f'No valid non-REM segments found for {sub}. {ses}. Skipping...')
+                            logger.warning(f'No valid NREM bouts found for {sub}. {ses}. Skipping...')
                             flag += 1
                             continue
 
@@ -270,7 +329,6 @@ class clam:
                             vals = array(baseline_vals[band])
                             baseline_band_power[band] = nanmean(vals) if len(vals) > 0 else nan
 
-                        # Normalize band power time courses and keep bouts >= min_bout_sec
                         for seg_series in per_seg_series:
                             for band in freq_bands:
                                 denom = baseline_band_power.get(band, nan)
@@ -287,12 +345,13 @@ class clam:
                             for band in freq_bands:
                                 series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
                                                      nan=nanmean(seg_series[f'{band}_norm']))
-                                # High-pass to suppress slow drift; then detrend
-                                hp_cut = 0.01
+                                # High-pass to suppress slow drift (Matlab-style) or detrend if too short
+                                hp_cut = 0.005
                                 if len(series) > 3:
                                     sos_hp = butter(4, hp_cut, btype='high', fs=1 / step_sec, output='sos')
                                     series = sosfiltfilt(sos_hp, series)
-                                series = detrend(series, type='linear')
+                                else:
+                                    series = detrend(series, type='constant')
                                 centered = series - nanmean(series)
                                 # PWELCH on band-power timecourse
                                 nperseg = builtins.min(len(centered), int(300 / step_sec))
