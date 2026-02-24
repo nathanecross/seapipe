@@ -22,6 +22,8 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import (butter, firwin, filtfilt, find_peaks, detrend, 
                           hilbert, morlet2, periodogram, resample, sosfiltfilt, welch) 
 import builtins
+import matplotlib.pyplot as plt
+import xml.etree.ElementTree as ET
 from sklearn.cluster import DBSCAN
 from wonambi import Dataset
 from wonambi.attr import Annotations
@@ -58,6 +60,7 @@ class clam:
         def clustering(self, evt_type = 'spindle', 
                              freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)},
                              filetype = '.edf', grp_name = 'eeg',
+                             concat_stage = False,
                              logger = create_logger('Event clustering')):
             
             
@@ -174,91 +177,135 @@ class clam:
                         else:
                             fnamechan = ch
                             
-                        stagename = '-'.join(self.stage)
-                        
-                        
-            
-                        # ---- Analys event clustering ----
-                        logger.debug(f'Analysing cluster metrics for {evt_type}, {ch}')
-                        stats = cluster_metrics(annot, ch, evt_type, 
-                                                   self.stage, grp_name)
-                        
-                        # Save stats to file
-                        if not isinstance(stats, dict):
-                            flag += 1
-                            continue
+                        if isinstance(self.stage, (list, tuple)):
+                            stage_all = list(self.stage)
                         else:
-                            df = DataFrame([stats])
-                            df.insert(0, 'sub', sub)  
-                            df.insert(1, 'ses', ses)   
-                            logger.debug(f'Saving cluster metrics: {evt_type}')
-                            df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_clustering.csv')
-                            
-                            
-                            
-                        # ---- Analyse low-frequency fluctuations (human-style settings) ----
-                        logger.debug('Analysing low frequency fluctuations for '
-                                     f"{', '.join([band for band in freq_bands])} "
-                                     f'in channel: {fnamechan}: {chanset[ch]}')
-                        segs = fetch(dset, annot, cat = (0,0,0,0), 
-                                     stage = self.stage,
-                                     reject_artf = True)
-                        segs.read_data(chan = [ch], ref_chan = chanset[ch])
+                            stage_all = [self.stage]
 
-                        # Human method: Morlet CWT 0.5–24 Hz, 0.2 Hz step, 4-cycle; 4-s smoothing; 0.5 s sampling
-                        window_sec = 5
-                        overlap_sec = 4.5
-                        step_sec = window_sec - overlap_sec  # 0.5 s steps
-                        baseline_limit_sec = 100 * 60  # first 100 min for normalization
-                        min_bout_sec = 120  # human method minimum bout length
-                        infraslow_step_hz = 0.001
-                        infraslow_max_hz = 0.5  # compute up to 0.5, crop to 0.1 for fitting (Matlab style)
+                        if concat_stage:
+                            stage_runs = [{
+                                'stage_list': stage_all,
+                                'stagename': '-'.join(stage_all),
+                                'cat': (0, 1, 0, 0)
+                            }]
+                        else:
+                            stage_runs = [{
+                                'stage_list': [st],
+                                'stagename': st,
+                                'cat': (0, 0, 0, 0)
+                            } for st in stage_all]
 
-                        per_seg_series = []
-                        baseline_vals = {band: [] for band in freq_bands}
-                        freqs_high = arange(0.5, 24.1, 0.2)
+                        for stage_cfg in stage_runs:
+                            stage_list = stage_cfg['stage_list']
+                            stagename = stage_cfg['stagename']
+                            cat = stage_cfg['cat']
 
-                        epochs = annot.get_epochs()
-                        sleep_onset = None
-                        for i in range(len(epochs) - 1):
-                            if epochs[i]['stage'] in ['NREM1', 'N1', 'S1'] and epochs[i+1]['stage'] in ['NREM2', 'N2', 'S2']:
-                                sleep_onset = epochs[i]['start']
-                                break
-                        if sleep_onset is None and epochs:
-                            sleep_onset = epochs[0]['start']
-                        if sleep_onset is None:
-                            logger.warning('Sleep onset not found; skipping...')
-                            flag += 1
-                            continue
+                            # ---- Analys event clustering ----
+                            logger.debug(f'Analysing cluster metrics for {evt_type}, {ch}')
+                            stats = cluster_metrics(annot, ch, evt_type, 
+                                                    stage_list, grp_name)
 
-                        analysis_start = sleep_onset
-                        analysis_end = sleep_onset + (210 * 60)
-                        allowed_stages = ['NREM2', 'NREM3', 'S2', 'S3', 'S4']
-
-                        seg_infos = []
-                        for seg in segs:
-                            signal_data = seg['data'].data[0][0]
-                            sampling_rate = seg['data'].s_freq
-                            if sampling_rate is None or sampling_rate <= 0:
-                                logger.warning('Sampling rate not found for segment; skipping.')
+                            # Save stats to file
+                            if not isinstance(stats, dict):
+                                flag += 1
                                 continue
-                            time_axis = seg['data'].axis['time'][0]
-                            seg_infos.append({
-                                'start': time_axis.min(),
-                                'end': time_axis.max(),
-                                'time': time_axis,
-                                'data': signal_data,
-                                'fs': sampling_rate
-                            })
+                            else:
+                                df = DataFrame([stats])
+                                df.insert(0, 'sub', sub)  
+                                df.insert(1, 'ses', ses)   
+                                logger.debug(f'Saving cluster metrics: {evt_type}')
+                                df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_clustering.csv')
 
-                        nrem_epochs = []
-                        for ep in epochs:
-                            if ep['stage'] not in allowed_stages:
+                            # ---- Analyse low-frequency fluctuations (human-style settings) ----
+                            logger.debug('Analysing low frequency fluctuations for '
+                                         f"{', '.join([band for band in freq_bands])} "
+                                         f'in channel: {fnamechan}: {chanset[ch]}')
+                            # Human method: Morlet CWT 0.5–24 Hz, 0.2 Hz step, 4-cycle; 4-s smoothing; 0.5 s sampling
+                            window_sec = 5
+                            overlap_sec = 4.5
+                            step_sec = window_sec - overlap_sec  # 0.5 s steps
+                            baseline_limit_sec = 100 * 60  # first 100 min for normalization
+                            min_bout_sec = 120  # human method minimum bout length
+                            min_psd_bout_sec = 300  # MATLAB script removes bouts shorter than 300 s
+                            infraslow_step_hz = 0.001
+                            infraslow_max_hz = 0.5  # compute up to 0.5, crop to 0.1 for fitting (Matlab style)
+
+                            per_seg_series = []
+                            baseline_vals = {band: [] for band in freq_bands}
+                            freqs_high = arange(0.5, 24.1, 0.2)
+
+                            epochs = annot.get_epochs()
+                            sleep_onset = None
+                            n1_set = ['NREM1', 'N1', 'S1']
+                            n1n2_set = ['NREM1', 'N1', 'S1', 'NREM2', 'N2', 'S2']
+                            # Sleep onset: first NREM1 followed by at least 2 consecutive NREM1/NREM2 epochs.
+                            for i in range(len(epochs) - 2):
+                                if (epochs[i]['stage'] in n1_set and
+                                        epochs[i + 1]['stage'] in n1n2_set and
+                                        epochs[i + 2]['stage'] in n1n2_set):
+                                    sleep_onset = epochs[i]['start']
+                                    break
+                            if sleep_onset is None:
+                                # Fallback to first NREM2 if NREM1 transition is absent.
+                                for ep in epochs:
+                                    if ep['stage'] in ['NREM2', 'N2', 'S2']:
+                                        sleep_onset = ep['start']
+                                        break
+                            if sleep_onset is None and epochs:
+                                sleep_onset = epochs[0]['start']
+                            if sleep_onset is None:
+                                logger.warning('Sleep onset not found; skipping...')
+                                flag += 1
                                 continue
-                            if ep['start'] < analysis_start or ep['end'] > analysis_end:
-                                continue
-                            if any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos):
-                                nrem_epochs.append(ep)
+
+                            analysis_start = sleep_onset
+                            analysis_end = sleep_onset + (210 * 60)
+
+                            allowed_stages = set()
+                            for st in stage_list:
+                                if st in ['NREM1', 'N1', 'S1']:
+                                    allowed_stages.update(['NREM1', 'N1', 'S1'])
+                                elif st in ['NREM2', 'N2', 'S2']:
+                                    allowed_stages.update(['NREM2', 'N2', 'S2'])
+                                elif st in ['NREM3', 'N3', 'S3', 'S4']:
+                                    allowed_stages.update(['NREM3', 'N3', 'S3', 'S4'])
+                                else:
+                                    allowed_stages.add(st)
+
+                            epoch_stages = {ep['stage'] for ep in epochs}
+                            stage_fetch = [st for st in allowed_stages if st in epoch_stages]
+                            if not stage_fetch:
+                                stage_fetch = [st for st in stage_list if st in epoch_stages]
+
+                            segs = fetch(dset, annot, cat = cat,
+                                         stage = stage_fetch,
+                                         reject_artf = True)
+                            segs.read_data(chan = [ch], ref_chan = chanset[ch])
+
+                            seg_infos = []
+                            for seg in segs:
+                                signal_data = seg['data'].data[0][0]
+                                sampling_rate = seg['data'].s_freq
+                                if sampling_rate is None or sampling_rate <= 0:
+                                    logger.warning('Sampling rate not found for segment; skipping.')
+                                    continue
+                                time_axis = seg['data'].axis['time'][0]
+                                seg_infos.append({
+                                    'start': time_axis.min(),
+                                    'end': time_axis.max(),
+                                    'time': time_axis,
+                                    'data': signal_data,
+                                    'fs': sampling_rate
+                                })
+
+                            nrem_epochs = []
+                            for ep in epochs:
+                                if ep['stage'] not in allowed_stages:
+                                    continue
+                                if ep['start'] < analysis_start or ep['end'] > analysis_end:
+                                    continue
+                                if any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos):
+                                    nrem_epochs.append(ep)
 
                         if len(nrem_epochs) == 0:
                             logger.warning(f'No valid NREM epochs found for {sub}. {ses}. Skipping...')
@@ -336,29 +383,36 @@ class clam:
 
                         trace_segments = {band: [] for band in freq_bands}
                         psd_accum = {band: [] for band in freq_bands}
-                        dur_accum = {band: [] for band in freq_bands}
 
                         for seg_series in per_seg_series:
                             duration_sec = len(seg_series['times']) * step_sec
-                            if duration_sec < min_bout_sec:
+                            if duration_sec < min_psd_bout_sec:
                                 continue
                             for band in freq_bands:
                                 series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
                                                      nan=nanmean(seg_series[f'{band}_norm']))
-                                # High-pass to suppress slow drift (Matlab-style) or detrend if too short
+                                
+                                # High-pass to suppress slow drift (MATLAB-style FIR) or detrend if too short
                                 hp_cut = 0.005
-                                if len(series) > 3:
-                                    sos_hp = butter(4, hp_cut, btype='high', fs=1 / step_sec, output='sos')
-                                    series = sosfiltfilt(sos_hp, series)
+                                fs_band = 1 / step_sec
+                                transition_hz = 0.01
+                                forder = int(ceil(3.3 / (transition_hz / fs_band)))
+                                numtaps = forder + 1
+                                if numtaps % 2 == 0:
+                                    numtaps += 1
+                                if len(series) <= numtaps * 3:
+                                    series = detrend(series)
                                 else:
-                                    series = detrend(series, type='constant')
-                                centered = series - nanmean(series)
+                                    b = firwin(numtaps, hp_cut, pass_zero=False, fs=fs_band, window='hamming')
+                                    series = filtfilt(b, [1.0], series)
+                                centered = series
+                                
                                 # PWELCH on band-power timecourse
-                                nperseg = builtins.min(len(centered), int(300 / step_sec))
-                                if nperseg < 1:
+                                nperseg = int(300 / step_sec)
+                                if len(centered) < nperseg:
                                     continue
                                 noverlap = int(nperseg * 0.5)
-                                freqs_pwel, power_pwel = welch(centered, fs=1 / step_sec,
+                                freqs_pwel, power_pwel = welch(centered, fs=fs_band,
                                                                window='hann',
                                                                nperseg=nperseg,
                                                                noverlap=noverlap,
@@ -368,26 +422,26 @@ class clam:
                                 mask = freqs_pwel <= infraslow_max_hz
                                 freqs_pwel = freqs_pwel[mask]
                                 power_pwel = power_pwel[mask]
+                                
                                 # Interpolate to common grid (0..infraslow_max_hz, fixed spacing)
                                 freqs_low = arange(0, infraslow_max_hz + infraslow_step_hz, infraslow_step_hz)
                                 interp_fn = interp1d(freqs_pwel, power_pwel, bounds_error=False, fill_value='extrapolate')
                                 power_interp = interp_fn(freqs_low)
                                 psd_accum[band].append(power_interp)
-                                dur_accum[band].append(duration_sec)
 
                         stats = {}
                         for band in freq_bands:
                             arrays = array(psd_accum[band])
-                            weights = array(dur_accum[band])
                             if len(arrays) == 0:
-                                logger.warning(f'No valid bouts >= {min_bout_sec}s for {band}; skipping.')
+                                logger.warning(f'No valid bouts >= {min_psd_bout_sec}s for {band}; skipping.')
                                 continue
-                            weighted_avg = average(arrays, axis=0, weights=weights) if len(weights) > 0 else average(arrays, axis=0)
+                            weighted_avg = average(arrays, axis=0)
+                            
                             # Normalize by mean power in 0.0075–0.1 Hz (Matlab style)
                             norm_mask = (freqs_low >= 0.0075) & (freqs_low <= 0.1)
                             mean_psd = weighted_avg / nanmean(weighted_avg[norm_mask])
+                            
                             # No extra smoothing beyond PWELCH interpolation
-
                             fit_mask = (freqs_low >= 0.0075) & (freqs_low <= 0.1)
                             if not fit_mask.any():
                                 logger.warning(f'No frequencies in fit window for {band}; skipping.')
@@ -432,8 +486,10 @@ class clam:
                                 evts_idx = [nanargmin(abs(times_vec - mid)) for mid in evts_mid] if len(evts_mid) > 0 else []
                                 if len(evts_idx) > 0:
                                     band_phases.extend(inst_phase[evts_idx].tolist())
+                                
                                 # Save filtered trace (aligned to original times)
                                 trace_segments[band].append(vstack((times_vec, filtered)))
+                            
                             # Histogram of events
                             bins = linspace(-pi, pi, 19)
                             hist, bin_edges = histogram(band_phases, bins=bins)
@@ -477,6 +533,428 @@ class clam:
             #self.tracking = tracking   ## TO UPDATE - FIX TRACKING
             
             return 
+
+
+        def plot_infraslow_panels(self, sub = None, ses = None,
+                                  subs = None, sessions = None,
+                                  stage = None, channel = None,
+                                  xml_dir = None, out_dir = None, seed = 1,
+                                  target_fs = 100,
+                                  logger = create_logger('Infraslow panels')):
+            """
+            Create diagnostic panels (A-C) for the infraslow workflow on a single subject/session.
+
+            Panel A: Timeline, hypnogram (with 210-min window shaded), NREM bouts (with 100-min
+                     normalization window shaded), and bouts >=120s.
+            Panel B: EEG signal from one randomly selected bout >=120s.
+            Panel C: Normalized sigma band-power time series (raw) and its 4-s smoothed version.
+            """
+
+            # ---- Loop over dataset if sub/ses not specified ----
+            if sub is None or ses is None:
+                return _plot_infraslow_panels_all(self, subs=subs, sessions=sessions,
+                                                  stage=stage, xml_dir=xml_dir,
+                                                  out_dir=out_dir, seed=seed,
+                                                  target_fs=target_fs, logger=logger)
+
+            # ---- Resolve staging XML ----
+            xml_root = xml_dir if xml_dir is not None else self.xml_dir
+            if not path.isabs(xml_root):
+                xml_root = path.join(self.rootpath, xml_root)
+            xml_path = path.join(xml_root, sub, ses, f'{sub}_{ses}_eeg.xml')
+            if not path.exists(xml_path):
+                xml_dir_alt = path.join(xml_root, sub, ses)
+                if path.exists(xml_dir_alt):
+                    xmls = [f for f in listdir(xml_dir_alt) if f.endswith('.xml')]
+                    if len(xmls) > 0:
+                        xml_path = path.join(xml_dir_alt, xmls[0])
+            if not path.exists(xml_path):
+                logger.warning(f'Staging XML not found for {sub} {ses}: {xml_path}')
+                return
+
+            # ---- Parse dataset path and duration ----
+            eeg_path = None
+            last_second = None
+            try:
+                tree = ET.parse(xml_path)
+                root = tree.getroot()
+                ds = root.find('dataset')
+                if ds is not None:
+                    last_txt = ds.findtext('last_second')
+                    if last_txt:
+                        last_second = float(last_txt)
+                    eeg_path = ds.findtext('path') or ds.findtext('filename')
+            except Exception as exc:
+                logger.warning(f'Failed to parse dataset info from XML: {exc}')
+
+            if eeg_path is None or not path.exists(eeg_path):
+                rec_root = self.rec_dir
+                if rec_root is not None:
+                    if not path.isabs(rec_root):
+                        rec_root = path.join(self.rootpath, rec_root)
+                    guess = path.join(rec_root, sub, ses, 'eeg', f'{sub}_{ses}_eeg.edf')
+                    if path.exists(guess):
+                        eeg_path = guess
+
+            if eeg_path is None or not path.exists(eeg_path):
+                logger.warning(f'EEG file not found for {sub} {ses}: {eeg_path}')
+                return
+
+            # ---- Load dataset and annotations ----
+            dset = Dataset(eeg_path)
+            annot = Annotations(xml_path)
+            epochs = annot.get_epochs()
+            if not epochs:
+                logger.warning(f'No epochs found in XML for {sub} {ses}')
+                return
+
+            # ---- Channel selection ----
+            chan_names = dset.header.get('chan_name', [])
+            def pick_channel(names, desired):
+                if desired:
+                    for name in names:
+                        if desired == name or desired in name:
+                            return name
+                for pref in ['C3', 'C4', 'Cz', 'Fz', 'F3', 'F4', 'Pz', 'P3', 'P4']:
+                    for name in names:
+                        if pref in name:
+                            return name
+                for name in names:
+                    if all(tag not in name.upper() for tag in ['EOG', 'EMG', 'ECG', 'EKG']):
+                        return name
+                return names[0] if len(names) > 0 else None
+
+            picked_chan = pick_channel(chan_names, channel)
+            if picked_chan is None:
+                logger.warning('No EEG channel found to plot.')
+                return
+
+            fnamechan = channel if channel is not None else picked_chan
+            fnamechan = fnamechan.replace(' ', '').replace(':', '-')
+
+            # ---- Sleep onset (first NREM1 followed by >=2 consecutive NREM1/NREM2 epochs) ----
+            sleep_onset = None
+            n1_set = ['NREM1', 'N1', 'S1']
+            n1n2_set = ['NREM1', 'N1', 'S1', 'NREM2', 'N2', 'S2']
+            for i in range(len(epochs) - 2):
+                if (epochs[i]['stage'] in n1_set and
+                        epochs[i + 1]['stage'] in n1n2_set and
+                        epochs[i + 2]['stage'] in n1n2_set):
+                    sleep_onset = epochs[i]['start']
+                    break
+            if sleep_onset is None:
+                for ep in epochs:
+                    if ep['stage'] in ['NREM2', 'N2', 'S2']:
+                        sleep_onset = ep['start']
+                        break
+            if sleep_onset is None and epochs:
+                sleep_onset = epochs[0]['start']
+            if sleep_onset is None:
+                logger.warning('Sleep onset not found; skipping...')
+                return
+
+            analysis_start = sleep_onset
+            analysis_end = sleep_onset + (210 * 60)
+
+            # ---- Allowed stages ----
+            stage_list = stage if stage is not None else self.stage
+            if isinstance(stage_list, str):
+                stage_list = stage_list.split('-')
+            stage_list = stage_list or ['NREM2', 'NREM3']
+
+            allowed_stages = set()
+            for st in stage_list:
+                if st in ['NREM1', 'N1', 'S1']:
+                    allowed_stages.update(['NREM1', 'N1', 'S1'])
+                elif st in ['NREM2', 'N2', 'S2']:
+                    allowed_stages.update(['NREM2', 'N2', 'S2'])
+                elif st in ['NREM3', 'N3', 'S3', 'S4']:
+                    allowed_stages.update(['NREM3', 'N3', 'S3', 'S4'])
+                else:
+                    allowed_stages.add(st)
+
+            epoch_stages = {ep['stage'] for ep in epochs}
+            stage_fetch = [st for st in allowed_stages if st in epoch_stages]
+            if not stage_fetch:
+                stage_fetch = [st for st in stage_list if st in epoch_stages]
+
+            # ---- Fetch artifact-free segments ----
+            segs = fetch(dset, annot, cat = (0, 0, 0, 0),
+                         stage = stage_fetch, reject_artf = True)
+            segs.read_data(chan = [picked_chan])
+
+            seg_infos = []
+            for seg in segs:
+                signal_data = seg['data'].data[0][0]
+                sampling_rate = seg['data'].s_freq
+                time_axis = seg['data'].axis['time'][0]
+                seg_infos.append({
+                    'start': time_axis.min(),
+                    'end': time_axis.max(),
+                    'time': time_axis,
+                    'data': signal_data,
+                    'fs': sampling_rate
+                })
+
+            # ---- NREM epochs within analysis window and artifact-free ----
+            nrem_epochs = []
+            for ep in epochs:
+                if ep['stage'] not in allowed_stages:
+                    continue
+                if ep['start'] < analysis_start or ep['end'] > analysis_end:
+                    continue
+                if any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos):
+                    nrem_epochs.append(ep)
+
+            if len(nrem_epochs) == 0:
+                logger.warning(f'No valid NREM epochs found for {sub} {ses}')
+                return
+
+            nrem_epochs.sort(key=lambda x: x['start'])
+
+            # ---- Build contiguous NREM bouts ----
+            bouts = []
+            bout_start = nrem_epochs[0]['start']
+            bout_end = nrem_epochs[0]['end']
+            for ep in nrem_epochs[1:]:
+                if abs(ep['start'] - bout_end) < 1e-6:
+                    bout_end = ep['end']
+                else:
+                    bouts.append((bout_start, bout_end))
+                    bout_start = ep['start']
+                    bout_end = ep['end']
+            bouts.append((bout_start, bout_end))
+
+            bouts_long = [b for b in bouts if (b[1] - b[0]) >= 120]
+
+            # ---- Normalization interval: first 100 min of NREM ----
+            norm_intervals = []
+            norm_remaining = 100 * 60
+            for b_start, b_end in bouts:
+                if norm_remaining <= 0:
+                    break
+                dur = b_end - b_start
+                if dur <= norm_remaining:
+                    norm_intervals.append((b_start, b_end))
+                    norm_remaining -= dur
+                else:
+                    norm_intervals.append((b_start, b_start + norm_remaining))
+                    norm_remaining = 0
+
+            # ---- Panel A: timeline + hypnogram + NREM bouts ----
+            if last_second is None:
+                last_second = dset.header['n_samples'] / dset.header['s_freq']
+            last_min = last_second / 60
+
+            fig_a, axes = plt.subplots(4, 1, figsize=(12, 8), sharex=True,
+                                       gridspec_kw={'height_ratios': [0.3, 1.2, 0.6, 0.6]})
+            ax0, ax1, ax2, ax3 = axes
+
+            # A1: timeline
+            ax0.plot([0, last_min], [0, 0], color='k', linewidth=1)
+            ax0.set_yticks([])
+            ax0.set_ylabel('Time')
+
+            # A2: hypnogram
+            stage_map = {
+                'NREM3': 0, 'N3': 0, 'S3': 0, 'S4': 0,
+                'NREM2': 1, 'N2': 1, 'S2': 1,
+                'NREM1': 2, 'N1': 2, 'S1': 2,
+                'REM': 3, 'R': 3,
+                'Wake': 4, 'W': 4
+            }
+            t_step = [epochs[0]['start'] / 60]
+            v_step = []
+            for ep in epochs:
+                t_step.append(ep['end'] / 60)
+                v_step.append(stage_map.get(ep['stage'], nan))
+            if len(v_step) > 0:
+                v_step.append(v_step[-1])
+                ax1.step(t_step, v_step, where='post', color='k', linewidth=0.8)
+            ax1.set_yticks([0, 1, 2, 3, 4])
+            ax1.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'])
+            ax1.set_ylabel('Stage')
+            ax1.axvspan(analysis_start / 60, analysis_end / 60, color='0.9')
+
+            # A3: NREM bouts + normalization interval
+            for b_start, b_end in bouts:
+                ax2.hlines(1, b_start / 60, b_end / 60, color='k', linewidth=6)
+            for n_start, n_end in norm_intervals:
+                ax2.axvspan(n_start / 60, n_end / 60, color='0.8')
+            ax2.set_yticks([])
+            ax2.set_ylabel('NREM')
+
+            # A4: bouts >=120s
+            for b_start, b_end in bouts_long:
+                ax3.hlines(1, b_start / 60, b_end / 60, color='k', linewidth=6)
+            ax3.set_yticks([])
+            ax3.set_ylabel('>=120s')
+            ax3.set_xlabel('Minutes from start')
+
+            # ---- Save panel A early (panel B/C optional) ----
+            out_root = out_dir if out_dir is not None else self.out_dir
+            if not path.isabs(out_root):
+                out_root = path.join(self.rootpath, out_root)
+            if not path.exists(out_root):
+                mkdir(out_root)
+            out_sub = path.join(out_root, sub)
+            if not path.exists(out_sub):
+                mkdir(out_sub)
+            out_ses = path.join(out_sub, ses)
+            if not path.exists(out_ses):
+                mkdir(out_ses)
+            out_path = path.join(out_ses, 'figures')
+            if not path.exists(out_path):
+                mkdir(out_path)
+
+            fig_a.tight_layout()
+            fig_a.savefig(path.join(out_path, f'{sub}_{ses}_{fnamechan}_panel_A.png'), dpi=150)
+            plt.close(fig_a)
+
+            # ---- Panel B/C: select a bout ----
+            if len(bouts_long) == 0:
+                logger.warning(f'No bouts >=120s for {sub} {ses}; panel B/C skipped.')
+                return
+
+            random.seed(seed)
+            sel_idx = int(random.randint(len(bouts_long)))
+            sel_start, sel_end = bouts_long[sel_idx]
+
+            def extract_bout_data(bout_start, bout_end):
+                seg_match = next((s for s in seg_infos
+                                  if s['start'] <= bout_start and s['end'] >= bout_end), None)
+                if seg_match is None:
+                    return None, None
+                time_axis = seg_match['time']
+                mask = (time_axis >= bout_start) & (time_axis <= bout_end)
+                if not mask.any():
+                    return None, None
+                data = seg_match['data'][mask]
+                fs = seg_match['fs']
+                return data, fs
+
+            eeg_bout, fs = extract_bout_data(sel_start, sel_end)
+            if eeg_bout is None:
+                logger.warning('Selected bout data not found; panel B/C skipped.')
+                return
+
+            # Downsample to target_fs (method uses 100 Hz)
+            if target_fs is not None and fs > target_fs:
+                n_samp = int(len(eeg_bout) * (target_fs / fs))
+                eeg_bout = resample(eeg_bout, n_samp)
+                fs = target_fs
+
+            # ---- Panel B: EEG signal ----
+            t_bout = arange(len(eeg_bout)) / fs
+            fig_b, axb = plt.subplots(1, 1, figsize=(12, 3))
+            axb.plot(t_bout, eeg_bout, color='k', linewidth=0.8)
+            axb.set_xlabel('Time (s)')
+            axb.set_ylabel('EEG (a.u.)')
+            axb.set_title(f'{sub} {ses} {picked_chan} - Bout EEG')
+
+            # ---- Panel C: normalized sigma power (raw and smoothed) ----
+            freqs_high = arange(0.5, 24.1, 0.2)
+            dt = 1 / fs
+            scales_high = pywt.central_frequency('cmor4.0-1.0') / (freqs_high * dt)
+
+            # Baseline mean from first 100 min of NREM
+            baseline_vals = []
+            baseline_remaining = 100 * 60
+            for b_start, b_end in bouts:
+                if baseline_remaining <= 0:
+                    break
+                data_seg, fs_seg = extract_bout_data(b_start, b_end)
+                if data_seg is None:
+                    continue
+                if target_fs is not None and fs_seg > target_fs:
+                    n_samp = int(len(data_seg) * (target_fs / fs_seg))
+                    data_seg = resample(data_seg, n_samp)
+                    fs_seg = target_fs
+                dt_seg = 1 / fs_seg
+                scales_seg = pywt.central_frequency('cmor4.0-1.0') / (freqs_high * dt_seg)
+                coeffs_seg, freqs_used = pywt.cwt(data_seg, scales_seg, 'cmor4.0-1.0', sampling_period=dt_seg)
+                power_seg = abs(coeffs_seg) ** 2
+                band_idx = (freqs_used >= 10) & (freqs_used <= 15)
+                band_power = power_seg[band_idx].mean(axis=0)
+                win_samples = int(4 * fs_seg)
+                band_power = Series(band_power).rolling(win_samples, center=True, min_periods=1).mean().to_numpy()
+                step = int(0.5 * fs_seg)
+                band_power = band_power[::step]
+                n_take = int(builtins.min(len(band_power), builtins.max(0, baseline_remaining / 0.5)))
+                if n_take > 0:
+                    baseline_vals.extend(band_power[:n_take].tolist())
+                    baseline_remaining -= n_take * 0.5
+
+            baseline_mean = nanmean(array(baseline_vals)) if len(baseline_vals) > 0 else nan
+            if isnan(baseline_mean):
+                logger.warning('Baseline mean is NaN; normalization may be invalid.')
+
+            coeffs, freqs_used = pywt.cwt(eeg_bout, scales_high, 'cmor4.0-1.0', sampling_period=dt)
+            power = abs(coeffs) ** 2
+            band_idx = (freqs_used >= 10) & (freqs_used <= 15)
+            band_power_raw = power[band_idx].mean(axis=0)
+            norm_raw = band_power_raw / baseline_mean
+
+            win_samples = int(4 * fs)
+            norm_smooth = Series(norm_raw).rolling(win_samples, center=True, min_periods=1).mean().to_numpy()
+
+            fig_c, (axc1, axc2) = plt.subplots(2, 1, figsize=(12, 5), sharex=True)
+            axc1.plot(t_bout, norm_raw, color='k', linewidth=0.8)
+            axc1.set_ylabel('Norm sigma')
+            axc1.set_title('Normalized sigma power (raw)')
+            axc2.plot(t_bout, norm_smooth, color='k', linewidth=0.8)
+            axc2.set_ylabel('Norm sigma')
+            axc2.set_xlabel('Time (s)')
+            axc2.set_title('Normalized sigma power (4 s smoothing)')
+
+            # ---- Save panels B/C ----
+            fig_b.tight_layout()
+            fig_c.tight_layout()
+
+            fig_b.savefig(path.join(out_path, f'{sub}_{ses}_{fnamechan}_panel_B.png'), dpi=150)
+            fig_c.savefig(path.join(out_path, f'{sub}_{ses}_{fnamechan}_panel_C.png'), dpi=150)
+
+            plt.close(fig_b)
+            plt.close(fig_c)
+
+
+def _plot_infraslow_panels_all(clam_obj, subs = None, sessions = None,
+                               stage = None, xml_dir = None, out_dir = None,
+                               seed = 1, target_fs = 100,
+                               logger = create_logger('Infraslow panels')):
+    """Helper to iterate through tracking sheet and plot per sub/ses/channel."""
+    subs = clam_obj.subs if subs is None else subs
+    sessions = clam_obj.sessions if sessions is None else sessions
+
+    if not isinstance(clam_obj.chan, DataFrame):
+        logger.warning('Channel tracking sheet not available; specify sub/ses and channel.')
+        return
+
+    chan_df = clam_obj.chan
+    if subs != 'all':
+        if isinstance(subs, str):
+            subs = [subs]
+        chan_df = chan_df[chan_df['sub'].isin(subs)]
+    if sessions != 'all':
+        if isinstance(sessions, str):
+            sessions = [sessions]
+        chan_df = chan_df[chan_df['ses'].isin(sessions)]
+
+    subs_list = sorted(chan_df['sub'].unique())
+    for sub in subs_list:
+        ses_list = sorted(chan_df[chan_df['sub'] == sub]['ses'].unique())
+        for ses in ses_list:
+            flag, chanset = load_channels(sub, ses, chan_df, chan_df, flag = 0, logger = logger)
+            if not chanset:
+                continue
+            for ch in list(chanset.keys()):
+                clam_obj.plot_infraslow_panels(sub=sub, ses=ses,
+                                               stage=stage, channel=ch,
+                                               xml_dir=xml_dir, out_dir=out_dir,
+                                               seed=seed, target_fs=target_fs,
+                                               logger=logger)
+
+
             
             
             
@@ -846,46 +1324,48 @@ def extract_infraslow_spectral_profile(eeg_signal, fs, baseline_data,
             Number of original EEG samples (i.e., length of `eeg_signal`).
     """
     
+    # Set the sample period and keep original length for reporting.
     dt = 1 / fs
     n = len(eeg_signal)
 
-    # Time-frequency decomposition (0.5–24 Hz)
+    # 1) CWT of the EEG signal to get time-resolved power (0.5-24 Hz, 0.2 Hz steps).
     freqs_high = arange(0.5, 24.1, 0.2)
     scales_high = pywt.central_frequency(wavelet) / (freqs_high * dt)
     coeffs, freqs_used = pywt.cwt(eeg_signal, scales_high, wavelet, sampling_period=dt)
     power = abs(coeffs) ** 2
 
     results = {}
-    
-    # Calculate PSD on entire segment, for normalisation.
+
+    # 2) Baseline PSD used to normalize each band (Welch on baseline_data).
     f_fft, pxx = welch(baseline_data, fs=fs, nperseg=fs*4)
-    
 
     for band_name, (fmin, fmax) in band_defs.items():
-        
-        # Band power time series
+
+        # 3) Band-power time series: average CWT power across frequencies in the band.
         band_idx = (freqs_used >= fmin) & (freqs_used <= fmax)
         band_power = power[band_idx].mean(axis=0)
 
-        # Moving average smoothing
+        # 4) Smooth the band-power time series (moving average, default 4 s).
         win_samples = int(smoothing_window_sec * fs)
         smooth = Series(band_power).rolling(win_samples, center=True, min_periods=1).mean().to_numpy()
 
-        # Normalize to mean power
+        # 5) Normalize by mean band power from baseline PSD.
         idx_band = (f_fft >= fmin) & (f_fft <= fmax)
         band_baseline = nanmean(pxx[idx_band])
         normalized = smooth / band_baseline
 
-        # Downsample for infraslow resolution
+        # 6) Downsample to the infraslow temporal resolution (default 0.5 s).
         step = int(downsample_step_sec * fs)
         smooth_ds = normalized[::step]
         dt_ds = downsample_step_sec
 
-        # Infraslow wavelet transform (e.g. 0.001–0.12 Hz)
+        # 7) CWT of the band-power trace in the infraslow range (e.g., 0.001-0.12 Hz).
         freqs_low = arange(infraslow_freq_range[0], infraslow_freq_range[1], infraslow_step)
         scales_low = pywt.central_frequency(wavelet) / (freqs_low * dt_ds)
         coeffs_low, _ = pywt.cwt(smooth_ds, scales_low, wavelet, sampling_period=dt_ds)
         power_low = abs(coeffs_low) ** 2
+
+        # 8) Average power across time to yield the infraslow PSD estimate.
         mean_power = power_low.mean(axis=1)
 
         results[band_name] = {

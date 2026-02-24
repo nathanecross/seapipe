@@ -58,6 +58,10 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
     
     if isinstance(filetype, str):
         filetype = [filetype]
+        
+    if len(subs) == 0:
+        logger.critical(f"{datapath} doesn't contain any directories.\n")
+        finalbids += 1
     
     for sub in subs:
         real_files = [x for x in listdir(path.join(datapath, sub)) if not x.startswith('.')]

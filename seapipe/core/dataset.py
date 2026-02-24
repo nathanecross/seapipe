@@ -1457,6 +1457,9 @@ class pipeline:
             # Set channels
             chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
             
+            if not isinstance(chan, DataFrame) and chan == 'error':
+                return
+            
             self.track(subs, sessions, step = 'spindle', show = False, 
                        log = False)
             self.tracking['cluster'] = self.tracking['spindle']
@@ -1466,8 +1469,64 @@ class pipeline:
                         chan, grp_name, stage, 
                         rater, subs, sessions, self.tracking)
             
-            CLAM.clustering(evt_name, freq_bands, filetype, grp_name, logger )
+            CLAM.clustering(evt_name, freq_bands, filetype, grp_name, concat_stage, logger)
         
+        return
+
+
+    def plot_infraslow(self, xml_dir = None, out_dir = None,
+                             subs = 'all', sessions = 'all',
+                             chan = None, ref_chan = None, grp_name = 'eeg',
+                             stage = ['NREM2', 'NREM3'],
+                             rater = None, seed = 1,
+                             outfile = True):
+
+        """
+        Create infraslow diagnostic panels (A-C) for each subject/session.
+
+        Uses staging annotations to determine sleep onset, NREM bouts, and the
+        normalization window; plots are saved under derivatives/clusterfluc.
+        """
+
+        from seapipe.events.clam import clam
+
+        # Set up logging
+        if outfile == True:
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H:%M:%S")
+            logfile = f'{self.log_dir}/plot_infraslow_{today}_{now}_log.txt'
+            logger = create_logger_outfile(logfile=logfile, name='Plot infraslow')
+            logger.info('')
+            logger.debug(f"-------------- New call of 'Plot infraslow' evoked at {now} --------------")
+        elif outfile:
+            logfile = f'{self.log_dir}/{outfile}'
+            logger = create_logger_outfile(logfile=logfile, name='Plot infraslow')
+        else:
+            logger = create_logger('Plot infraslow')
+
+        # Resolve input/output directories
+        xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging')
+        logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        out_dir = select_output_dirs(self.outpath, out_dir, 'cluster')
+        logger.debug(f'Output being saved to: {out_dir}')
+
+        # Set channels (tracking sheet)
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if not isinstance(chan, DataFrame) and chan == 'error':
+            return
+
+        # Instantiate CLAM
+        CLAM = clam(self.rootpath, self.datapath, xml_dir, out_dir,
+                    chan, grp_name, stage,
+                    rater, subs, sessions, self.tracking)
+
+        # Run plotting (looping handled inside CLAM)
+        CLAM.plot_infraslow_panels(subs=subs, sessions=sessions,
+                                   stage=stage,
+                                   xml_dir=xml_dir, out_dir=out_dir,
+                                   seed=seed, logger=logger)
+
         return
     
     

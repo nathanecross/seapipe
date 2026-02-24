@@ -1005,7 +1005,8 @@ class FISH:
                         if path.isfile(data_file):
                             try:
                                 psd = read_csv(data_file, index_col = 0)
-                                psd.index = [sub]
+                                psd = psd['fit_psd'].T
+                                psd.name = sub
                                 df_psd.append(psd)
                             except:
                                 extract_data_error(logger)
@@ -1020,7 +1021,7 @@ class FISH:
                             
                    
                     # Concatenate all dataframes vertically (row-wise)
-                    master_df = concat(df_psd)
+                    master_df = DataFrame(df_psd)
                     master_df.to_csv(f"{self.out_dir}/{band}_{ses}_{ch}_{stagename}_fluctuations_psd.csv")
                         
                   
