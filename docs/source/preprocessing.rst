@@ -52,7 +52,7 @@ Some examples of poor signal quality include:
     S.Q.U.I.D. is designed for use at the preprocessing or quality control stage of electro-physiological analyses, particularly 
     when working with large datasets, multi-channel recordings, or heterogeneous data sources. It is especially useful when 
     channel quality is uncertain, variable across recordings, or when automated channel selection is required prior to downstream 
-    analyses (e.g., event detection, spectral analysis, or connectivity measures). By providing standardised, quantitative QC metrics, 
+    analyses (e.g., automated staging, event detection, or spectral analysis). By providing standardised, quantitative QC metrics, 
     S.Q.U.I.D. facilitates reproducible data cleaning, objective channel inclusion criteria, and transparent reporting of data quality 
     across subjects and sessions.
     
@@ -148,7 +148,7 @@ Calculate QC metrics
 
     **outfile** *(bool or str)*
     
-        * Wheter to log the process. 
+        * Whether to log the process. 
 
         * *Acceptable options:*
 
