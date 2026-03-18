@@ -893,7 +893,9 @@ class FISH:
                          'mean_iei_s','median_iei_s','min_interval_s',
                          'mean_interval_s','max_interval_s',
                          'min_cluster_duration_s','avg_cluster_duration_s',
-                         'max_cluster_duration_s']
+                         'max_cluster_duration_s',
+                         'n_bouts_total','mean_bout_len_s','std_bout_len_s',
+                         'n_bouts_psd','mean_bout_len_psd_s','std_bout_len_psd_s']
             for band in bands:
                 variables.extend([f'{band}_peak_freq', f'{band}_avg_peak_power'])
         else:

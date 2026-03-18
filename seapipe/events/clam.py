@@ -7,8 +7,8 @@ Created on Wed May  7 15:47:20 2025
 """
 
 from numpy import (angle, arange, array, average, ceil, concatenate, degrees, diff, exp,
-                   hamming, hanning, histogram,  inf, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
-                   nanargmin, nanmax, nanmean, nanmedian, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
+                   hamming, hanning, histogram,  inf, isfinite, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
+                   nanargmin, nanmax, nanmean, nanmedian, nanmin, nansum, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
 from numpy.fft import rfft, rfftfreq
 from pandas import DataFrame, Series
 from collections import Counter, defaultdict
@@ -61,6 +61,8 @@ class clam:
                              freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)},
                              filetype = '.edf', grp_name = 'eeg',
                              concat_stage = False,
+                             spectral_method = 'welch',
+                             plot_fit = False,
                              logger = create_logger('Event clustering')):
             
             
@@ -68,6 +70,11 @@ class clam:
             ### 0.a Set up logging
             tracking = self.tracking
             flag = 0
+
+            spectral_method = str(spectral_method).lower()
+            if spectral_method not in ('welch', 'morlet'):
+                logger.warning(f"Unknown spectral_method '{spectral_method}', defaulting to 'welch'.")
+                spectral_method = 'welch'
             
             logger.info('')            
             logger.debug(rf"""Commencing clustering and fluctuations pipeline...
@@ -226,9 +233,11 @@ class clam:
                             step_sec = window_sec - overlap_sec  # 0.5 s steps
                             baseline_limit_sec = 100 * 60  # first 100 min for normalization
                             min_bout_sec = 120  # human method minimum bout length
-                            min_psd_bout_sec = 300  # MATLAB script removes bouts shorter than 300 s
+                            # Human methods: include bouts >=120 s; Welch window capped at 300 s
+                            min_psd_bout_sec = 120
                             infraslow_step_hz = 0.001
-                            infraslow_max_hz = 0.5  # compute up to 0.5, crop to 0.1 for fitting (Matlab style)
+                            # Morlet method targets 0.001–0.12 Hz; Welch can compute up to 0.5 Hz
+                            infraslow_max_hz = 0.12 if spectral_method == 'morlet' else 0.5
 
                             per_seg_series = []
                             baseline_vals = {band: [] for band in freq_bands}
@@ -383,6 +392,7 @@ class clam:
 
                         trace_segments = {band: [] for band in freq_bands}
                         psd_accum = {band: [] for band in freq_bands}
+                        psd_weights = {band: [] for band in freq_bands}
 
                         for seg_series in per_seg_series:
                             duration_sec = len(seg_series['times']) * step_sec
@@ -391,51 +401,80 @@ class clam:
                             for band in freq_bands:
                                 series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
                                                      nan=nanmean(seg_series[f'{band}_norm']))
-                                
-                                # High-pass to suppress slow drift (MATLAB-style FIR) or detrend if too short
-                                hp_cut = 0.005
                                 fs_band = 1 / step_sec
-                                transition_hz = 0.01
-                                forder = int(ceil(3.3 / (transition_hz / fs_band)))
-                                numtaps = forder + 1
-                                if numtaps % 2 == 0:
-                                    numtaps += 1
-                                if len(series) <= numtaps * 3:
-                                    series = detrend(series)
-                                else:
-                                    b = firwin(numtaps, hp_cut, pass_zero=False, fs=fs_band, window='hamming')
-                                    series = filtfilt(b, [1.0], series)
-                                centered = series
-                                
-                                # PWELCH on band-power timecourse
-                                nperseg = int(300 / step_sec)
-                                if len(centered) < nperseg:
-                                    continue
-                                noverlap = int(nperseg * 0.5)
-                                freqs_pwel, power_pwel = welch(centered, fs=fs_band,
-                                                               window='hann',
-                                                               nperseg=nperseg,
-                                                               noverlap=noverlap,
-                                                               nfft=int(300 / step_sec),
-                                                               detrend=False,
-                                                               scaling='density')
-                                mask = freqs_pwel <= infraslow_max_hz
-                                freqs_pwel = freqs_pwel[mask]
-                                power_pwel = power_pwel[mask]
-                                
-                                # Interpolate to common grid (0..infraslow_max_hz, fixed spacing)
-                                freqs_low = arange(0, infraslow_max_hz + infraslow_step_hz, infraslow_step_hz)
-                                interp_fn = interp1d(freqs_pwel, power_pwel, bounds_error=False, fill_value='extrapolate')
-                                power_interp = interp_fn(freqs_low)
-                                psd_accum[band].append(power_interp)
 
-                        stats = {}
+                                if spectral_method == 'morlet':
+                                    # Morlet wavelet on band-power timecourse (0.001–0.12 Hz, 0.001 step)
+                                    freqs_isf = arange(0.001, 0.120 + infraslow_step_hz, infraslow_step_hz)
+                                    dt = step_sec
+                                    scales = pywt.central_frequency('cmor4.0-1.0') / (freqs_isf * dt)
+                                    coeffs, freqs_used = pywt.cwt(series, scales, 'cmor4.0-1.0', sampling_period=dt)
+                                    power = abs(coeffs) ** 2
+                                    power_mean = nanmean(power, axis=1)
+                                    freqs_low = arange(0, infraslow_max_hz + infraslow_step_hz, infraslow_step_hz)
+                                    interp_fn = interp1d(freqs_used, power_mean, bounds_error=False, fill_value=nan)
+                                    power_interp = interp_fn(freqs_low)
+                                else:
+                                    # High-pass to suppress slow drift (MATLAB-style FIR) or detrend if too short
+                                    hp_cut = 0.005
+                                    transition_hz = 0.01
+                                    forder = int(ceil(3.3 / (transition_hz / fs_band)))
+                                    numtaps = forder + 1
+                                    if numtaps % 2 == 0:
+                                        numtaps += 1
+                                    if len(series) <= numtaps * 3:
+                                        series = detrend(series)
+                                    else:
+                                        b = firwin(numtaps, hp_cut, pass_zero=False, fs=fs_band, window='hamming')
+                                        series = filtfilt(b, [1.0], series)
+                                    centered = series
+                                    
+                                    # PWELCH on band-power timecourse
+                                    nperseg = int(builtins.min(len(centered), int(300 / step_sec)))
+                                    if nperseg < 4:
+                                        continue
+                                    noverlap = int(nperseg * 0.5)
+                                    freqs_pwel, power_pwel = welch(centered, fs=fs_band,
+                                                                   window='hann',
+                                                                   nperseg=nperseg,
+                                                                   noverlap=noverlap,
+                                                                   nfft=nperseg,
+                                                                   detrend=False,
+                                                                   scaling='density')
+                                    mask = freqs_pwel <= infraslow_max_hz
+                                    freqs_pwel = freqs_pwel[mask]
+                                    power_pwel = power_pwel[mask]
+                                    
+                                    # Interpolate to common grid (0..infraslow_max_hz, fixed spacing)
+                                    freqs_low = arange(0, infraslow_max_hz + infraslow_step_hz, infraslow_step_hz)
+                                    interp_fn = interp1d(freqs_pwel, power_pwel, bounds_error=False, fill_value='extrapolate')
+                                    power_interp = interp_fn(freqs_low)
+
+                                psd_accum[band].append(power_interp)
+                                psd_weights[band].append(duration_sec)
+
+                        # Bout-length summary (all bouts + PSD-eligible bouts)
+                        all_bout_lengths = array([len(seg['times']) * step_sec for seg in per_seg_series], dtype=float)
+                        psd_bout_lengths = all_bout_lengths[all_bout_lengths >= min_psd_bout_sec]
+
+                        stats = {
+                            'n_bouts_total': int(len(all_bout_lengths)),
+                            'mean_bout_len_s': float(nanmean(all_bout_lengths)) if len(all_bout_lengths) > 0 else nan,
+                            'std_bout_len_s': float(nanstd(all_bout_lengths)) if len(all_bout_lengths) > 0 else nan,
+                            'n_bouts_psd': int(len(psd_bout_lengths)),
+                            'mean_bout_len_psd_s': float(nanmean(psd_bout_lengths)) if len(psd_bout_lengths) > 0 else nan,
+                            'std_bout_len_psd_s': float(nanstd(psd_bout_lengths)) if len(psd_bout_lengths) > 0 else nan,
+                        }
                         for band in freq_bands:
                             arrays = array(psd_accum[band])
                             if len(arrays) == 0:
                                 logger.warning(f'No valid bouts >= {min_psd_bout_sec}s for {band}; skipping.')
                                 continue
-                            weighted_avg = average(arrays, axis=0)
+                            weights = array(psd_weights[band], dtype=float)
+                            if len(weights) != len(arrays) or nansum(weights) == 0:
+                                weighted_avg = average(arrays, axis=0)
+                            else:
+                                weighted_avg = average(arrays, axis=0, weights=weights)
                             
                             # Normalize by mean power in 0.0075–0.1 Hz (Matlab style)
                             norm_mask = (freqs_low >= 0.0075) & (freqs_low <= 0.1)
@@ -446,16 +485,21 @@ class clam:
                             if not fit_mask.any():
                                 logger.warning(f'No frequencies in fit window for {band}; skipping.')
                                 continue
-                            peak_freq, sigma_val, avg_peak_power, fit_curve = fit_gaussian(
-                                freqs_low[fit_mask], mean_psd[fit_mask], num_components=2, full_freqs=freqs_low)
+                            peak_freq, sigma_val, avg_peak_power, fit_curve, fit_params = fit_gaussian(
+                                freqs_low[fit_mask], mean_psd[fit_mask], num_components=2,
+                                full_freqs=freqs_low, return_params=True)
 
                             logger.debug(f"Chan: {fnamechan}: {chanset[ch]} - "
                                          f"{band} infraslow peak: {round(peak_freq,3)}; "
                                          f"Peak power: {round(avg_peak_power,3)}")
 
-                            stats[f'{band}_peak_freq'] = round(peak_freq, 3)
+                            stats[f'{band}_peak_freq'] = round(peak_freq, 5)
                             stats[f'{band}_avg_peak_power'] = round(avg_peak_power, 3)
-                            stats[f'{band}_sigma'] = round(sigma_val, 3)
+                            stats[f'{band}_sigma'] = round(sigma_val, 5)
+                            stats[f'{band}_fit_adjR2'] = round(fit_params.get('adjr2', nan), 3)
+                            stats[f'{band}_fit_model'] = fit_params.get('model_used', nan)
+                            stats[f'{band}_fit_poor'] = fit_params.get('poor_fit', False)
+                            stats[f'{band}_fit_peak_source'] = fit_params.get('peak_source', 'fit')
 
                             # Phase estimation using band-pass around peak ±1*SD
                             if isnan(peak_freq) or isnan(sigma_val):
@@ -505,6 +549,13 @@ class clam:
                                 'fit_psd': fit_curve
                             })
                             psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
+
+                            if plot_fit:
+                                plot_mu_bounds = fit_params.get('mu_bounds') if isinstance(fit_params, dict) else (0.0075, 0.04)
+                                plot_out = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_fit.png'
+                                plot_psd_fit(freqs_low, mean_psd, fit_curve, fit_params,
+                                             plot_mu_bounds, plot_out,
+                                             title=f'{sub} {ses} {fnamechan} {band}')
 
                             # Filtered trace
                             if trace_segments[band]:
@@ -1381,6 +1432,9 @@ def extract_infraslow_spectral_profile(eeg_signal, fs, baseline_data,
 def gaussian(x, a, mu, sigma):
     return a * exp(-((x - mu) ** 2) / (2 * sigma ** 2))
 
+def gaussian_offset(x, offset, a, mu, sigma):
+    return offset + gaussian(x, a, mu, sigma)
+
 def multi_gaussian(x, *params):
     """Sum of multiple Gaussian components."""
     y = zeros_like(x, dtype=float)
@@ -1389,7 +1443,13 @@ def multi_gaussian(x, *params):
         y += gaussian(x, a, mu, sigma)
     return y
 
-def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
+def multi_gaussian_offset(x, offset, *params):
+    """Sum of multiple Gaussian components with a constant offset."""
+    return offset + multi_gaussian(x, *params)
+
+def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None,
+                 init_peak_range=(0.0075, 0.04), init_high_range=(0.04, 0.1),
+                 return_params=False, r2_threshold=0.2):
     """
     Fit a Gaussian (or sum of Gaussians) to a 1D power spectrum and compute peak characteristics.
 
@@ -1410,75 +1470,233 @@ def fit_gaussian(freqs_low, psd_vals, num_components=1, full_freqs=None):
     sigma : float
         Standard deviation (spread) of the component nearest the peak [Hz].
     avg_peak_power : float
-        Average PSD value in the frequency window centered at the peak frequency
-        and spanning ±0.5 * sigma, computed via linear interpolation.
+        Fitted power at the peak frequency (MATLAB-style).
         Returns NaN for all outputs if the fit fails.
     fit_curve : ndarray
         Fitted curve evaluated at `full_freqs` if provided, otherwise at `freqs_low`.
+    fit_params : dict, optional
+        Returned only if return_params=True. Contains 'offset' and 'components'.
     """
     
     try:
+        freqs_low = array(freqs_low, dtype=float)
+        psd_vals = array(psd_vals, dtype=float)
         x_eval = full_freqs if full_freqs is not None else freqs_low
         components = []
-        if num_components == 1:
-            bounds = ([0, 0.001, 1e-4], [inf, 0.12, 0.1])  # [a, mu, sigma]
-            popt, _ = curve_fit(gaussian, freqs_low, psd_vals, 
-                                p0 = [nanmax(psd_vals), 0.02, 0.01],
-                                bounds = bounds,
-                                maxfev = 8000)
-            a, mu, sigma = popt
-            components.append((a, mu, sigma))
-            fit_curve = gaussian(x_eval, *popt)
+        mu_bounds = None
+
+        # MATLAB-style preprocessing
+        y_data = psd_vals.copy()
+        y_data[freqs_low < 0.0075] = nanmedian(y_data)
+        offset = nanmean(y_data[freqs_low >= 0.059999])
+        if isnan(offset):
+            offset = 0.0
+        y_fit = y_data - offset
+
+        # MATLAB-style initialization: seed mu/a from peak in 0.0075-0.04 Hz
+        init_mask = (freqs_low > init_peak_range[0]) & (freqs_low <= init_peak_range[1])
+        if init_mask.any():
+            idx_init = nanargmax(y_fit[init_mask])
+            mu_init = freqs_low[init_mask][idx_init]
+            a_init = y_fit[init_mask][idx_init]
         else:
-            centers = linspace(0.01, 0.09, num_components)
-            p0 = []
-            bounds_low = []
-            bounds_high = []
-            for c in centers:
-                p0.extend([nanmax(psd_vals), c, 0.01])
-                bounds_low.extend([0, 0.001, 1e-4])
-                bounds_high.extend([inf, 0.12, 0.1])
-            popt, _ = curve_fit(multi_gaussian, freqs_low, psd_vals,
-                                p0 = p0,
-                                bounds = (bounds_low, bounds_high),
-                                maxfev = 12000)
-            for k in range(num_components):
+            idx_init = nanargmax(y_fit)
+            mu_init = freqs_low[idx_init]
+            a_init = y_fit[idx_init]
+
+        # Robustify initial amplitude / resolution
+        if not isfinite(a_init) or a_init <= 0:
+            a_init = nanmax(y_fit)
+        if not isfinite(a_init) or a_init <= 0:
+            a_init = 1.0
+
+        df = nanmean(diff(freqs_low))
+        if not isfinite(df) or df <= 0:
+            df = 0.001
+        minsd = 2 * df
+
+        def _adj_r2(y_true, y_pred, p):
+            y_true = array(y_true, dtype=float)
+            y_pred = array(y_pred, dtype=float)
+            mask = isfinite(y_true) & isfinite(y_pred)
+            if mask.sum() < (p + 2):
+                return nan
+            y_true = y_true[mask]
+            y_pred = y_pred[mask]
+            ss_res = ((y_true - y_pred) ** 2).sum()
+            ss_tot = ((y_true - nanmean(y_true)) ** 2).sum()
+            if ss_tot == 0:
+                return nan
+            r2 = 1 - ss_res / ss_tot
+            n = len(y_true)
+            return 1 - (1 - r2) * (n - 1) / (n - p - 1)
+
+        def _fit_gauss1():
+            mu_lo = 0.0075 + minsd
+            mu_hi = 0.1 - minsd
+            mu0 = builtins.max(mu_lo, builtins.min(mu_init, mu_hi))
+            bounds = ([0.01 * a_init, mu_lo, minsd], [2 * a_init, mu_hi, 0.2])
+            popt, _ = curve_fit(gaussian, freqs_low, y_fit,
+                                p0=[a_init, mu0, 0.02],
+                                bounds=bounds,
+                                maxfev=8000)
+            comp = [(popt[0], popt[1], popt[2])]
+            curve = gaussian(x_eval, *popt) + offset
+            return comp, curve, (mu_lo, mu_hi), _adj_r2(y_fit, gaussian(freqs_low, *popt), 3)
+
+        def _fit_gauss2(mu1_bounds, mu2_bounds):
+            mu1_lo, mu1_hi = mu1_bounds
+            mu2_lo, mu2_hi = mu2_bounds
+            mu0 = builtins.max(mu1_lo, builtins.min(mu_init, mu1_hi))
+            mu2_init = 0.06
+            mu2_init = builtins.max(mu2_lo, builtins.min(mu2_init, mu2_hi))
+            p0 = [a_init, mu0, 0.02,
+                  0.5 * a_init, mu2_init, 0.01]
+            bounds_low = [0.01 * a_init, mu1_lo, minsd,
+                          0.01 * a_init, mu2_lo, minsd]
+            bounds_high = [2 * a_init, mu1_hi, 0.2,
+                           2 * a_init, mu2_hi, 0.2]
+            popt, _ = curve_fit(multi_gaussian, freqs_low, y_fit,
+                                p0=p0,
+                                bounds=(bounds_low, bounds_high),
+                                maxfev=12000)
+            comp = []
+            for k in range(2):
                 a_k, mu_k, sig_k = popt[3*k:3*k+3]
-                components.append((a_k, mu_k, sig_k))
-            fit_curve = multi_gaussian(x_eval, *popt)
+                comp.append((a_k, mu_k, sig_k))
+            curve = multi_gaussian(x_eval, *popt) + offset
+            return comp, curve, (mu1_bounds, mu2_bounds), _adj_r2(y_fit, multi_gaussian(freqs_low, *popt), 6)
 
-        # Peak from fitted curve (global max), then choose nearest component for sigma
-        peak_idx = nanargmax(fit_curve)
-        peak_freq = x_eval[peak_idx]
-        if len(components) == 1:
-            sigma_sel = components[0][2]
+        # Option 1: fit gauss1 and gauss2, then select by adj R2 (MATLAB-style)
+        comp1, curve1, bounds1, adjr1 = _fit_gauss1()
+        mu1_bounds = (0.0075 + minsd, 0.0333 - minsd)
+        mu2_bounds = (0.0267 + minsd, 0.1)
+        comp2, curve2, bounds2, adjr2 = _fit_gauss2(mu1_bounds, mu2_bounds)
+
+        if isnan(adjr2) or (not isnan(adjr1) and adjr1 >= adjr2):
+            components = comp1
+            fit_curve = curve1
+            mu_bounds = [bounds1]
+            adjr = adjr1
+            model_used = 1
         else:
-            mu_candidates = [c[1] for c in components]
-            idx_near = nanargmin([abs(m - peak_freq) for m in mu_candidates])
-            sigma_sel = components[idx_near][2]
+            components = comp2
+            fit_curve = curve2
+            mu_bounds = [bounds2[0], bounds2[1]]
+            adjr = adjr2
+            model_used = 2
 
-        peak_band = (peak_freq - 0.5 * sigma_sel, peak_freq + 0.5 * sigma_sel)
-        
-        # Clip window to valid frequency range
-        peak_band = (
-                    builtins.max((peak_band[0], freqs_low.min())),
-                    builtins.min((peak_band[1], freqs_low.max()))
-                    )
-        
-        # Interpolate PSD for smoother power estimate in peak window
-        interp_fn = interp1d(freqs_low, psd_vals, 
-                             kind='linear', 
-                             bounds_error=False, 
-                             fill_value='extrapolate')
-        fine_freqs = linspace(*peak_band, 100)
-        fine_power = interp_fn(fine_freqs)
-        
-        avg_peak_power = nanmean(fine_power)
-        
+        # Option 2: flag poor fits (adjR2 or boundary)
+        boundary_tol = minsd
+        mu_lo, mu_hi = mu_bounds[0]
+        at_bounds = (components[0][1] <= mu_lo + boundary_tol) or (components[0][1] >= mu_hi - boundary_tol)
+        poor_fit = (isnan(adjr) or adjr < r2_threshold or at_bounds)
+
+        # Option 3/4: only apply when fit is poor
+        peak_source = 'fit'
+        if poor_fit:
+            # PSD peak in 0.0075-0.04 Hz
+            psd_mask = (freqs_low > init_peak_range[0]) & (freqs_low <= init_peak_range[1])
+            if psd_mask.any():
+                idx_psd = nanargmax(psd_vals[psd_mask])
+                psd_peak_freq = freqs_low[psd_mask][idx_psd]
+                psd_peak_power = psd_vals[psd_mask][idx_psd]
+            else:
+                idx_psd = nanargmax(psd_vals)
+                psd_peak_freq = freqs_low[idx_psd]
+                psd_peak_power = psd_vals[idx_psd]
+
+            # Option 4: relaxed bounds re-fit (both components allowed in 0.0075-0.1)
+            mu_rel_bounds = (0.0075 + minsd, 0.1 - minsd)
+            try:
+                comp_rel, curve_rel, bounds_rel, adjr_rel = _fit_gauss2(mu_rel_bounds, mu_rel_bounds)
+            except Exception:
+                comp_rel, curve_rel, bounds_rel, adjr_rel = None, None, None, nan
+
+            if isfinite(adjr_rel) and (isnan(adjr) or adjr_rel > adjr):
+                components = comp_rel
+                fit_curve = curve_rel
+                mu_bounds = [bounds_rel[0], bounds_rel[1]]
+                adjr = adjr_rel
+                model_used = 2
+                # pick component closest to PSD peak
+                peak_comp = builtins.min(components, key=lambda c: abs(c[1] - psd_peak_freq))
+                peak_freq = peak_comp[1]
+                sigma_sel = peak_comp[2]
+                peak_source = 'relaxed_fit'
+            else:
+                # fallback to PSD peak
+                peak_freq = psd_peak_freq
+                sigma_sel = nan
+                avg_peak_power = psd_peak_power
+                peak_source = 'psd'
+
+        if not poor_fit:
+            # MATLAB-style: use the first Gaussian component as the peak
+            peak_freq = components[0][1]
+            sigma_sel = components[0][2]
+
+        interp_fit = interp1d(x_eval, fit_curve, kind='linear',
+                              bounds_error=False, fill_value='extrapolate')
+        if 'avg_peak_power' not in locals() or isnan(avg_peak_power):
+            avg_peak_power = float(interp_fit(peak_freq))
+
     except RuntimeError:
         peak_freq, sigma_sel, avg_peak_power = nan, nan, nan
         fit_curve = full_freqs * nan if full_freqs is not None else freqs_low * nan
 
+    fit_params = {'offset': offset if 'offset' in locals() else nan,
+                  'components': components if 'components' in locals() else [],
+                  'mu_bounds': mu_bounds if 'mu_bounds' in locals() else None,
+                  'adjr2': adjr if 'adjr' in locals() else nan,
+                  'model_used': model_used if 'model_used' in locals() else nan,
+                  'poor_fit': poor_fit if 'poor_fit' in locals() else False,
+                  'peak_source': peak_source if 'peak_source' in locals() else 'fit'}
+    if return_params:
+        return peak_freq, sigma_sel if 'sigma_sel' in locals() else nan, avg_peak_power, fit_curve, fit_params
     return peak_freq, sigma_sel if 'sigma_sel' in locals() else nan, avg_peak_power, fit_curve
+
+
+def plot_psd_fit(freqs_low, psd_vals, fit_curve, fit_params, mu_bounds, outpath, title=None):
+    """Plot PSD with fitted curves and mu bounds."""
+    if freqs_low is None or psd_vals is None or fit_curve is None:
+        return
+
+    freqs_low = array(freqs_low, dtype=float)
+    psd_vals = array(psd_vals, dtype=float)
+    fit_curve = array(fit_curve, dtype=float)
+
+    mask = (freqs_low >= 0) & (freqs_low <= 0.1)
+    x = freqs_low[mask]
+    y = psd_vals[mask]
+    fit_y = fit_curve[mask]
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    ax.plot(x, y, color='0.5', linewidth=1.0, label='PSD')
+    ax.plot(x, fit_y, color='r', linewidth=1.2, label='Fit')
+
+    offset = fit_params.get('offset', 0.0) if isinstance(fit_params, dict) else 0.0
+    comps = fit_params.get('components', []) if isinstance(fit_params, dict) else []
+    for a, mu, sigma in comps:
+        ax.plot(x, offset + gaussian(x, a, mu, sigma), linestyle=':', color='r', linewidth=0.8)
+
+    if mu_bounds is not None:
+        if isinstance(mu_bounds[0], (list, tuple)):
+            for lo, hi in mu_bounds:
+                ax.axvline(lo, color='k', linestyle=':', linewidth=0.8)
+                ax.axvline(hi, color='k', linestyle=':', linewidth=0.8)
+        else:
+            ax.axvline(mu_bounds[0], color='k', linestyle=':', linewidth=0.8)
+            ax.axvline(mu_bounds[1], color='k', linestyle=':', linewidth=0.8)
+
+    ax.set_xlabel('Frequency (Hz)')
+    ax.set_ylabel('Power (a.u.)')
+    ax.set_xlim(0, 0.1)
+    if title:
+        ax.set_title(title)
+    ax.legend(loc='best', fontsize=8)
+    fig.tight_layout()
+    fig.savefig(outpath, dpi=150)
+    plt.close(fig)
     
             
