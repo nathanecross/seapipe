@@ -1408,6 +1408,9 @@ class pipeline:
                             chan = None, ref_chan = None, grp_name = 'eeg', 
                             stage = ['NREM2'], concat_stage = False,
                             spectral_method = 'welch',
+                            min_total_nrem_sec = None,
+                            min_bouts_psd = None,
+                            low_snr_percentile = None,
                             plot_fit = False,
                             rater = None, 
                             outfile = True):
@@ -1472,7 +1475,9 @@ class pipeline:
                         rater, subs, sessions, self.tracking)
             
             CLAM.clustering(evt_name, freq_bands, filetype, grp_name,
-                            concat_stage, spectral_method, plot_fit, logger)
+                            concat_stage, spectral_method,
+                            min_total_nrem_sec, min_bouts_psd, low_snr_percentile,
+                            plot_fit, logger)
         
         return
 

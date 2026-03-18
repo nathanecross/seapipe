@@ -1,108 +1,108 @@
-Signal preprocessing
+Signal Preprocessing
 =====
 
-.. _overview:
+.. _Artefacts:
 
-Overview
+Artefacts
 ------------
-Signal quality is a critical determinant of reliable electrophysiological analysis, particularly in sleep EEG where artefacts, 
-channel dropouts, and physiological contamination can vary substantially across recordings. Automated and standardised quality 
-control (QC) procedures are therefore essential to ensure that downstream analyses are not biased by poor signal integrity.
+Artefacts are non-neural signal disturbances that can arise from movement, electrode instability, muscle activity, flat-line periods, 
+or other sources of noise, and can substantially compromise downstream electrophysiological analyses. Automated artefact detection is 
+therefore an important preprocessing step, particularly in sleep recordings where artefacts may vary across stages, channels, and recording sessions.
 
-Seapipe provides this functionality via S.Q.U.I.D. (Signal Quality, Uncertainty, Inspection and Denoising) - an automated framework 
-to quantify channel-level signal quality using a range of complementary metrics. These metrics capture temporal stability, amplitude 
-plausibility, spectral composition, signal distribution, and physiological contamination, enabling the identification and flagging of 
-low-quality channels. QC outputs can be generated for individual recordings and aggregated across datasets, facilitating both data-driven 
-channel selection and transparent reporting of signal quality.
+Seapipe provides this functionality via S.A.N.D. (Seapipe Artefact and Noise Detection) - another automated framework for detecting and 
+annotating artefactual segments in sleep recordings. Artefacts can be identified using previously published YASA-based approaches (standard deviation- or covariance-based detection) or using the Seapipe method, which detects flat-lines, high-frequency movement artefacts, and large signal deflections. Detected artefacts are written to the annotations file and can be applied across all channels jointly or to each channel individually.
 
-These cases are different from :ref:`Artefacts` in that they contaminate a signal for the majority of the recording.
-Some examples of poor signal quality include:
+These cases are different from :ref:`Signal Quality` in that they contaminate a signal for temporary and transient periods of the recording.
+Some examples of artefacts include:
 
-1. Hardware noise
+1. Flatlines in data 
 
-    .. image:: images/noise.png
+    .. image:: images/flatline.png
         :width: 700
 
-2. ECG contamination
+2. Large shifts in fast frequencies (>40Hz)
 
-    .. image:: images/ecg_contamination.png
+    .. image:: images/fast_artefact.png
+        :width: 700
+
+3. Large deflections in signal
+
+    .. image:: images/deflection.png
         :width: 700
 
 
-| S.Q.U.I.D provides a summary of signal quality using the following metrics:
-
-    * time_not_flatline: Proportion of time the signal is not flat (based on a moving average).
-
-    * time_above_10:  Proportion of time the signal amplitude is above 10 µV. Flags channels where the signal is of abnormally low amplitude.
-
-    * time_below_200:  Proportion of time the signal amplitude is above 200 µV. Flags channels where the signal is of abnormally high amplitude.
+.. admonition:: When to use S.A.N.D
     
-    * `gini_coefficient <https://doi.org/10.1155/2022/7731309>`_: Gini coefficient of signal amplitude distribution. The Gini coefficient, traditionally used to measure economic inequality, is applied in signal processing to measure sparsity, impulsiveness, or concentration. A Gini coefficient closer to 1 indicates that the signal energy is concentrated in a few components (high sparsity, low noise), while a value closer to 0 indicates a uniform distribution (low sparsity, high noise/spread).
+    S.A.N.D. is designed for use during preprocessing, before event detection, spectral analysis, or other downstream signal analyses. 
+    It is especially useful when recordings contain visible artefacts, when artefact burden is expected to vary across channels or subjects, 
+    or when standardised artefact annotation is required across large datasets. By automatically detecting and annotating noisy segments, 
+    S.A.N.D. facilitates reproducible data cleaning and helps reduce the influence of non-physiological signal disturbances on subsequent analyses.
     
-    * inverse_power_ratio:  Inverse of the ratio of high-frequency to low-frequency power. 
-
-    * ecg_artefact:  Measure of ECG contamination based on average correlation between EEG signal and ECG peak . 
-
-    * ecg_artefact_perc:  Proportion of EEG signal time with high (r>0.5) correlation with ECG (i.e. contamination).
 
 
-.. admonition:: When to use S.Q.U.I.D
-    
-    
-    S.Q.U.I.D. is designed for use at the preprocessing or quality control stage of electro-physiological analyses, particularly 
-    when working with large datasets, multi-channel recordings, or heterogeneous data sources. It is especially useful when 
-    channel quality is uncertain, variable across recordings, or when automated channel selection is required prior to downstream 
-    analyses (e.g., automated staging, event detection, or spectral analysis). By providing standardised, quantitative QC metrics, 
-    S.Q.U.I.D. facilitates reproducible data cleaning, objective channel inclusion criteria, and transparent reporting of data quality 
-    across subjects and sessions.
-    
+Seapipe offers automated artefact detection with the options: 
+            1. `YASA <https://yasa-sleep.org/generated/yasa.art_detect.html>`_ (standard deviation) 
+            2. YASA (covariance)
+            3. Seapipe's in-house artefact detection, which will detect the 3 artefact types listed above.
+
+
 
 .. _Functions:
-Functions to implement S.Q.U.I.D
+Functions to implement S.A.N.D
 ----------------
-| **Running S.Q.U.I.D on individual recordings:**
+| **Running S.A.N.D on individual recordings:**
 
-1) Calculate QC metrics:  
-
-.. code-block:: python
-
-   project.QC_channels(()
-|
-    This will run the function on every ``/sub-XXX/ses-XXX`` in ``<rec_dir>`` and write QC metrics in to ``<root_dir>/derivatives/QC/``. 
-|
-2) Export QC dataset: 
+1) Detect artefacts:  
 
 .. code-block:: python
 
-   project_name.QC_summary()
-|   
-    This will gather all QC reports, including every channel, for a given modality into a single ``.csv`` DataFrame file in ``<root_dir>/derivatives/datasets/QC/`` 
+   project.detect_artefacts()
+|
+    This will run the function on every ``/sub-XXX/ses-XXX`` in ``<rec_dir>`` and write ``'Arefact'`` events directly in the :ref:`Annotations files<Annotations file>` file inside ``<xml_dir>``. 
 |
 
 
-.. _qc_channels:
-Calculate QC metrics
+.. _detect_artefacts:
+Detect Artefacts
 ----------------
 *Command line argument:*
 
 .. code-block:: python
 
-    project.QC_channels(subs = 'all', 
-                        sessions = 'all', 
-                        filetype = '.edf',
-                        filt = None, 
-                        chantype = ['eeg', 'eog', 'emg', 'ecg'],
-                        outfile=True)
+    project.detect_artefacts(xml_dir = None, 
+                             out_dir = None,
+                             subs = 'all', 
+                             sessions = 'all', 
+                             filetype = '.edf',
+                             method = 'seapipe', 
+                             win_size = 5,
+                             chan = None, 
+                             ref_chan = None,
+                             label = 'individual',
+                             rater = None, 
+                             grp_name = 'eeg', 
+                             stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
+                             outfile = True)
 
 
 *Positional arguments:*
+
+    **xml_dir** *(str)*
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input :ref:`Annotations files<Annotations file>`. 
+
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
+
+    **out_dir** *(str)*
+        * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., ``Artefact``)
+
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/spindle/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
@@ -113,7 +113,7 @@ Calculate QC metrics
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
@@ -128,23 +128,81 @@ Calculate QC metrics
 
             * The pipeline can also read ``.eeg``, ``.set`` formats
 
-    **filt** *(str or NoneType)*
-        * Explicit list of channels to process for EEG.
+    **method** *(str)*
+        * The method to use for artefact detection.
 
         * *Acceptable options:*
 
-            * Default is ``None``  Standard 10-20 EEG channel names will be used. 
+            * Default is ``'seapipe'`` Seapipe's in-house artefact detection.
             
-            * If entering a ``str``, then this will work to filter only EEG channel names containing this string in the name. 
+            * The pipeline also accepts ``'yasa_covar'`` and ``'yasa_std'`` methods. For more information see the `YASA documentation <https://yasa-sleep.org/generated/yasa.art_detect.html>`_
 
-    **chantype** *(list)*
-        * Channel type(s) to process. Accepted values: .
+    **win_size** *(int)*
+        * The window size used in artefact detection. If using ``method = 'yasa_covar'`` or ``method = 'yasa_std'`` this corresponds to the window length (resolution) for artifact rejection, in seconds. Shorter windows (e.g. 1 or 2-seconds) will drastically increase computation time when method='covar'. If using ``method = 'seapipe'`` this only corresponds to the size of the sliding window used to detect shifts in fast frequencies.
 
         * *Acceptable options:*
 
-            * Default is ``['eeg', 'eog', 'emg', 'ecg']`` which will process each of the channel types.
+            * Default is ``5`` corresponding to 5 seconds.
+            
+    **chan** *(NoneType or list)*
+        * Channel(s) of interest
 
-            * Entering a subset of this list is accepted, e.g. ``['eeg']``
+        * *Acceptable options:*
+
+            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
+
+            * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only detect the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
+
+    **ref_chan** *(NoneType or list)*
+        * :ref:`Reference channel(s)<Channel Names>` for the channels of interest (e.g., mastoid A1 or A2 or joint mastoids)
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will point to the *refset* columns in the :ref:`tracking file<Tracking File>`. **NOTE** If the tracking file or no *refset* columns exist, then channels will not be re-referenced!
+
+            * Entering a list of channel names (e.g., ``['A1', 'A2']``) will re-reference to these channels  
+
+            * Entering an empty list (i.e., ``[]``) will perform no re-referencing
+
+    **label** *(str)*
+        * This informs the function to add labels on a specific channel or across all channels. Sometimes it can be faster to apply Artefact tagging across all channels, but this comes with a loss in specificity.
+
+        * *Acceptable options:*
+
+            * Default is ``'individual'`` meaning ``'Artefact'`` labels will be applied to each channel specified in ``chan`` independently. 
+
+            * The argument ``allchans`` can be used to apply Artefact tags to all channels.
+
+    **rater** *(NoneType or list)*
+        * Name of the rater in the :ref:`Annotations file` to save the detections under
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will discard the name of the rater. 
+
+            .. note::
+                This assumes there is only one rater per Annotations file (``.xml``) 
+                !! make sure you don't have multiple raters!!
+    
+            * Entering a list of rater names (e.g., ``[<Rater1>, <Rater2>]``) will only save detected events on this rater in the Annotations file
+
+    **grp_name** *(str)*
+        * Name of the tab in the :ref:`Annotations file` to save the detections to. This is for visualization in Wonambi only, however it will impact the `exporting <Export slow oscillations characteristics>` of events also
+
+        * *Acceptable options:*
+
+            * Default is ``eeg`` which is the recommended naming convention
+           
+            * Entering a list of group names (e.g., ``['eeg_hemiR']``) will save the events to a tab of this name in the Annotations file. The events can only be visualised in :ref:`Wonambi` with a montage that includes a tab with this name
+
+    **stage** *(list)*
+        * Stages of interest
+
+        * *Acceptable options:*
+
+            * Default is ``['NREM2', 'NREM3']`` 
+
+            * Entering a list of stages (e.g., ``['NREM3']``), it will only detect the events for this specific stage. **It is recommended that you leave the default option**
 
     **outfile** *(bool or str)*
     
@@ -159,36 +217,6 @@ Calculate QC metrics
             * ``False``, logs only to console.
 
     
-
-
-.. _export_QC:
-Export QC metrics to dataset
-----------------
-*Command line argument:*
-
-.. code-block:: python
-
-    project.QC_summary(qc_dir = None, 
-                       chantype = ['eeg', 'eog', 'emg', 'ecg'])
-
-
-*Positional arguments:*
-
-    **qc_dir** *(str)*
-        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the saved QC reports. 
-
-            * Default is ``None`` which will point to ``<root_dir>/derivatives/QC/``
-
-    **chantype** *(list)*
-        * Channel type(s) to process. Accepted values: .
-
-        * *Acceptable options:*
-
-            * Default is ``['eeg', 'eog', 'emg', 'ecg']`` which will process each of the channel types.
-
-            * Entering a subset of this list is accepted, e.g. ``['eeg']``
-
-
 
 
 

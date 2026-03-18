@@ -43,6 +43,7 @@ Contents
 
    usage
    wonambi
+   qc
    preprocessing
    staging
    macro

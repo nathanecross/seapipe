@@ -75,7 +75,7 @@ Run Phase Amplitude Coupling
 ----------------
 
 |
-    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
+    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/derivatives/pac/`` and calculate PAC. Output parameters will be stored in ``_pac_parameters.csv``
 |
 
 *Command line argument:*
@@ -107,19 +107,19 @@ Run Phase Amplitude Coupling
     **xml_dir** *(str)*
         * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input :ref:`Annotations files<Annotations file>`. 
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
     **out_dir** *(str)*
         * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., ``Ray2015``)
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/pac/``
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/pac/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
@@ -130,7 +130,7 @@ Run Phase Amplitude Coupling
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
@@ -401,7 +401,7 @@ Run Phase Amplitude Coupling
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a logfile *detect_pac_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+            * Default is ``True`` which will create a logfile *detect_pac_{method}_{datetime}_log.txt* in ``<root_dir>/derivatives/audit/logs/``
 
             * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             

@@ -73,7 +73,7 @@ Functions to detect Slow Oscillations
 
    project.detect_slow_oscillations()
 |
-    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/OUT/slowwave/`` and write in the detected events. 
+    This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/derivatives/slowwave/`` and write in the detected events. 
 |
 2) Export event characteristics: 
 
@@ -81,7 +81,7 @@ Functions to detect Slow Oscillations
 
    project_name.export_eventparams()
 |   
-    This will extract a ``.csv`` file for every channel and/or stage and/or cycle into every ``/sub-XXX/ses-XXX`` directory in ``<root_dir>/OUT/slowwave/`` 
+    This will extract a ``.csv`` file for every channel and/or stage and/or cycle into every ``/sub-XXX/ses-XXX`` directory in ``<root_dir>/derivatives/slowwave/`` 
 |
 3) Create datasets combining all the subjects: 
 
@@ -89,7 +89,7 @@ Functions to detect Slow Oscillations
 
    project_name.event_dataset()
 |
-    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) ``<root_dir>/OUT/datasets/``
+    This will combine all of the ``.csv`` files from the previous step into a single dataset (one row per subject) ``<root_dir>/derivatives/datasets/``
 |
 
 .. _detection_SO:
@@ -122,19 +122,19 @@ Detect slow oscillations
     **xml_dir** *(str)*
         * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the input :ref:`Annotations files<Annotations file>`. 
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/staging/`` (Annotations files with sleep stage markings and arousal/artefact events).
 
     **out_dir** *(str)*
         * Output path for the .xml file containing the new detected event (events will be named like the method used; e.g., ``Staresina2015``)
 
-        * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
+        * Default is ``None`` which will point to ``<root_dir>/derivatives/slowwave/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
@@ -145,7 +145,7 @@ Detect slow oscillations
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
@@ -263,7 +263,7 @@ Detect slow oscillations
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a logfile *detect_slowosc_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+            * Default is ``True`` which will create a logfile *detect_slowosc_{method}_{datetime}_log.txt* in ``<root_dir>/derivatives/audit/logs/``
 
             * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             
@@ -320,19 +320,19 @@ Export slow oscillations characteristics
     **xml_dir** *(str)*
         * Path to the directory with sub-directories ``/sub-XXX/ses-XXX`` containing the :ref:`Annotations files<Annotations file>` where the :ref:`detections<Detect slow oscillations>` were saved. 
 
-            * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
+            * Default is ``None`` which will point to ``<root_dir>/derivatives/slowwave/``
 
     **out_dir** *(str)*
         * Output path for the where to save the ``.csv`` file containing the parameters of the slow oscillation events per subject, session, and/or stage, and/or channel.
 
-            * Default is ``None`` which will point to ``root_dir/OUT/slowwave/``
+            * Default is ``None`` which will point to ``root_dir/derivatives/slowwave/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to analyze
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
@@ -343,7 +343,7 @@ Export slow oscillations characteristics
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 
@@ -476,7 +476,7 @@ Export slow oscillations characteristics
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a logfile *export_params_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+            * Default is ``True`` which will create a logfile *export_params_{method}_{datetime}_log.txt* in ``<root_dir>/derivatives/audit/logs/``
 
             * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             
@@ -542,14 +542,14 @@ Create datasets
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to ``<root_dir>/OUT/slowwave/``
+            * Default is ``None`` which will point to ``<root_dir>/derivatives/slowwave/``
 
     **out_dir** *(str)*
         * Output path for the created datasets
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to ``<root_dir>/OUT/datasets/``
+            * Default is ``None`` which will point to ``<root_dir>/derivatives/datasets/``
 
     **subs** *(str, NoneType or list)*
         * Subject IDs to export into the dataset
@@ -645,7 +645,7 @@ Create datasets
 
         * *Acceptable options:*
 
-            * Default is ``True`` which will create a logfile *event_dataset_{method}_{datetime}_log.txt* in ``<root_dir>/OUT/audit/logs/``
+            * Default is ``True`` which will create a logfile *event_dataset_{method}_{datetime}_log.txt* in ``<root_dir>/derivatives/audit/logs/``
 
             * Entering a string ``<custom_outfile_name.txt>`` will save the logfile under that custom name
             

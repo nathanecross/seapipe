@@ -68,7 +68,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *sub* column in the :ref:`tracking file<Tracking File>`
 
@@ -79,7 +79,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/DATA/``
+            * Default is ``'all'`` which will point to all the ``ses-XXX/`` directories within the ``sub-XXX/`` directories in ``<root_dir>/rawdata/``
 
             * Entering ``None`` will point seapipe to the *ses* column in the :ref:`tracking file<Tracking File>`
 

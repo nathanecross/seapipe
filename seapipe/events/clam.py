@@ -8,7 +8,7 @@ Created on Wed May  7 15:47:20 2025
 
 from numpy import (angle, arange, array, average, ceil, concatenate, degrees, diff, exp,
                    hamming, hanning, histogram,  inf, isfinite, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
-                   nanargmin, nanmax, nanmean, nanmedian, nanmin, nansum, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
+                   nanargmin, nanmax, nanmean, nanmedian, nanmin, nanpercentile, nansum, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
 from numpy.fft import rfft, rfftfreq
 from pandas import DataFrame, Series
 from collections import Counter, defaultdict
@@ -62,6 +62,9 @@ class clam:
                              filetype = '.edf', grp_name = 'eeg',
                              concat_stage = False,
                              spectral_method = 'welch',
+                             min_total_nrem_sec = None,
+                             min_bouts_psd = None,
+                             low_snr_percentile = None,
                              plot_fit = False,
                              logger = create_logger('Event clustering')):
             
@@ -75,6 +78,15 @@ class clam:
             if spectral_method not in ('welch', 'morlet'):
                 logger.warning(f"Unknown spectral_method '{spectral_method}', defaulting to 'welch'.")
                 spectral_method = 'welch'
+            if low_snr_percentile is not None:
+                try:
+                    low_snr_percentile = float(low_snr_percentile)
+                except Exception:
+                    logger.warning('low_snr_percentile is not numeric; disabling SNR filtering.')
+                    low_snr_percentile = None
+                if low_snr_percentile is not None and not (0 < low_snr_percentile < 100):
+                    logger.warning('low_snr_percentile must be between 0 and 100; disabling SNR filtering.')
+                    low_snr_percentile = None
             
             logger.info('')            
             logger.debug(rf"""Commencing clustering and fluctuations pipeline...
@@ -380,6 +392,15 @@ class clam:
                             flag += 1
                             continue
 
+                        # Minimum total NREM coverage (toggle)
+                        if min_total_nrem_sec is not None:
+                            total_nrem_sec = sum(len(seg['times']) * step_sec for seg in per_seg_series)
+                            if total_nrem_sec < min_total_nrem_sec:
+                                logger.warning(f'Total NREM duration {total_nrem_sec:.1f}s < '
+                                               f'{min_total_nrem_sec}s; skipping {sub}, {ses}, {fnamechan}, {stagename}.')
+                                flag += 1
+                                continue
+
                         baseline_band_power = {}
                         for band in freq_bands:
                             vals = array(baseline_vals[band])
@@ -394,11 +415,43 @@ class clam:
                         psd_accum = {band: [] for band in freq_bands}
                         psd_weights = {band: [] for band in freq_bands}
 
+                        # Precompute eligible bouts by duration
+                        eligible_idx = [i for i, seg in enumerate(per_seg_series)
+                                        if len(seg['times']) * step_sec >= min_psd_bout_sec]
+
+                        # Minimum number of PSD-eligible bouts (toggle)
+                        if min_bouts_psd is not None:
+                            try:
+                                min_bouts_psd_val = int(min_bouts_psd)
+                            except Exception:
+                                min_bouts_psd_val = None
+                            if min_bouts_psd_val is not None and len(eligible_idx) < min_bouts_psd_val:
+                                logger.warning(f'Only {len(eligible_idx)} bouts >= {min_psd_bout_sec}s '
+                                               f'(min required {min_bouts_psd_val}); skipping {sub}, {ses}, '
+                                               f'{fnamechan}, {stagename}.')
+                                flag += 1
+                                continue
+
+                        # Low-SNR bout filter thresholds per band (toggle)
+                        snr_thresh = {}
+                        if low_snr_percentile is not None and len(eligible_idx) > 0:
+                            for band in freq_bands:
+                                vals = []
+                                for i in eligible_idx:
+                                    series_raw = per_seg_series[i]['band_power_raw'][band]
+                                    vals.append(nanmean(series_raw))
+                                if len(vals) > 0:
+                                    snr_thresh[band] = nanpercentile(array(vals, dtype=float), low_snr_percentile)
+
                         for seg_series in per_seg_series:
                             duration_sec = len(seg_series['times']) * step_sec
                             if duration_sec < min_psd_bout_sec:
                                 continue
                             for band in freq_bands:
+                                if band in snr_thresh:
+                                    band_mean = nanmean(seg_series['band_power_raw'][band])
+                                    if isfinite(band_mean) and band_mean < snr_thresh[band]:
+                                        continue
                                 series = nan_to_num(array(seg_series[f'{band}_norm'], dtype=float),
                                                      nan=nanmean(seg_series[f'{band}_norm']))
                                 fs_band = 1 / step_sec

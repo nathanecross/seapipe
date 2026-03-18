@@ -22,12 +22,12 @@ for seapipe to run properly.
 By running seapipe, raw data will be transformed and partial as well as final results will be saved. Therefore, the original, raw data must be separated from the outputs (derivatives).
 This is done by placing the raw dataset inside a directory labelled ``sourcedata`` inside the root directory.
 
-For example, a eeg datafile should be in the structure ``~/rootdir/sourcedata/sub-01/ses-01/eeg/sub-01_ses-01_task-sleep_acq-PSG_eeg.edf``
+For example, a eeg datafile should be in the structure ``~/rootdir/rawdata/sub-01/ses-01/eeg/sub-01_ses-01_task-sleep_acq-PSG_eeg.edf``
 
 An example of the datastructure would look like this:
 ::
    └─ my_project-1/
-      ├─ sourcedata/
+      ├─ rawdata/
       │  ├─ sub-01/
       │  │  ├─ ses-01
       │  │  │  └─ eeg
