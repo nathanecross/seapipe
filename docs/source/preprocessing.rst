@@ -38,9 +38,9 @@ Some examples of poor signal quality include:
     * time_below_200:  Proportion of time the signal amplitude is above 200 µV. Flags channels where the signal is of abnormally high amplitude.
     
     * `gini_coefficient <https://doi.org/10.1155/2022/7731309>`_: Gini coefficient of signal amplitude distribution. The Gini coefficient, 
-        traditionally used to measure economic inequality, is applied in signal processing to measure sparsity, impulsiveness, or concentration. 
-        A Gini coefficient closer to 1 indicates that the signal energy is concentrated in a few components (high sparsity, low noise), while a 
-        value closer to 0 indicates a uniform distribution (low sparsity, high noise/spread).
+    traditionally used to measure economic inequality, is applied in signal processing to measure sparsity, impulsiveness, or concentration. 
+    A Gini coefficient closer to 1 indicates that the signal energy is concentrated in a few components (high sparsity, low noise), while a 
+    value closer to 0 indicates a uniform distribution (low sparsity, high noise/spread).
     
     * inverse_power_ratio:  Inverse of the ratio of high-frequency to low-frequency power. 
 
@@ -52,7 +52,7 @@ Some examples of poor signal quality include:
 .. admonition:: When to use S.Q.U.I.D
     
     
-    S.Q.U.I.D. is designed for use at the preprocessing or quality control stage of electrophysiological analyses, particularly 
+    S.Q.U.I.D. is designed for use at the preprocessing or quality control stage of electro-physiological analyses, particularly 
     when working with large datasets, multi-channel recordings, or heterogeneous data sources. It is especially useful when 
     channel quality is uncertain, variable across recordings, or when automated channel selection is required prior to downstream 
     analyses (e.g., event detection, spectral analysis, or connectivity measures). By providing standardised, quantitative QC metrics, 
