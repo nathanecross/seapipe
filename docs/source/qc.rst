@@ -46,6 +46,12 @@ Some examples of poor signal quality include:
     * ecg_artefact_perc:  Proportion of EEG signal time with high (r>0.5) correlation with ECG (i.e. contamination).
 
 
+S.Q.U.I.D returns a quality report, including an overall quality_score [0-1] and quality label [bad, medium, good] for every channel.
+
+    .. image:: images/squid_report.png
+        :width: 700
+
+
 .. admonition:: When to use S.Q.U.I.D
     
     
