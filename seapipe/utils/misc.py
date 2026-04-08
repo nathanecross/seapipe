@@ -858,7 +858,7 @@ def reconstruct_stitches(dat, stitches, s_freq, replacement = 0):
 
 
 def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan,
-                     stage, cat, concat_cycle, cycle_idx, logger):
+                     stage, concat_stage, concat_cycle, cycle_idx, logger):
     
     if adap_bands not in ['Fixed', 'Auto', 'Manual']:
         logger.critical("The argument 'adap_bands' must be either one of"
@@ -891,6 +891,7 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
                             "be 'None' and specfied in 'tracking.csv'")
             flag = 'error'
         else:
+            cat = (int(concat_cycle), int(concat_stage), 1, 1)
             flag, pk_chan, pk_sub, pk_ses = check_fooof(self, frequency, 
                                                               chan, ref_chan, 
                                                               stage, 

@@ -78,7 +78,8 @@ Detect Artefacts
                              win_size = 5,
                              chan = None, 
                              ref_chan = None,
-                             label = 'individual',
+                             label = 'Artefact',
+                             allchans_marker = False,
                              rater = None, 
                              grp_name = 'eeg', 
                              stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
@@ -165,13 +166,16 @@ Detect Artefacts
             * Entering an empty list (i.e., ``[]``) will perform no re-referencing
 
     **label** *(str)*
+        * The label name to be applied to detected artefacts. Default is ``'Artefact'``
+
+    **allchans_marker** *(bool)*
         * This informs the function to add labels on a specific channel or across all channels. Sometimes it can be faster to apply Artefact tagging across all channels, but this comes with a loss in specificity.
 
         * *Acceptable options:*
 
-            * Default is ``'individual'`` meaning ``'Artefact'`` labels will be applied to each channel specified in ``chan`` independently. 
+            * Default is ``False`` meaning ``'Artefact'`` labels will be applied to each channel specified in ``chan`` independently. 
 
-            * The argument ``allchans`` can be used to apply Artefact tags to all channels.
+            * Setting this to ``True`` can be used to apply Artefact tags to all channels.
 
     **rater** *(NoneType or list)*
         * Name of the rater in the :ref:`Annotations file` to save the detections under

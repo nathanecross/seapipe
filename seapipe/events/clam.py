@@ -62,6 +62,9 @@ class clam:
                              filetype = '.edf', grp_name = 'eeg',
                              concat_stage = False,
                              spectral_method = 'welch',
+                             min_bout_length = 300,
+                             allowable_interruptions = 1,
+                             rejoin_artefact = None,
                              min_total_nrem_sec = None,
                              min_bouts_psd = None,
                              low_snr_percentile = None,
@@ -78,6 +81,15 @@ class clam:
             if spectral_method not in ('welch', 'morlet'):
                 logger.warning(f"Unknown spectral_method '{spectral_method}', defaulting to 'welch'.")
                 spectral_method = 'welch'
+            if rejoin_artefact is not None:
+                try:
+                    rejoin_artefact = float(rejoin_artefact)
+                except Exception:
+                    logger.warning('rejoin_artefact is not numeric; disabling artefact rejoin.')
+                    rejoin_artefact = None
+                if rejoin_artefact is not None and rejoin_artefact < 0:
+                    logger.warning('rejoin_artefact must be >= 0; disabling artefact rejoin.')
+                    rejoin_artefact = None
             if low_snr_percentile is not None:
                 try:
                     low_snr_percentile = float(low_snr_percentile)
@@ -244,9 +256,8 @@ class clam:
                             overlap_sec = 4.5
                             step_sec = window_sec - overlap_sec  # 0.5 s steps
                             baseline_limit_sec = 100 * 60  # first 100 min for normalization
-                            min_bout_sec = 120  # human method minimum bout length
-                            # Human methods: include bouts >=120 s; Welch window capped at 300 s
-                            min_psd_bout_sec = 120
+                            min_bout_sec = min_bout_length
+                            min_psd_bout_sec = min_bout_length
                             infraslow_step_hz = 0.001
                             # Morlet method targets 0.001–0.12 Hz; Welch can compute up to 0.5 Hz
                             infraslow_max_hz = 0.12 if spectral_method == 'morlet' else 0.5
@@ -259,7 +270,8 @@ class clam:
                             sleep_onset = None
                             n1_set = ['NREM1', 'N1', 'S1']
                             n1n2_set = ['NREM1', 'N1', 'S1', 'NREM2', 'N2', 'S2']
-                            # Sleep onset: first NREM1 followed by at least 2 consecutive NREM1/NREM2 epochs.
+                            # ---- Sleep onset (align analysis window) ----
+                            # Sleep onset = first NREM1 epoch followed by >=2 consecutive NREM1/NREM2 epochs.
                             for i in range(len(epochs) - 2):
                                 if (epochs[i]['stage'] in n1_set and
                                         epochs[i + 1]['stage'] in n1n2_set and
@@ -279,9 +291,11 @@ class clam:
                                 flag += 1
                                 continue
 
+                            # Analysis window = first 210 min after sleep onset
                             analysis_start = sleep_onset
                             analysis_end = sleep_onset + (210 * 60)
 
+                            # ---- Expand requested stages to cover naming variants ----
                             allowed_stages = set()
                             for st in stage_list:
                                 if st in ['NREM1', 'N1', 'S1']:
@@ -293,16 +307,19 @@ class clam:
                                 else:
                                     allowed_stages.add(st)
 
+                            # Restrict fetch to stages that actually exist in this file
                             epoch_stages = {ep['stage'] for ep in epochs}
                             stage_fetch = [st for st in allowed_stages if st in epoch_stages]
                             if not stage_fetch:
                                 stage_fetch = [st for st in stage_list if st in epoch_stages]
 
+                            # ---- Pull artifact-free segments for the selected stages ----
                             segs = fetch(dset, annot, cat = cat,
                                          stage = stage_fetch,
                                          reject_artf = True)
                             segs.read_data(chan = [ch], ref_chan = chanset[ch])
 
+                            # ---- Cache segment time bounds + data for fast lookup ----
                             seg_infos = []
                             for seg in segs:
                                 signal_data = seg['data'].data[0][0]
@@ -319,51 +336,131 @@ class clam:
                                     'fs': sampling_rate
                                 })
 
-                            nrem_epochs = []
+                            # ---- Build epoch list within analysis window ----
+                            # Mark each epoch as allowed stage + artifact-free (inside fetched segments)
+                            epochs_win = []
                             for ep in epochs:
-                                if ep['stage'] not in allowed_stages:
-                                    continue
                                 if ep['start'] < analysis_start or ep['end'] > analysis_end:
                                     continue
-                                if any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos):
-                                    nrem_epochs.append(ep)
+                                in_seg = any(ep['start'] >= s['start'] and ep['end'] <= s['end'] for s in seg_infos)
+                                epochs_win.append({
+                                    'start': ep['start'],
+                                    'end': ep['end'],
+                                    'allowed': ep['stage'] in allowed_stages,
+                                    'valid': in_seg
+                                })
 
-                        if len(nrem_epochs) == 0:
+                        if len(epochs_win) == 0:
                             logger.warning(f'No valid NREM epochs found for {sub}. {ses}. Skipping...')
                             flag += 1
                             continue
 
-                        nrem_epochs.sort(key=lambda x: x['start'])
+                        # ---- Build NREM bouts, allowing brief interruptions ----
+                        # A bout continues across up to `allowable_interruptions` non-target epochs.
+                        # Example (allowable_interruptions = 1):
+                        #   Epochs:  N2  N2  W  N2  N1  N2  W  W  N2
+                        #   Bouts:  [N2 N2 W N2] [N1 N2] [N2]
+                        #   (single non-target epoch allowed inside a bout)  
+                        #  
+                        epochs_win.sort(key=lambda x: x['start'])
                         bouts = []
-                        bout_start = nrem_epochs[0]['start']
-                        bout_end = nrem_epochs[0]['end']
-                        for ep in nrem_epochs[1:]:
-                            if abs(ep['start'] - bout_end) < 1e-6:
+                        in_bout = False
+                        bout_start = None
+                        bout_end = None
+                        interruptions = 0
+                        gap_dur = 0.0
+                        for ep in epochs_win:
+                            if not ep['valid']:
+                                if in_bout and rejoin_artefact is not None:
+                                    gap_dur += (ep['end'] - ep['start'])
+                                    if gap_dur <= rejoin_artefact:
+                                        # Allow brief artefact gaps to bridge segments
+                                        bout_end = ep['end']
+                                        continue
+                                if in_bout and bout_start is not None and bout_end is not None:
+                                    bouts.append((bout_start, bout_end))
+                                in_bout = False
+                                bout_start = None
+                                bout_end = None
+                                interruptions = 0
+                                gap_dur = 0.0
+                                continue
+                            if ep['allowed']:
+                                if not in_bout:
+                                    bout_start = ep['start']
+                                    in_bout = True
                                 bout_end = ep['end']
+                                interruptions = 0
+                                gap_dur = 0.0
                             else:
-                                bouts.append((bout_start, bout_end))
-                                bout_start = ep['start']
-                                bout_end = ep['end']
-                        bouts.append((bout_start, bout_end))
+                                if in_bout and interruptions < allowable_interruptions:
+                                    interruptions += 1
+                                    bout_end = ep['end']
+                                elif in_bout:
+                                    if bout_start is not None and bout_end is not None:
+                                        bouts.append((bout_start, bout_end))
+                                    in_bout = False
+                                    bout_start = None
+                                    bout_end = None
+                                    interruptions = 0
+                                gap_dur = 0.0
+                        if in_bout and bout_start is not None and bout_end is not None:
+                            bouts.append((bout_start, bout_end))
+
+                        def extract_bout_signal(bout_start, bout_end):
+                            # Collect segments overlapping this bout
+                            segs = [s for s in seg_infos if s['end'] >= bout_start and s['start'] <= bout_end]
+                            if not segs:
+                                return None, None, None
+                            segs.sort(key=lambda x: x['start'])
+                            if rejoin_artefact is None:
+                                seg_match = next((s for s in segs if s['start'] <= bout_start and s['end'] >= bout_end), None)
+                                if seg_match is None:
+                                    return None, None, None
+                                mask = (seg_match['time'] >= bout_start) & (seg_match['time'] <= bout_end)
+                                if not mask.any():
+                                    return None, None, None
+                                return seg_match['data'][mask], seg_match['time'][mask], seg_match['fs']
+                            # Rejoin across short artefact gaps by concatenating segment data
+                            fs = segs[0]['fs']
+                            data_parts = []
+                            time_parts = []
+                            last_end = None
+                            for s in segs:
+                                if s['fs'] != fs:
+                                    return None, None, None
+                                if last_end is not None:
+                                    gap = s['start'] - last_end
+                                    if gap > rejoin_artefact:
+                                        return None, None, None
+                                seg_start = builtins.max(bout_start, s['start'])
+                                seg_end = builtins.min(bout_end, s['end'])
+                                mask = (s['time'] >= seg_start) & (s['time'] <= seg_end)
+                                if mask.any():
+                                    data_parts.append(s['data'][mask])
+                                    time_parts.append(s['time'][mask])
+                                    last_end = seg_end
+                                if s['end'] >= bout_end:
+                                    break
+                            if not data_parts:
+                                return None, None, None
+                            return concatenate(data_parts), concatenate(time_parts), fs
 
                         for bout_start, bout_end in bouts:
+                            # Enforce minimum bout length (seconds)
                             if (bout_end - bout_start) < min_bout_sec:
                                 continue
-                            seg_match = next((s for s in seg_infos if s['start'] <= bout_start and s['end'] >= bout_end), None)
-                            if seg_match is None:
+                            signal_data, time_axis, fs = extract_bout_signal(bout_start, bout_end)
+                            if signal_data is None or time_axis is None or fs is None:
                                 continue
-                            fs = seg_match['fs']
-                            time_axis = seg_match['time']
-                            mask = (time_axis >= bout_start) & (time_axis <= bout_end)
-                            if not mask.any():
-                                continue
-                            signal_data = seg_match['data'][mask]
 
+                            # ---- Morlet transform (0.5–24 Hz) on raw EEG within the bout ----
                             dt = 1 / fs
                             scales_high = pywt.central_frequency('cmor4.0-1.0') / (freqs_high * dt)
                             coeffs, freqs_used = pywt.cwt(signal_data, scales_high, 'cmor4.0-1.0', sampling_period=dt)
                             power = abs(coeffs) ** 2
 
+                            # ---- Compute band-power time courses, smooth (4 s), downsample ----
                             band_power_raw = {}
                             for band, (fmin, fmax) in freq_bands.items():
                                 band_idx = (freqs_used >= fmin) & (freqs_used <= fmax)
@@ -373,11 +470,14 @@ class clam:
                                 step = int(step_sec * fs)
                                 band_power = band_power[::step]
                                 band_power_raw[band] = band_power
+                                # Collect baseline band-power from the first 100 min for normalization
                                 if baseline_limit_sec > 0:
                                     n_take = int(builtins.min(len(band_power), builtins.max(0, baseline_limit_sec / step_sec)))
                                     if n_take > 0:
                                         baseline_vals[band].extend(band_power[:n_take].tolist())
-                            times = bout_start + arange(len(list(band_power_raw.values())[0])) * step_sec
+                            # Downsampled time vector aligned to band-power (preserve gaps if present)
+                            times = time_axis[::step]
+                            # Store this bout's band-power series
                             per_seg_series.append({
                                 'start_time': times[0],
                                 'end_time': times[-1],
@@ -385,6 +485,7 @@ class clam:
                                 'band_power_raw': band_power_raw,
                                 'sampling_rate_band': 1 / step_sec
                             })
+                            # Update remaining baseline window length
                             baseline_limit_sec = builtins.max(0, baseline_limit_sec - len(times) * step_sec)
 
                         if len(per_seg_series) == 0:
@@ -554,6 +655,14 @@ class clam:
                             stats[f'{band}_fit_poor'] = fit_params.get('poor_fit', False)
                             stats[f'{band}_fit_peak_source'] = fit_params.get('peak_source', 'fit')
 
+                            # Always write PSD output, even if fit/phase fails
+                            psd_df = DataFrame({
+                                'freq_hz': freqs_low,
+                                'welch_psd': mean_psd,
+                                'fit_psd': fit_curve
+                            })
+                            psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
+
                             # Phase estimation using band-pass around peak ±1*SD
                             if isnan(peak_freq) or isnan(sigma_val):
                                 logger.warning(f'Gaussian fit failed for {band}; skipping phase and trace outputs.')
@@ -594,14 +703,6 @@ class clam:
                             hist_df = DataFrame(hist).transpose()
                             hist_df.columns = [int(round(degrees(x))) for x in bin_centers]
                             hist_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{evt_type}_{band}_coupling.csv')
-
-                            # PSD of LowFreq-Fluctuation
-                            psd_df = DataFrame({
-                                'freq_hz': freqs_low,
-                                'welch_psd': mean_psd,
-                                'fit_psd': fit_curve
-                            })
-                            psd_df.to_csv(f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_{band}_fluctuations_psd.csv')
 
                             if plot_fit:
                                 plot_mu_bounds = fit_params.get('mu_bounds') if isinstance(fit_params, dict) else (0.0075, 0.04)

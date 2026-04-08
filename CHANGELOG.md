@@ -46,3 +46,4 @@ Beta Version
 0.7.4 Added cluster_peak_dataset for clustering event types (e.g. fast vs slow spindles), bug fixes
 0.7.5 Major update and fix to clam.py for spindle clustering and sigma fluctuations, some bug fixes
 0.7.6 Added plotting function to debug CLAM, minor bug fix to audit.py
+0.7.7 Updated docs, changes to sand.py (added label options), and streamlines to dataset.py

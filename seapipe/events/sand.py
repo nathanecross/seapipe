@@ -62,8 +62,8 @@ class SAND:
         self.tracking = tracking
 
 
-    def detect_artefacts(self, method, label = "individual", win_size = 5,
-                               filetype = '.edf', 
+    def detect_artefacts(self, method, label = "Artefact", win_size = 5,
+                               filetype = '.edf', allchans_marker = False,
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                logger = create_logger('Detect artefacts')):
         
@@ -71,18 +71,7 @@ class SAND:
         
             Creates a new annotations file if one doesn't already exist.
         
-        INPUTS:
-            
-            method      ->   str of name of automated detection algorithm to 
-                             detect staging with. 
-                             Current methods supported: 
-                                 1. 'Vallat2021' (https://doi.org/10.7554/eLife.70092)
-                                 2. 'seapipe' 
-                             
-            qual_thresh ->   Quality threshold. Any stages with a confidence of 
-                             prediction lower than this threshold will be set 
-                             to 'Undefined' for futher manual review.
-   
+
         
         '''
         print_memory_usage("Start")
@@ -90,7 +79,7 @@ class SAND:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        if label == "allchans":
+        if allchans_marker == True:
             chan_msg = "all channels at once."
         else:
             chan_msg = "each channel individually."
@@ -173,7 +162,7 @@ class SAND:
                 newchans = rename_channels(sub, ses, self.eeg_chan, logger) 
                 
                 # Check if applying to all channels or chan-by-chan
-                if label == "allchans":
+                if allchans_marker == True:
                     def _freeze_ref(val):
                         """Recursively convert nested iterables to tuples for hashing."""
                         if isinstance(val, (list, tuple)):
@@ -189,7 +178,7 @@ class SAND:
                                        f"Channel:Reference pairings are unique for {sub}, "
                                        f"{ses}. Therefore, we'll detect artefacts PER CHANNEL.")
                         flag += 1
-                        label = "individual"
+                        allchans_marker = False
                 
                 # Get data 
                 dset = Dataset(rdir + edf_file)
@@ -465,7 +454,7 @@ class SAND:
                         return
                     
                     # ---- Append all events in master list ----
-                    if label == "allchans":
+                    if allchans_marker == True:
                         channame = ['']
                     else:
                         channame = f'{chan} ({self.grp_name})'
@@ -474,7 +463,7 @@ class SAND:
                         if x[1] - x[0] > 400:
                             logger.warning('Artefact >400s detected. Review.')
                         
-                        evts.append({'name':'Artefact',
+                        evts.append({'name':label,
                                      'start':float(x[0]),
                                      'end':float(x[1]),
                                      'chan':channame,
@@ -494,14 +483,14 @@ class SAND:
                 gc.collect()
                 
                 # Remove duplicates
-                if label == 'allchans':
+                if allchans_marker == True:
                     merge_events(annot, 'Artefact')
                     remove_duplicate_evts(annot, 'Artefact')
-                elif label == 'individual':
+                elif allchans_marker == False:
                     for chan in chanset:
-                        merge_events(annot, 'Artefact', 
+                        merge_events(annot, label, 
                                      chan = f'{chan} ({self.grp_name})')
-                        remove_duplicate_evts(annot, 'Artefact', 
+                        remove_duplicate_evts(annot, label, 
                                               chan = f'{chan} ({self.grp_name})')
                         
                 

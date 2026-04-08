@@ -990,6 +990,10 @@ class FISH:
                             
                    
                     # Concatenate all dataframes vertically (row-wise)
+                    if len(df_hist) == 0:
+                        logger.warning(f'No coupling.csv files found for {evt_name}, {band}, '
+                                       f'{ses}, {ch}, {stagename}; skipping histogram output.')
+                        continue
                     master_df = concat(df_hist)
                     master_df.to_csv(f"{self.out_dir}/{evt_name}-{band}_{ses}_{ch}_{stagename}_histogram.csv")
             

@@ -201,7 +201,7 @@ class pipeline:
                     stage = None, outfile = False, show = True, log = True):
         
         ## Set up logging
-        logger = create_logger('Tracking')
+        logger = setup_logging(self.log_dir, 'Tracking', outfile=True)
         logger.info('')
         
         ## Set tracking variable
@@ -262,19 +262,10 @@ class pipeline:
 
     def make_bids(self, subs = 'all', origin = 'SCN', filetype = '.edf',
                   outfile = True):
+        
+        
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/make_bids_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Make bids')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Load sleep stages' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Make bids')
-        else:
-            logger = create_logger('Make bids')
+        logger = setup_logging(self.log_dir, 'Make bids', outfile)
         logger.info('')
         logger.debug('Formatting dataset into BIDS.')
         
@@ -331,21 +322,8 @@ class pipeline:
         """
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile = logfile, name='Channel QC')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Channel QC' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Channel QC')
-        else:
-            logger = create_logger('Channel QC')
+        logger = setup_logging(self.log_dir, 'Channel QC', outfile)
         logger.info('')
-        
         
         # Check chantypes
         valid_chantypes = {'eeg', 'eog', 'emg', 'ecg'}
@@ -358,7 +336,7 @@ class pipeline:
         if sessions == 'all':
             sessions = None
         squid = SQUID(self.rootpath, filetype = filetype, subjects = subs, 
-                     sessions = sessions )
+                     sessions = sessions, logger = logger)
         squid.process_all(filt, chantype)
         
     def QC_summary(self, qc_dir = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
@@ -390,19 +368,7 @@ class pipeline:
         '''
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/load_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Load sleep stages')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Load sleep stages' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Load sleep stages')
-        else:
-            logger = create_logger('Load sleep stages')
+        logger = setup_logging(self.log_dir, 'Load sleep stages', outfile)
         logger.info('')
         
         # Set xml_dir
@@ -443,19 +409,7 @@ class pipeline:
                              outfile = True):
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_power_spectrum_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Power spectrum')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Power spectrum' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Power spectrum')
-        else:
-            logger = create_logger('Power spectrum')
+        logger = setup_logging(self.log_dir, 'Power spectrum', outfile)
         logger.info('')
 
         
@@ -551,19 +505,7 @@ class pipeline:
         from seapipe.events.seabass import seabass
 
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/detect_sleep_stages_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect sleep stages' evoked at {today}, {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect sleep stages')
-        else:
-            logger = create_logger('Detect sleep stages')
+        logger = setup_logging(self.log_dir, 'Detect sleep stages', outfile)
         logger.info('')
         
         # Set input/output directories
@@ -616,7 +558,7 @@ class pipeline:
                                subs = 'all', sessions = 'all', filetype = '.edf', 
                                method = 'seapipe', win_size = 5,
                                chan = None, ref_chan = None, 
-                               label = 'individual',
+                               label = 'Artefact', allchans_marker = False,
                                rater = None, grp_name = 'eeg', 
                                stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
                                outfile = True):
@@ -624,19 +566,7 @@ class pipeline:
         from seapipe.events.sand import SAND
 
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_artefacts_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect artefacts' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect artefacts')
-        else:
-            logger = create_logger('Detect artefacts')
+        logger = setup_logging(self.log_dir, 'Detect artefacts', outfile)
         logger.info('')
         
         # Set input/output directories
@@ -677,8 +607,8 @@ class pipeline:
         # Check annotations directory exists, run detection
         artefacts = SAND(in_dir, xml_dir, out_dir, chan, ref_chan, 
                          rater, grp_name, subs, sessions, self.tracking) 
-        artefacts.detect_artefacts(method, label,  win_size,  filetype, stage,
-                                   logger)
+        artefacts.detect_artefacts(method, label,  win_size,  filetype, 
+                                   allchans_marker, stage, logger)
                                    
     
         try:
@@ -702,21 +632,8 @@ class pipeline:
                                     outfile = True):
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_specparams_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile = logfile, 
-                                           name = 'Detect spectral peaks')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect spectral peaks' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile = logfile, 
-                                           name = 'Detect spectral peaks')
-        else:
-            logger = create_logger('Detect spectral peaks')
+        logger = setup_logging(self.log_dir, 'Detect spectral peaks', outfile)
+        logger.info('')
         
         # Set input/output directories
         in_dir = self.datapath
@@ -797,21 +714,7 @@ class pipeline:
         from seapipe.events.seasnakes import seasnakes
 
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_slowosc_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect slow oscillations' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect slow oscillations')
-        else:
-            logger = create_logger('Detect slow oscillations')
-        
+        logger = setup_logging(self.log_dir, 'Detect slow oscillations', outfile)
         logger.info('')
         logger.debug("Commencing SO detection pipeline.")
         logger.info('')
@@ -890,22 +793,7 @@ class pipeline:
                               outfile = True):
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_spindles_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect spindles' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles')
-        else:
-            logger = create_logger('Detect spindles')
-            
-
+        logger = setup_logging(self.log_dir, 'Detect spindles', outfile)
         logger.info('')
         logger.debug("Commencing spindle detection pipeline.")
         logger.info('')
@@ -970,7 +858,7 @@ class pipeline:
         # Check for adapted bands
         logger.debug(f'Detection using {adap_bands} frequency bands has been selected.')
         frequency, flag = adap_bands_setup(self, adap_bands, frequency, subs, 
-                                           sessions, chan, ref_chan, stage, cat, 
+                                           sessions, chan, ref_chan, stage, False, 
                                            concat_cycle, cycle_idx, logger)
         if flag == 'error':
             return
@@ -1006,21 +894,7 @@ class pipeline:
                      outfile = True):
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_spindles_WHALES_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect spindles (WHALES)' evoked at {now} --------------")
-       
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect spindles (WHALES)')
-        else:
-            logger = create_logger('Detect spindles (WHALES)')
-            
+        logger = setup_logging(self.log_dir, 'Detect spindles (WHALES)', outfile)
         logger.info('')
         logger.debug("Commencing spindle optimisation pipeline.")
         logger.info('')
@@ -1082,22 +956,7 @@ class pipeline:
         from seapipe.events.remora import remora
 
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            evt_out = '_'.join(method)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = f'{self.log_dir}/detect_rems_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Detect eye movements (REMS)')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Detect rapid eye movements' evoked at {now} --------------")
-            
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Detect Detect REMS')
-        else:
-            logger = create_logger('Detect Detect REMS')
-        
+        logger = setup_logging(self.log_dir, 'Detect eye movements (REMS)', outfile)
         logger.info('')
         logger.debug("Commencing REMS detection pipeline.")
         logger.info('')
@@ -1169,7 +1028,7 @@ class pipeline:
         from seapipe.spectrum.spectrogram import event_spectrogram
 
         # Set up logging
-        logger = create_logger('Event spectrogram')
+        logger = setup_logging(self.log_dir, 'Event spectrogram', outfile)
         logger.info('')
         logger.debug("Creating spectrogram of events.")
         logger.info('')
@@ -1263,20 +1122,12 @@ class pipeline:
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
             pha = f'{frequency_phase[0]}-{frequency_phase[1]}'
             amp = f'{frequency_amplitude[0]}-{frequency_amplitude[1]}'
-            logfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Phase-amplitude coupling' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Phase-amplitude coupling')
-        else:
-            logger = create_logger('Phase-amplitude coupling')
-        logger = create_logger('Phase-amplitude coupling')
+            today = date.today().strftime("%Y%m%d")
+            now = datetime.now().strftime("%H%M%S")
+            outfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+        logger = setup_logging(self.log_dir, 'Phase-amplitude coupling', outfile)
         logger.info('')
         
         # Set input/output directories
@@ -1315,12 +1166,12 @@ class pipeline:
         cat = (int(concat_cycle),int(concat_stage),0,0)
         
         frequency_phase, flag1 = adap_bands_setup(self, adap_bands_phase, frequency_phase, 
-                                     subs, sessions, chan, ref_chan, stage, cat, 
+                                     subs, sessions, chan, ref_chan, stage, concat_stage, 
                                      concat_cycle, cycle_idx, logger)
         
         frequency_amplitude, flag2 = adap_bands_setup(self, adap_bands_amplitude, 
                                                frequency_amplitude, subs, sessions, 
-                                               chan, ref_chan, stage, cat, 
+                                               chan, ref_chan, stage, concat_stage, 
                                                concat_cycle, cycle_idx, logger)
         
         if flag1 == 'error' or flag2 == 'error':
@@ -1408,6 +1259,9 @@ class pipeline:
                             chan = None, ref_chan = None, grp_name = 'eeg', 
                             stage = ['NREM2'], concat_stage = False,
                             spectral_method = 'welch',
+                            min_bout_length = 300,
+                            allowable_interruptions = 1,
+                            rejoin_artefact = None,
                             min_total_nrem_sec = None,
                             min_bouts_psd = None,
                             low_snr_percentile = None,
@@ -1431,15 +1285,9 @@ class pipeline:
             evt_out = '_'.join(evt_name)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Event clustering')
-            logger.info('')
-            logger.debug(f"-------------- New call of 'Event clustering evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Event clustering')
-        else:
-            logger = create_logger('Event clustering')
+            outfile = f'{self.log_dir}/event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+        logger = setup_logging(self.log_dir, 'Event clustering', outfile)
+        logger.info('')
         
         for evt_name in evts:
             
@@ -1476,6 +1324,7 @@ class pipeline:
             
             CLAM.clustering(evt_name, freq_bands, filetype, grp_name,
                             concat_stage, spectral_method,
+                            min_bout_length, allowable_interruptions, rejoin_artefact,
                             min_total_nrem_sec, min_bouts_psd, low_snr_percentile,
                             plot_fit, logger)
         
@@ -1499,18 +1348,8 @@ class pipeline:
         from seapipe.events.clam import clam
 
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/plot_infraslow_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Plot infraslow')
-            logger.info('')
-            logger.debug(f"-------------- New call of 'Plot infraslow' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Plot infraslow')
-        else:
-            logger = create_logger('Plot infraslow')
+        logger = setup_logging(self.log_dir, 'Plot infraslow', outfile)
+        logger.info('')
 
         # Resolve input/output directories
         xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging')
@@ -1563,18 +1402,8 @@ class pipeline:
                                  outfile = True):
         
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/export_sleep_macro_stats_{today}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
-            logger.info('')
-            logger.info(f"-------------- New call of 'Export macro stats' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
-        else:
-            logger = create_logger('Export macro stats')
+        logger = setup_logging(self.log_dir, 'Export macro stats', outfile)
+        logger.info('')
 
         
         # Set input/output directories
@@ -1597,19 +1426,11 @@ class pipeline:
     def macro_dataset(self, xml_dir = None, out_dir = None, 
                       subs = 'all', sessions = 'all', outfile = True):
          
+         # Set up logging
+         logger = setup_logging(self.log_dir, 'Export macro datast', outfile)
+         logger.info('')
+
          # Set input/output directories
-         if outfile == True:
-             today = date.today().strftime("%Y%m%d")
-             now = datetime.now().strftime("%H:%M:%S")
-             logfile = f'{self.log_dir}/export_sleep_macro_stats_{today}_log.txt'
-             logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
-             logger.info('')
-             logger.info(f"-------------- New call of 'Macro dataset' evoked at {now} --------------")
-         elif outfile:
-             logfile = f'{self.log_dir}/{outfile}'
-             logger = create_logger_outfile(logfile=logfile, name='Export macro stats')
-         else:
-             logger = create_logger('Export macro stats')
          if not path.exists(self.outpath + '/datasets/'):
              mkdir(self.outpath + '/datasets/')
          out_dir = self.outpath + '/datasets/macro/'
@@ -1645,25 +1466,24 @@ class pipeline:
             raise TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed.")
         
         # Set up logging
-        if outfile == True:
-            subs_str, ses_str = out_names(subs, sessions)
-            evt_out = '_'.join(evt_name)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Export params')
-            logger.info('')
-            logger.debug(f"-------------- New call of 'Export params' evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Export params')
-        else:
-            logger = create_logger('Export params')
-            
-            
+        subs_str, ses_str = out_names(subs, sessions)
+        evt_out = '_'.join(evt_name)
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+        logger = setup_logging(self.log_dir, 'Export event params', logfile)
+        logger.info('')
+        
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            return
+        elif isinstance(ref_chan, str):
+            return
+        
         frequency, flag = adap_bands_setup(self, adap_bands, frequency, 
                                                  subs, sessions, 
-                                                 chan, ref_chan, stage, None, 
+                                                 chan, ref_chan, stage, concat_stage, 
                                                  concat_cycle, cycle_idx, logger)
         if flag == 'error':
             return
@@ -1722,19 +1542,11 @@ class pipeline:
                             params = 'all', outfile = True):
         
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/event_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-            logger.info('')
-            logger.info(f'-------------- New call of Event dataset evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-        else:
-            logger = create_logger('Event dataset')
-        logger = create_logger('Event dataset')
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H:%M:%S")
+        logfile = f'{self.log_dir}/event_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+        logger = setup_logging(self.log_dir, 'Export event dataset', logfile)
+        logger.info('')
         
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
@@ -1750,7 +1562,7 @@ class pipeline:
             return
         
         frequency, flag = adap_bands_setup(self, adap_bands, None, None, 
-                                           None, None, None, stage, None, 
+                                           None, None, None, stage, concat_stage, 
                                            concat_cycle, cycle_idx, logger)
         if flag == 'error':
             return
@@ -1823,19 +1635,8 @@ class pipeline:
         """
 
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/cluster_peak_dataset_pref_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset (preferred)')
-            logger.info('')
-            logger.info(f'-------------- New call of Cluster peak dataset (preferred) evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Cluster peak dataset (preferred)')
-        else:
-            logger = create_logger('Cluster peak dataset (preferred)')
-        logger = create_logger('Cluster peak dataset (preferred)')
+        logger = setup_logging(self.log_dir, 'Cluster peak dataset (preferred) {event_name}', outfile)
+        logger.info('')
 
         # Force evt_name into list
         if isinstance(evt_name, str):
@@ -1924,19 +1725,8 @@ class pipeline:
                           params = 'all', outfile=True):
         
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/PAC_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
-            logger.info('')
-            logger.info(f'-------------- New call of PAC dataset evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='PAC dataset')
-        else:
-            logger = create_logger('PAC dataset')
-        logger = create_logger('PAC dataset')
+        logger = setup_logging(self.log_dir, 'PAC dataset {event_name}', outfile)
+        logger.info('')
         
         # Set input/output directories
         in_dir = self.datapath
@@ -2005,19 +1795,8 @@ class pipeline:
                                 params = 'all', outfile = True):
         
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/cluster_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-            logger.info('')
-            logger.info(f'-------------- New call of Cluster dataset evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Event dataset')
-        else:
-            logger = create_logger('Event dataset')
-        logger = create_logger('Event dataset')
+        logger = setup_logging(self.log_dir, 'Cluster dataset {event_name}', outfile)
+        logger.info('')
         
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
@@ -2082,19 +1861,8 @@ class pipeline:
                                 event_opts = None, outfile=True):
         
         # Set up logging
-        if outfile == True:
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
-            logfile = f'{self.log_dir}/powerspec_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
-            logger = create_logger_outfile(logfile=logfile, name='Power spectrum dataset')
-            logger.info('')
-            logger.info(f'-------------- New call of Power spectrum dataset evoked at {now} --------------')
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile, name='Power spectrum dataset')
-        else:
-            logger = create_logger('Power spectrum dataset')
-        logger = create_logger('Power spectrum dataset')
+        logger = setup_logging(self.log_dir, 'Power spectrum dataset', outfile)
+        logger.info('')
         
         # Set input/output directories
         in_dir = self.datapath
@@ -2173,23 +1941,7 @@ class pipeline:
         )
 
         # Logging
-        if outfile is True:
-            subs_str, ses_str = out_names(subs, sessions)
-            today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H%M%S")
-            logfile = (f'{self.log_dir}/bandpower_timecourse_'
-                       f'subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt')
-            logger = create_logger_outfile(logfile=logfile,
-                                           name='Bandpower timecourse')
-            logger.info('')
-            logger.info("-------------- New call of 'Bandpower timecourse' "
-                        f"evoked at {now} --------------")
-        elif outfile:
-            logfile = f'{self.log_dir}/{outfile}'
-            logger = create_logger_outfile(logfile=logfile,
-                                           name='Bandpower timecourse')
-        else:
-            logger = create_logger('Bandpower timecourse')
+        logger = setup_logging(self.log_dir, 'Bandpower timecourse', outfile)
         logger.info('')
 
         # Directories
@@ -2440,3 +2192,23 @@ def _build_cluster_param_tree(src_root, dest_root, evt_name, chan, cluster_label
         dest_file = dest_root / rel_parent / f"{new_stem}{csv_path.suffix}"
         _write_cluster_summary_csv(dest_file, header, cluster_idx, cluster_label, summary, filtered, wonambi_row)
         
+
+
+def setup_logging(log_dir, logger_name, outfile):
+    
+    # Set up logging
+    if outfile == True:
+        today = date.today().strftime("%Y%m%d")
+        now = datetime.now().strftime("%H%M%S")
+        logfile_prefix = '_'.join(logger_name.split(' '))
+        logfile = f'{log_dir}/{logfile_prefix}_{today}_{now}_log.txt'
+        logger = create_logger_outfile(logfile=logfile, name=f'{logger_name}')
+        logger.info('')
+        logger.info(f"-------------- New call of '{logger_name}' evoked at {now} --------------")
+    elif outfile:
+        logfile = f'{log_dir}/{outfile}'
+        logger = create_logger_outfile(logfile=logfile, name=f'{logger_name}')
+    else:
+        logger = create_logger(f'{logger_name}')
+        
+    return logger

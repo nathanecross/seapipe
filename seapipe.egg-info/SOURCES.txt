@@ -20,6 +20,7 @@ seapipe/events/clam_legacy.py
 seapipe/events/eel.py
 seapipe/events/fish.py
 seapipe/events/marker_detect.py
+seapipe/events/plot_infraslow_fit_diagnostics.py
 seapipe/events/remora.py
 seapipe/events/sand.py
 seapipe/events/seabass.py
