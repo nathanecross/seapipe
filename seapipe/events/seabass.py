@@ -14,7 +14,7 @@ import mne
 import yasa
 from copy import deepcopy
 from ..utils.logs import create_logger
-from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
+from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog, source_filepath
 from ..utils.squid import infer_eeg, infer_eog, infer_emg
 
 class seabass:
@@ -124,17 +124,20 @@ class seabass:
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'slowosc':{}} 
                 
-                # Define recording
+                ## Define input files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)][0]
-                except:
-                    logger.warning(f'No input {filetype} file in {rdir}')
-                    flag += 1
-                    break
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
                 
                 # Load EEG
-                dset = Dataset(rdir + edf_file)
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+                
                 pflag = deepcopy(flag)
                 flag, chanset = load_stagechan(sub, ses, self.eeg_chan, self.ref_chan,
                                               flag, logger)
@@ -258,7 +261,7 @@ class seabass:
                         else:
                             try:
                                 lights_off = lights_off.astype(float64)[0]
-                            except:
+                            except Exception:
                                 logger.warning("Error reading Lights Off time in "
                                               f"'tracking.tsv' for {sub}, {ses}. "
                                                "Skipping...")

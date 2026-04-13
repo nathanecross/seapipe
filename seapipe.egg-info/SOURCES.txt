@@ -45,6 +45,5 @@ seapipe/utils/misc.py
 seapipe/utils/plot_infraslow_fit_diagnostics.py
 seapipe/utils/process.py
 seapipe/utils/spectrogram.py
-seapipe/utils/spectrogram_legacy.py
 seapipe/utils/splitter.py
 seapipe/utils/squid.py

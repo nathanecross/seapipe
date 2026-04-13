@@ -67,7 +67,7 @@ class octopus:
 
     def __init__(self, rootpath, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs = 'all', 
-                 sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                 sessions = 'all', reject_artf = None, 
                  tracking = None):
         
         self.rootpath = rootpath
@@ -79,7 +79,10 @@ class octopus:
         self.grp_name = grp_name
         self.stage = stage
         self.rater = rater
-        self.reject = reject_artf
+        
+        self.reject = reject_artf if reject_artf is not None else [
+            'Artefact', 'Arou', 'Arousal'
+        ]
         
         self.subs = subs
         self.sessions = sessions
@@ -161,7 +164,7 @@ class octopus:
         corrections = pac_list[2]
     
         ### 0.a Set up logging
-        tracking = self.tracking
+        #tracking = self.tracking
         flag = 0
         
         
@@ -268,7 +271,7 @@ class octopus:
                 try:
                     edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
                     dset = Dataset(rdir + edf_file[0])
-                except:
+                except Exception:
                     logger.warning(f' No input {filetype} file in {rdir}')
                     flag +=1
                     break
@@ -290,7 +293,7 @@ class octopus:
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
                         logger.debug(f'Using annotations file from: {xdir}')
-                except:
+                except Exception:
                     logger.warning(f' No input annotations file in {xdir}')
                     flag +=1
                     break
@@ -334,7 +337,7 @@ class octopus:
                         if not filter_opts['oREF']:
                             try:
                                 filter_opts['oREF'] = newchans[ch]
-                            except:
+                            except Exception:
                                 logger.warning("Channel selected is '_REF' but "
                                                "no information has been given "
                                                "about what standard name applies, "
@@ -418,9 +421,10 @@ class octopus:
                     # 5.a. Fetch data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     try:
-                        segments = fetch(dset, annot, cat = cat, chan_full = [ch],
+                        segments = fetch(dset, annot, cat = cat, chan_full = [chan_full],
                                          evt_type = evt_type, stage = self.stage, 
-                                         cycle = cycle, buffer = event_opts['buffer'])
+                                         cycle = cycle, reject_artf=self.reject_artf,
+                                         buffer = event_opts['buffer'])
                     except Exception as error:
                         logger.error(error.args[0])
                         logger.warning(f"Skipping {sub}, {ses}, channel {str(ch)} ... ")
@@ -436,9 +440,9 @@ class octopus:
                     # 5.b. Read data
                     if filter_opts['laplacian']:
                         try:
-                            segments.read_data(filter_opts['lapchan'], chanset[ch]) 
+                            segments.read_data(filter_opts['lapchan']) 
                             laplace_flag = True
-                        except:
+                        except Exception:
                             logger.error("Channels listed in filter_opts['lapchan']: "
                                          f"{filter_opts['lapchan']} are not found "
                                          f"in recording for {sub}, {ses}.")

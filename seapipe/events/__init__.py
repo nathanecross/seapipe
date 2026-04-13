@@ -1,7 +1,9 @@
 """Packages containing sleep events detection
 
 """
-from .fish import FISH, extract_data_error, extract_pac_data, extract_event_data
-from .surf import erp_analysis, insert_virtual_markers, marker_to_annot
+from .fish import FISH
 from .seasnakes import seasnakes, swordfish
 from .whales import whales
+
+
+__all__ = ['FISH', 'seasnakes', 'swordfish', 'whales']

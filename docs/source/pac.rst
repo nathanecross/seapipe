@@ -97,7 +97,7 @@ Run Phase Amplitude Coupling
                 filter_opts = None, 
                 epoch_opts = None, 
                 event_opts = None, 
-                reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                reject_artf = None, 
                 progress = True, 
                 outfile = True)
 
@@ -350,14 +350,17 @@ Run Phase Amplitude Coupling
 
             * Any `float <https://docs.python.org/3/tutorial/floatingpoint.html>`_ is allowed
 
-    **reject_artf** *(list)*
+    **reject_artf** *(list, NoneType, or bool)*
         * Options to discard detection within specific events such as Artefact events
 
         * *Acceptable options:*
 
-            * Default is ``['Artefact', 'Arou', 'Arousal']``which will discard detection during events with these specific names
+            * Default is ``None`` which will use the default labels ``['Artefact', 'Arou', 'Arousal']``
 
-            * Entering a list of events will discard detection within those events
+            * Entering a list of events (e.g., ``['Artefact', 'Arou']``) will discard detection within those events
+
+            * Entering ``False`` will disable artefact rejection
+
 
     **frequency_opts** *(NoneType or dict)*
         * Options for parameters for power spectral analyses 

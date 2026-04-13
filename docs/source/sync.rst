@@ -39,7 +39,7 @@ Run Event Synchrony
                             iu_thresh = 0.5,
                             concat_stage = True,
                             concat_cycle = True,
-                            reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                            reject_artf = None,
                             filetype = ('.edf', '.rec', '.eeg'),
                             outfile = True)
 
@@ -148,7 +148,7 @@ Export Event Synchrony Dataset
                                     concat_stage = True,
                                     concat_cycle = True,
                                     outfile_suffix = None,
-                                    reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                                    reject_artf = None,
                                     filetype = ('.edf', '.rec', '.eeg'),
                                     outfile = True)
 

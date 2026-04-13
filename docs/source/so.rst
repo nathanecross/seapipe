@@ -113,6 +113,7 @@ Detect slow oscillations
                                      cycle_idx = None, 
                                      duration = (0.2, 2), 
                                      invert = None,
+                                     reject_artf = None,
                                      average_channels = False, 
                                      outfile = True)
 
@@ -250,6 +251,17 @@ Detect slow oscillations
             * Entering ``False`` will keep the polarity of the recording as it is
 
             * Entering ``True`` will reverse (flip) the polarity of the recording 
+
+    **reject_artf** *(list, NoneType, or bool)*
+        * Options to discard detection within specific events such as Artefact events
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will use the default labels ``['Artefact', 'Arou', 'Arousal']``
+
+            * Entering a list of events (e.g., ``['Artefact', 'Arou']``) will discard detection within those events
+
+            * Entering ``False`` will disable artefact rejection
 
     **average_channels** *(logical)*
         * Options to average multiple channels before the detection 

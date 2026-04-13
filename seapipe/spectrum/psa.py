@@ -5,28 +5,21 @@ Created on Thu Jul 29 10:29:11 2021
 @author: Nathan Cross
 """
 from copy import deepcopy
-from csv import reader
-from datetime import datetime
 from fooof import FOOOF
 from fooof.analysis import get_band_peak_fm
-from glob import glob
 from itertools import product
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from numpy import (append, arange, asarray, ceil, concatenate, empty, floor, 
+from numpy import (arange, asarray, ceil, concatenate, empty, floor, 
                    mean, nan, ones, pi, reshape, sqrt, stack, sum, where, zeros)
-from openpyxl import Workbook
 from os import listdir, mkdir, path, walk
-from pandas import DataFrame, ExcelWriter, read_csv
-from scipy.fftpack import next_fast_len
+from pandas import DataFrame, read_csv
 from wonambi import ChanFreq, Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, frequency, get_descriptives, export_freq, 
                            export_freq_band)
-from ..utils.misc import (bandpass_mne, laplacian_mne, notch_mne, notch_mne2, 
-                          check_data_length)
+from ..utils.misc import (bandpass_mne, check_data_length, laplacian_mne, 
+                          notch_mne, notch_mne2)
 from ..utils.logs import create_logger
-from ..utils.load import infer_ref, load_channels, load_sessions, rename_channels
+from ..utils.load import infer_ref, load_channels, load_sessions, rename_channels, source_filepath
 
 
 def default_general_opts():
@@ -224,7 +217,7 @@ class Spectrum:
         
         ### 0.a. Set up logging
         logger.info('')
-        tracking = self.tracking
+        #tracking = self.tracking
         flag = 0
         
         ### 0.b. Set up organisation of export
@@ -315,24 +308,18 @@ class Spectrum:
                 logger.info('')
                 logger.debug(f'Commencing {sub}, {ses}')
                 
-                ## Define files
+                ## Define input files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
                 xdir = f'{self.xml_dir}/{sub}/{ses}/'
                 
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                    dset = Dataset(rdir + edf_file[0])
-                except:
-                    logger.warning(f' No input {filetype} file in {rdir}. Skipping...')
-                    flag+=1
-                    break
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
                 
-                try:
-                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
-                except:
-                    logger.warning(f"No input annotations file in {xdir} or path doesn't exist. Skipping...")
-                    flag+=1
-                    break
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
+                    logger.warning("Check documentation for how to set up an annotations file...")
+                    continue
                 
                 ### Define output path
                 if not path.exists(self.out_dir):
@@ -344,8 +331,20 @@ class Spectrum:
                 outpath = f'{self.out_dir}/{sub}/{ses}'
                 
                 ## Now import data
-                dset = Dataset(rdir + edf_file[0])
-                annot = Annotations(xdir + xml_file[0], rater_name=self.rater)
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+                    
+                try:
+                    annot = Annotations(xml_file, rater_name=self.rater)
+                except Exception as e:
+                    logger.warning(f"Could not open {xml_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+
                  
                 ### get cycles
                 if self.cycle_idx is not None:
@@ -616,18 +615,18 @@ class Spectrum:
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'powerspec':{}} 
                 
-                ## Define files
+                ## Define input files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
                 xdir = f'{self.xml_dir}/{sub}/{ses}/'
                 
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                    dset = Dataset(rdir + edf_file[0])
-                except:
-                    logger.warning(f' No input {filetype} file in {rdir}. Skipping...')
-                    break
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
                 
-                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]            
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
+                    logger.warning("Check documentation for how to set up an annotations file...")
+                    continue
                 
                 ### Define output path
                 if not path.exists(self.out_dir):
@@ -639,9 +638,18 @@ class Spectrum:
                 outpath = f'{self.out_dir}/{sub}/{ses}'
                 
                 ## Now import data
-                dset = Dataset(rdir + edf_file[0])
-                annot = Annotations(xdir + xml_file[0], rater_name=self.rater)
-                 
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    
+                try:
+                    annot = Annotations(xml_file, rater_name=self.rater)
+                except Exception as e:
+                    logger.warning(f"Could not open {xml_file}: {e}. Skipping...")
+                    flag += 1
+ 
                 ### get cycles
                 if self.cycle_idx is not None:
                     all_cycles = annot.get_cycles()
@@ -679,7 +687,7 @@ class Spectrum:
                         if not filter_opts['oREF']:
                             try:
                                 filter_opts['oREF'] = newchans[ch]
-                            except:
+                            except Exception:
                                 logger.warning("Channel selected is '_REF' but "
                                                "no information has been given "
                                                "about what standard name applies, "
@@ -706,7 +714,7 @@ class Spectrum:
                                 norm_seg.read_data(filter_opts['lapchan'], chanset[ch]) 
                                 logger.debug("Applying Laplacian filtering to baseline data...")
                                 laplace_flag = True
-                            except:
+                            except Exception:
                                 logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
                                 logger.warning("Laplacian filtering will NOT be run for BASELINE data. Check parameters under: filter_opts['lapchan']")
                                 norm_seg.read_data(ch, chanset[ch])
@@ -774,7 +782,7 @@ class Spectrum:
                             segments.read_data(filter_opts['lapchan'], chanset[ch]) 
                             logger.debug("Applying Laplacian filtering to data...")
                             laplace_flag = True
-                        except:
+                        except Exception:
                             logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
                             logger.warning("Laplacian filtering will NOT be run. Check parameters under: filter_opts['lapchan']")
                             segments.read_data(ch, chanset[ch])
@@ -1097,7 +1105,7 @@ class Spectrum:
                                 try:
                                     df = read_csv(filename, skiprows=1)
                                     freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
-                                except:
+                                except  Exception:
                                     extract_psa_error(logger)
                                     flag +=1
                                     continue
@@ -1111,7 +1119,7 @@ class Spectrum:
                                 try:
                                     df = read_csv(filename, skiprows=1)
                                     freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
-                                except:
+                                except  Exception:
                                     extract_psa_error(logger)
                                     flag +=1
                                     continue
@@ -1143,7 +1151,7 @@ class Spectrum:
                                         try:
                                             df = read_csv(filename, skiprows=1)
                                             freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
-                                        except:
+                                        except  Exception:
                                             extract_psa_error(logger)
                                             flag +=1
                                             continue
@@ -1157,7 +1165,7 @@ class Spectrum:
                                         try:
                                             df = read_csv(filename, skiprows=1)
                                             freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
-                                        except:
+                                        except  Exception:
                                             extract_psa_error(logger)
                                             flag +=1
                                             continue
@@ -1189,7 +1197,7 @@ class Spectrum:
                                     try:
                                         df = read_csv(filename, skiprows=1)
                                         freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
-                                    except:
+                                    except  Exception:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
@@ -1203,7 +1211,7 @@ class Spectrum:
                                     try:
                                         df = read_csv(filename, skiprows=1)
                                         freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
-                                    except:
+                                    except  Exception:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
@@ -1233,7 +1241,7 @@ class Spectrum:
                                     try:
                                         df = read_csv(filename, skiprows=1)
                                         freq_full.loc[sub] = df.iloc[-1,idx_data_full].to_numpy()
-                                    except:
+                                    except  Exception:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
@@ -1247,7 +1255,7 @@ class Spectrum:
                                     try:
                                         df = read_csv(filename, skiprows=1)
                                         freq_band.loc[sub] = df.iloc[-1,idx_data_band].to_numpy()
-                                    except:
+                                    except  Exception:
                                         extract_psa_error(logger)
                                         flag +=1
                                         continue
@@ -1298,7 +1306,7 @@ def save_bands(out, freq_bw, general_opts, frequency_opts, outputfile, logger):
     logger.debug(f'Writing to {filename}') 
     try:
         export_freq_band(out, frequency_opts['bands'], filename)
-    except:
+    except  Exception:
         logger.error('Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
 

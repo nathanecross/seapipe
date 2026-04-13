@@ -7,9 +7,9 @@ Created on Wed May  7 15:47:20 2025
 """
 
 from numpy import (angle, arange, array, average, ceil, concatenate, degrees, diff, exp,
-                   hamming, hanning, histogram,  inf, isfinite, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
-                   nanargmin, nanmax, nanmean, nanmedian, nanmin, nanpercentile, nansum, nanstd, pi, random, sort, vstack, where, zeros, zeros_like)
-from numpy.fft import rfft, rfftfreq
+                   histogram, isfinite, isnan, linspace, max, min, nan, nanargmax, nan_to_num,
+                   nanargmin, nanmax, nanmean, nanmedian, nanpercentile, nansum, nanstd, 
+                   pi, random, sort, vstack, where, zeros, zeros_like)
 from pandas import DataFrame, Series
 from collections import Counter, defaultdict
 from copy import deepcopy
@@ -18,21 +18,18 @@ import pywt
 import shutil
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter1d
-from scipy.signal import (butter, firwin, filtfilt, find_peaks, detrend, 
-                          hilbert, morlet2, periodogram, resample, sosfiltfilt, welch) 
+from scipy.signal import (butter, firwin, filtfilt, detrend, 
+                          hilbert, resample, sosfiltfilt, welch) 
 import builtins
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 from sklearn.cluster import DBSCAN
 from wonambi import Dataset
 from wonambi.attr import Annotations
-from wonambi.detect import consensus, DetectSpindle
 from wonambi.trans import fetch
-from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, load_adap_bands, load_sessions, 
-                          rename_channels, read_manual_peaks)
-from ..utils.misc import remove_duplicate_evts, merge_epochs
+from ..utils.logs import create_logger
+from ..utils.load import load_channels, load_sessions, rename_channels, source_filepath
+from ..utils.misc import merge_epochs
 
 
 class clam:
@@ -58,7 +55,7 @@ class clam:
             self.tracking = tracking
 
         def clustering(self, evt_type = 'spindle', 
-                             freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)},
+                             freq_bands = None,
                              filetype = '.edf', grp_name = 'eeg',
                              concat_stage = False,
                              spectral_method = 'welch',
@@ -73,8 +70,7 @@ class clam:
             
             
             
-            ### 0.a Set up logging
-            tracking = self.tracking
+            ### 0.a Set up 
             flag = 0
 
             spectral_method = str(spectral_method).lower()
@@ -99,6 +95,11 @@ class clam:
                 if low_snr_percentile is not None and not (0 < low_snr_percentile < 100):
                     logger.warning('low_snr_percentile must be between 0 and 100; disabling SNR filtering.')
                     low_snr_percentile = None
+                    
+            # 0.b set freq bands
+            if not freq_bands:
+                freq_bands = {'SWA': (0.5, 4), 
+                              'Sigma': (10, 15)}
             
             logger.info('')            
             logger.debug(rf"""Commencing clustering and fluctuations pipeline...
@@ -155,39 +156,51 @@ class clam:
                     if not ses in self.tracking['cluster'][sub].keys():
                         self.tracking['cluster'][sub][ses] = {} 
         
+                    ## Define input files
+                    rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                    xdir = f'{self.xml_dir}/{sub}/{ses}/'
                     
-                    ## c. Load recording
-                    rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
-                    try:
-                        edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                        dset = Dataset(rdir + edf_file[0])
-                    except:
-                        logger.warning(f' No input {filetype} file in {rdir}')
-                        flag+=1
-                        break
-                    
-                    ## d. Load annotations
-                    xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                    if not path.exists(xdir):
-                        logger.warning(f'{evt_type} has not been detected for'
-                                       f'{sub}, {ses}. Skipping..')
-                        flag += 1
+                    edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                    if not edf_file:
                         continue
-                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')][0]
-                    # Copy annotations file before beginning
+                    
+                    xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                    if not xml_file:
+                        logger.warning("Check documentation for how to set up an annotations file...")
+                        continue
+                    
+                    ### Define output path
                     if not path.exists(self.out_dir):
                         mkdir(self.out_dir)
-                    if not path.exists(self.out_dir + '/' + sub):
-                        mkdir(self.out_dir + '/' + sub)
-                    if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                        mkdir(self.out_dir + '/' + sub + '/' + ses)
-                    outpath = self.out_dir + '/' + sub + '/' + ses + '/'
-                    backup_file = (f'{outpath}{sub}_{ses}.xml')
+                    if not path.exists(f'{self.out_dir}/{sub}'):
+                        mkdir(f'{self.out_dir}/{sub}')
+                    if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
+                        mkdir(f'{self.out_dir}/{sub}/{ses}')
+                    outpath = f'{self.out_dir}/{sub}/{ses}'
+                    
+                    # Copy annotations file before beginning
+                    backup_file = (f'{outpath}/{sub}_{ses}.xml')
                     if not path.exists(backup_file):
-                        shutil.copy(xdir + xml_file, backup_file)
-
-                    # Read annotations file
-                    annot = Annotations(backup_file, rater_name=self.rater)
+                        shutil.copy(xml_file, backup_file)
+                    else:
+                        logger.warning(f'Annotations file already exists for {sub}, {ses}, '
+                                       'any previously detected events will be overwritten.')
+                        flag += 1
+                        
+                    ## Now import data
+                    try:
+                        dset = Dataset(edf_file)
+                    except Exception as e:
+                        logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                        flag += 1
+                        continue
+                        
+                    try:
+                        annot = Annotations(xml_file, rater_name=self.rater)
+                    except Exception as e:
+                        logger.warning(f"Could not open {xml_file}: {e}. Skipping...")
+                        flag += 1
+                        continue
                     
                     ## e. Channel setup 
                     pflag = deepcopy(flag)

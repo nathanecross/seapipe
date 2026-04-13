@@ -48,3 +48,4 @@ Beta Version
 0.7.6 Added plotting function to debug CLAM, minor bug fix to audit.py
 0.7.7 Updated docs, changes to sand.py (added label options), and streamlines to dataset.py
 0.7.8 Added spectrogram and event_synchrony functions, updated docs
+0.7.9 Cleaned up the code a lot to improve quality

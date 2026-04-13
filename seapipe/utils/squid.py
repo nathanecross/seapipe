@@ -71,7 +71,7 @@ class SQUID:
         self.results = []
 
     
-    def process_all(self, filt = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
+    def process_all(self, filt = None, chantype = None):
         """
         Iterates over all subjects and sessions to run quality control.
         """
@@ -100,7 +100,9 @@ class SQUID:
                                 
                                                     """)
 
-
+        if not chantype:
+            chantype = ['eeg', 'eog', 'emg', 'ecg']
+            
         for subj in subjects:
             sessions = self.sessions or self._get_sessions(subj)
 
@@ -614,7 +616,7 @@ def choose_best_eeg(chans, ecg, dset, num = 2, logger = create_logger('QC EEG'))
         logger.debug(f'Checking quality of {name}')
         s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
         
-        quals = SQUID.squid_eeg(ch_dat.data[0][i], s_freq, name)
+        quals = squid_eeg(ch_dat.data[0][i], s_freq, name)
         quals['channel'] = name  # optionally tag with channel name
         
         if quals.loc['time_not_flatline'] > 50:
@@ -641,7 +643,7 @@ def choose_best_eeg(chans, ecg, dset, num = 2, logger = create_logger('QC EEG'))
     winners['channel'] = all_quals_df['channel']
     
     #winners = DataFrame([all_quals_df[x].rank() for x in all_quals_df.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
+    idx = winners.sum(axis=1, numeric_only=True).nlargest(num).index.to_list()
     eeg_names = [chans[x] for x in idx]
     
     logger.debug(f'Best EEG channels based on auto-QC are: {eeg_names}')
@@ -680,7 +682,7 @@ def choose_best_eog(chans, dset, num = 2, logger = create_logger('QC EOG')):
         logger.debug(f'Checking quality of {name}')
         s_freq = dset.header['orig']['n_samples_per_record'][chans.index(name)]
         
-        quals = SQUID.squid_eeg(ch_dat.data[0][i], s_freq, name)
+        quals = squid_eeg(ch_dat.data[0][i], s_freq, name)
         quals['channel'] = name  # optionally tag with channel name
         all_quals.append(quals)
     
@@ -697,7 +699,7 @@ def choose_best_eog(chans, dset, num = 2, logger = create_logger('QC EOG')):
     winners['channel'] = all_quals_df['channel']
     
     #winners = DataFrame([all_quals_df[x].rank() for x in all_quals_df.columns]).T
-    idx = winners.sum(axis = 1).nlargest(num).index.to_list()
+    idx = winners.sum(axis=1, numeric_only=True).nlargest(num).index.to_list()
     eog_names = [chans[x] for x in idx]
     
     logger.debug(f'Best EOG channels based on auto-QC are: {eog_names}')

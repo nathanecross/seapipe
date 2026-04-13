@@ -10,5 +10,7 @@ from .version import __version__
 from seapipe.core.dataset import pipeline
 
 
+__all__ = ['__version__', 'pipeline']
+
 
 

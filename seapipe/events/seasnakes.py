@@ -13,11 +13,11 @@ from wonambi.detect import DetectSlowWave
 from wonambi.trans import fetch
 
 from copy import deepcopy
-from datetime import datetime, date
+from datetime import datetime
 from pandas import DataFrame
-from ..utils.logs import create_logger, create_logger_outfile
-from ..utils.load import (load_channels, read_inversion, load_sessions)
-from ..utils.misc import infer_polarity, remove_duplicate_evts, remove_event
+from ..utils.logs import create_logger
+from ..utils.load import (load_channels, read_inversion, load_sessions, source_filepath)
+from ..utils.misc import infer_polarity, remove_event
 
 
 class seasnakes:
@@ -36,7 +36,7 @@ class seasnakes:
     def __init__(self, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, rater = None, subs='all', 
                  sessions='all', tracking = None,
-                 reject_artf = ['Artefact', 'Arou', 'Arousal']):
+                 reject_artf = None):
         
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
@@ -46,7 +46,9 @@ class seasnakes:
         self.grp_name = grp_name
         self.stage = stage
         self.rater = rater
-        self.reject = reject_artf
+        self.reject = reject_artf if reject_artf is not None else [
+            'Artefact', 'Arou', 'Arousal'
+        ]
         
         self.subs = subs
         self.sessions = sessions
@@ -141,38 +143,49 @@ class seasnakes:
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'slowosc':{}} 
     
-                ## c. Load recording
-                rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                    dset = Dataset(rdir + edf_file[0])
-                except:
-                    logger.warning(f' No input {filetype} file in {rdir}')
-                    break
+                ## c. Define input files
+                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                xdir = f'{self.xml_dir}/{sub}/{ses}/'
                 
-                ## d. Load annotations
-                xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                try:
-                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
-                    # Copy annotations file before beginning
-                    if not path.exists(self.out_dir):
-                        mkdir(self.out_dir)
-                    if not path.exists(self.out_dir + '/' + sub):
-                        mkdir(self.out_dir + '/' + sub)
-                    if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                        mkdir(self.out_dir + '/' + sub + '/' + ses)
-                    backup = self.out_dir + '/' + sub + '/' + ses + '/'
-                    backup_file = (f'{backup}{sub}_{ses}_slowosc.xml')
-                    if not path.exists(backup_file):
-                        shutil.copy(xdir + xml_file[0], backup_file)
-                    else:
-                        logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
-                except:
-                    logger.warning(f' No input annotations file in {xdir}')
-                    break
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
                 
-                # Read annotations file
-                annot = Annotations(backup_file, rater_name=self.rater)
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
+                    logger.warning("Check documentation for how to set up an annotations file...")
+                    continue
+                
+                # Copy annotations file before beginning
+                if not path.exists(self.out_dir):
+                    mkdir(self.out_dir)
+                if not path.exists(self.out_dir + '/' + sub):
+                    mkdir(self.out_dir + '/' + sub)
+                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                backup_file = (f'{backup}{sub}_{ses}.xml')
+                if not path.exists(backup_file):
+                    shutil.copy(xml_file, backup_file)
+                else:
+                    logger.warning(f'Annotations file already exists for {sub}, {ses}, '
+                                   'any previously detected events will be overwritten.')
+                    flag += 1
+                    
+                ## Now import data
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+                
+                try:
+                    annot = Annotations(backup_file, rater_name=self.rater)
+                except Exception as e:
+                    logger.warning(f"Could not open {backup_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
                 
                 ## e. Get sleep cycles (if any)
                 if cycle_idx is not None:
@@ -297,7 +310,7 @@ class swordfish:
         '''
         def __init__(self, rec_dir, xml_dir, out_dir, log_dir, chan, ref_chan, 
                  grp_name, stage, frequency=(11,16), rater = None, subs='all', 
-                 sessions='all', tracking = {}):
+                 sessions='all', tracking = None):
         
             self.rec_dir = rec_dir
             self.xml_dir = xml_dir

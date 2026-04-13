@@ -16,7 +16,7 @@ import shutil
 from yasa import rem_detect
 from copy import deepcopy
 from ..utils.logs import create_logger
-from ..utils.load import load_sessions, load_stagechan, load_emg, load_eog
+from ..utils.load import load_sessions, load_stagechan, load_eog, source_filepath
 from ..utils.squid import infer_eog
 
 class remora:
@@ -32,7 +32,7 @@ class remora:
     
     def __init__(self, rec_dir, xml_dir, out_dir, eog_chan, 
                  ref_chan = None, rater = None, grp_name = 'eeg',
-                 reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                 reject_artf = None,
                  subs='all', sessions='all', 
                  tracking = None):
         
@@ -43,7 +43,9 @@ class remora:
         self.ref_chan = ref_chan
         self.rater = rater
         self.grp_name = grp_name
-        self.reject = reject_artf
+        self.reject = reject_artf if reject_artf is not None else [
+            'Artefact', 'Arou', 'Arousal'
+        ]
         self.subs = subs
         self.sessions = sessions
         
@@ -53,7 +55,7 @@ class remora:
         
         
     def detect_rems(self, method, amplitude = (50, 325), duration = (0.3, 1.5), 
-                          stage = ['REM'], cycle_idx = None, filetype = '.edf', 
+                          stage = None, cycle_idx = None, filetype = '.edf', 
                           logger = create_logger('Detect sleep stages')):
          
          ''' Automatically detects sleep stages by applying a published 
@@ -77,7 +79,7 @@ class remora:
          '''
          
          flag = 0
-         tracking = self.tracking
+         #tracking = self.tracking
          
          logger.info('')
          logger.debug(rf"""Commencing rapid eye movements detection... 
@@ -115,6 +117,10 @@ class remora:
              logger.error("'subs' must either be an array of subject ids or = 'all' ")  
              return
          
+         # c. Set stage
+         if not stage:
+             stage = ['REM']
+            
          ### 2. Begin loop through dataset
         
          # a. Begin loop through participants
@@ -127,19 +133,20 @@ class remora:
                  logger.info('')
                  logger.debug(f'Commencing {sub}, {ses}')
 
-
-                 ## c. Load recording
+                 ## Define input files
                  rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
-                 try:
-                     edf_file = [x for x in listdir(rdir) if x.endswith(filetype)][0]
-                     dset = Dataset(f'{rdir}/{edf_file}/')
-                 except:
-                     logger.warning(f'No input {filetype} file in {rdir}')
-                     break
+                 xdir = f'{self.xml_dir}/{sub}/{ses}/'
+                 
+                 edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                 if not edf_file:
+                     continue
                  
                  # d. Load/create/read for annotations file
-                 xdir = f'{self.xml_dir}/{sub}/{ses}'
-                 xml_file = [x for x in listdir(xdir) if x.endswith('.xml')][0]
+                 xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                 if not xml_file:
+                     logger.warning("Check documentation for how to set up an annotations file...")
+                     continue
+                 
                  if not path.exists(f'{self.out_dir}/{sub}'):
                      mkdir(f'{self.out_dir}/{sub}')
                  if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
@@ -147,11 +154,24 @@ class remora:
                  backup = f'{self.out_dir}/{sub}/{ses}/'
                  backup_file = (f'{backup}{sub}_{ses}.xml')
                  if not path.exists(backup_file):
-                     shutil.copy(f'{xdir}/{xml_file}', backup_file)
+                     shutil.copy(f'{xml_file}', backup_file)
                  else:
                      logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
 
-                 annot = Annotations(backup_file, rater_name = self.rater)
+                 ## Now import data
+                 try:
+                     dset = Dataset(edf_file)
+                 except Exception as e:
+                     logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                     flag += 1
+                     continue
+                     
+                 try:
+                     annot = Annotations(xml_file, rater_name=self.rater)
+                 except Exception as e:
+                     logger.warning(f"Could not open {xml_file}: {e}. Skipping...")
+                     flag += 1
+                     continue
                  
                  ## e. Get sleep cycles (if any)
                  if cycle_idx is not None:

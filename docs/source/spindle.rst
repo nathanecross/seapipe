@@ -99,7 +99,7 @@ Detect spindles
                             adap_bands = 'Fixed', 
                             adap_bw = 4, 
                             duration =( 0.5, 3),
-                            reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                            reject_artf = None, 
                             outfile = True)
 
 
@@ -269,14 +269,17 @@ Detect spindles
 
             * Entering a `tuple <https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences>`_ of float with length 2 (e.g., ``(0.5, 2)``)  will limit the detection to events with a duration within this range
 
-    **reject_artf** *(list)*
+    **reject_artf** *(list, NoneType, or bool)*
         * Options to discard detection within specific events such as Artefact events
 
         * *Acceptable options:*
 
-            * Default is ``['Artefact', 'Arou', 'Arousal']``which will discard detection during events with these specific names
+            * Default is ``None`` which will use the default labels ``['Artefact', 'Arou', 'Arousal']``
 
-            * Entering a list of events will discard detection within those events
+            * Entering a list of events (e.g., ``['Artefact', 'Arou']``) will discard detection within those events
+
+            * Entering ``False`` will disable artefact rejection
+
 
     **outfile** *(str or logical)*
         * Logging of detection

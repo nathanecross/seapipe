@@ -97,7 +97,7 @@ Calculate QC metrics
                         sessions = 'all', 
                         filetype = '.edf',
                         filt = None, 
-                        chantype = ['eeg', 'eog', 'emg', 'ecg'],
+                        chantype = None,
                         outfile=True)
 
 
@@ -143,12 +143,12 @@ Calculate QC metrics
             
             * If entering a ``str``, then this will work to filter only EEG channel names containing this string in the name. 
 
-    **chantype** *(list)*
-        * Channel type(s) to process. Accepted values: .
+    **chantype** *(list or NoneType)*
+        * Channel type(s) to process.
 
         * *Acceptable options:*
 
-            * Default is ``['eeg', 'eog', 'emg', 'ecg']`` which will process each of the channel types.
+            * Default is ``None`` which will use ``['eeg', 'eog', 'emg', 'ecg']``
 
             * Entering a subset of this list is accepted, e.g. ``['eeg']``
 

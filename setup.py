@@ -1,27 +1,33 @@
+from pathlib import Path
+import re
+
 from setuptools import setup, find_packages
-import pathlib
 
-from os import path
-
-here = pathlib.Path(__file__).parent.resolve()
+here = Path(__file__).parent.resolve()
 long_description = (here / "README.md").read_text(encoding="utf-8")
-# Get the current version number from inside the module
-with open(path.join('seapipe', 'version.py')) as version_file:
-    exec(version_file.read())
+
+version_file = here / "seapipe" / "version.py"
+version_text = version_file.read_text(encoding="utf-8")
+
+match = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', version_text, re.M)
+if not match:
+    raise RuntimeError("Unable to find __version__ in seapipe/version.py")
+
+version = match.group(1)
 
 setup(
-    name = "seapipe",  
-    version = __version__,  
-    description = "Sleep Events Analysis pipeline of EEG data",  
-    long_description=long_description,  
-    long_description_content_type="text/markdown",  
-    url="https://github.com/nathanecross/seapipe",  
-    author="Nathan E. Cross",  
+    name="seapipe",
+    version=version,
+    description="Sleep Events Analysis pipeline of EEG data",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/nathanecross/seapipe",
+    author="Nathan E. Cross",
     author_email="nathan.cross@sydney.edu.au",
-    classifiers=[  
+    classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Research",
-        "Topic :: Neuroscience :: Sleep",
+        "Topic :: Scientific/Engineering",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
@@ -32,30 +38,38 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3 :: Only",
     ],
-    keywords=["sleep", "electrophysiology", "detection", 
-              "signal processing", "neuroscience", "analysis"], 
-    packages=find_packages(),  
+    keywords=[
+        "sleep",
+        "electrophysiology",
+        "detection",
+        "signal processing",
+        "neuroscience",
+        "analysis",
+    ],
+    packages=find_packages(),
     python_requires=">=3.7",
-    install_requires=["fooof",
-                      "mne",
-                      "numpy<=1.26.4",
-                      "openpyxl",
-                      "pandas",
-                      "psutil",
-                      "pyedflib",
-                      "PyWavelets",
-                      "pinguoin",
-                      "safepickle",
-                      "scipy<1.13.0",
-                      "sklearn",
-                      "tensorpac",
-                      "wonambi",
-                      "yasa"],  
-    package_data={ 
+    install_requires=[
+        "fooof",
+        "mne",
+        "numpy<=1.26.4",
+        "openpyxl",
+        "pandas",
+        "psutil",
+        "pyedflib",
+        "PyWavelets",
+        "pinguoin",
+        "safepickle",
+        "sleepecg",
+        "scipy<1.13.0",
+        "scikit-learn",
+        "tensorpac",
+        "wonambi",
+        "yasa",
+    ],
+    package_data={
         "seapipe": ["VERSION"],
     },
-  
-    project_urls={  # Optional
+    project_urls={
         "Bug Reports": "https://github.com/nathanecross/seapipe/issues",
         "Documentation": "https://seapipe.readthedocs.io/",
         "Source": "https://github.com/nathanecross/seapipe/",

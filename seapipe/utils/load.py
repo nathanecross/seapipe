@@ -162,8 +162,7 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
             else:
                 logger.error(" 'xml_dir' wasn't specified and it cannot be "
                                 "determined from inside the derivatives directory. "
-                                "Please specify manually.") 
-                xml_dir = ''    
+                                "Please specify manually.")    
         else:
             out_dir = f'{outpath}/{evt_name}'
     
@@ -283,7 +282,7 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                 epoch_beg = stagedf.loc[i, 'onset']
                 try:
                     one_stage = stage_key[stagedf.loc[i, 'staging']]
-                except:
+                except Exception:
                     one_stage = 'Undefined'
                 try:
                     annot.set_stage_for_epoch(epoch_beg, one_stage,
@@ -333,6 +332,30 @@ def check_chans(datapath, chan, ref_chan, logger):
         return chan
     else:
         return chan, ref_chan
+
+
+def source_filepath(directory, filetype, flag = 0, logger = create_logger('Load files')):
+    
+    try:
+        files = [x for x in listdir(directory) if x.endswith(filetype)]
+    except OSError as e:
+        logger.warning(f"Could not access directory {directory}: {e}. Skipping...")
+        flag += 1
+        return None, flag
+
+    if not files:
+        logger.warning(f"No input {filetype} file in {directory}. Skipping...")
+        flag += 1
+        return None, flag
+    
+    elif len(files) > 1:
+        logger.warning(f">1 {filetype} file in {directory}. Ensure data is BIDS compatible. Skipping...")
+        flag += 1
+        return None, flag
+
+    file = f'{directory}/{files[0]}'
+    
+    return file, flag
 
 def load_sessions(sub, ses, rec_dir = None, flag = 0, 
                   logger = create_logger("Load Sessions"), verbose = 2):
@@ -618,7 +641,7 @@ def rename_channels(sub, ses, chan, logger):
             try:
                 oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
                 oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
-            except:
+            except Exception:
                 logger.warning(f"There must be the same number of channel sets "
                                "and channel rename sets in tracking file, but "
                                f"for {sub}, {ses}, there were {len(oldchans.columns)} "
@@ -736,7 +759,7 @@ def reverse_chan_lookup(sub, ses, chan, logger):
             try:
                 oldchans_to_be_renamed = oldchans[list({i for i in oldchans if any(i in j for j in newchans)})]
                 oldchans_to_be_kept = oldchans[list({i for i in oldchans if not any(i in j for j in newchans)})]
-            except:
+            except Exception:
                 logger.warning(f"There must be the same number of channel sets "
                                "and channel rename sets in tracking file, but "
                                f"for {sub}, {ses}, there were {len(oldchans.columns)} "
@@ -1047,7 +1070,7 @@ def check_adap_bands(rootpath, subs, sessions, chan, logger):
     
     try:
         track = read_tracking_sheet(rootpath, logger)
-    except:
+    except Exception:
         logger.error("Error reading tracking sheet. Check that it isn't open.")
         logger.info("For info how to use adap_bands = 'Manual' in detections, "
                     "refer to documentation:")
@@ -1108,7 +1131,7 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
     
     try:
         track = read_tracking_sheet(rootpath, logger)
-    except:
+    except Exception:
         logger.error("Error reading tracking sheet. Check that it isn't open.")
         logger.info("For info how to use adap_bands = 'Manual' in detections, "
                     "refer to documentation:")
@@ -1118,8 +1141,8 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
 
     track = track[track['sub']==sub]
     if len(track.columns) == 0:
-        logger.warning(f"Participant not found in column 'sub' in tracking file "
-                       "for {sub}, {ses}.")
+        logger.warning("Participant not found in column 'sub' in tracking file "
+                       f"for {sub}, {ses}.")
         return None
     # Search session
     track = track[track['ses']==ses]
@@ -1168,7 +1191,7 @@ def read_manual_peaks(rootpath, sub, ses, chan, adap_bw, logger):
     try:
         freq = (peaks[chans.index(chan)] - adap_bw/2, 
                 peaks[chans.index(chan)] + adap_bw/2)
-    except:
+    except Exception:
         logger.warning('Inconsistent number of peaks and number of channels '
                        'listed in tracking sheet for {sub}, {ses}. Will use '
                        'Fixed frequency bands instead...')
@@ -1183,7 +1206,7 @@ def load_adap_bands(tracking, sub, ses, ch, stage, band_limits, adap_bw, logger)
     
     try:
         files = tracking[sub][ses][ch]
-    except:
+    except Exception:
         logger.warning(f'No specparams export file found for {sub}, {ses}, {ch}.')
         return None
     
@@ -1307,7 +1330,7 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
         newchans = newchans.dropna(axis=1, how='all')
         if len(newchans.columns) == 0:
             if verbose>1:
-                logger.debug(f"Column 'newchans' empty or not found in tracking "
+                logger.debug("Column 'newchans' empty or not found in tracking "
                              "sheet, so cannot infer reference channels true name.")
             return None
     else:
@@ -1341,7 +1364,7 @@ def infer_ref(sub, ses, chan, logger, verbose=0):
             ref_chan = [newchans[i] for i,chn in enumerate(oldchans) if chn == '_REF']
             if len(ref_chan) < 1:
                 if verbose>1:
-                    logger.debug(f"No channels named '_REF' in tracking sheet, "
+                    logger.debug("No channels named '_REF' in tracking sheet, "
                                  "so cannot infer reference channel.")
                 return None
             else:

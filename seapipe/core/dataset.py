@@ -13,12 +13,12 @@ import numpy as np
 import csv
 from pandas import DataFrame
 from seapipe.events.fish import FISH
-from seapipe.events.whales import cluster_peaks, cluster_peaks_preferred, whales
+from seapipe.events.whales import cluster_peaks_preferred, whales
 from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
                      default_fooof_opts, default_filter_opts, default_frequency_opts, 
                      default_general_opts,default_norm_opts)
-from seapipe.utils.squid import SQUID, gather_qc_reports
 from seapipe.stats import sleepstats
+from seapipe.utils.squid import SQUID, gather_qc_reports
 from seapipe.utils.audit import (check_dataset, extract_channels, make_bids,
                         track_processing)
 from seapipe.utils.logs import create_logger, create_logger_outfile
@@ -214,7 +214,7 @@ class pipeline:
         if not isinstance(subs, list) and subs == 'all':
             try:
                 subs = [x for x in listdir(self.datapath) if '.' not in x]
-            except:
+            except Exception:
                 logger.critical(f'{self.datapath} does not exist - cannot ascertain '
                              'details of dataset.')
                 return
@@ -230,7 +230,7 @@ class pipeline:
             try:
                 tracking['ses'][sub] = [x for x in listdir(f'{self.datapath}/{sub}') 
                                     if '.' not in x]
-            except:
+            except Exception:
                 logger.warning(f'No sessions found for {sub}')
                 tracking['ses'][sub] = ['-']
             
@@ -249,7 +249,7 @@ class pipeline:
         # Update tracking
         try:
             self.tracking = self.tracking | tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **tracking}
         
         if show:
@@ -275,7 +275,7 @@ class pipeline:
         extract_channels(self.datapath, exclude)
         
     def QC_channels(self, subs = 'all', sessions = 'all', filetype = '.edf',
-                    filt = None, chantype = ['eeg', 'eog', 'emg', 'ecg'], 
+                    filt = None, chantype = None, 
                     outfile=True):
         
         """
@@ -326,6 +326,7 @@ class pipeline:
         logger.info('')
         
         # Check chantypes
+        chantype = chantype if chantype is not None else ['eeg', 'eog', 'emg', 'ecg']
         valid_chantypes = {'eeg', 'eog', 'emg', 'ecg'}
         if not set(chantype).issubset(valid_chantypes):
             raise ValueError(f"Invalid chantype(s) specified. Allowed: {valid_chantypes}")
@@ -339,7 +340,9 @@ class pipeline:
                      sessions = sessions, logger = logger)
         squid.process_all(filt, chantype)
         
-    def QC_summary(self, qc_dir = None, chantype = ['eeg', 'eog', 'emg', 'ecg']):
+    def QC_summary(self, qc_dir = None, chantype = None):
+        
+        chantype = chantype if chantype is not None else ['eeg', 'eog', 'emg', 'ecg']
         
         if not qc_dir:
             qc_root = self.outpath + '/QC'
@@ -400,7 +403,7 @@ class pipeline:
                              subs = 'all', sessions = 'all', filetype = '.edf',  
                              chan = None, ref_chan = None, 
                              grp_name = 'eeg', rater = None, 
-                             stage = ['NREM1','NREM2','NREM3', 'REM'], 
+                             stage = None, 
                              cycle_idx = None, concat_cycle = True, 
                              concat_stage = False, general_opts = None, 
                              frequency_opts = None, filter_opts = None, 
@@ -456,6 +459,9 @@ class pipeline:
             filter_opts = default_filter_opts()    
         frequency_opts['frequency'] = (filter_opts['highpass'], filter_opts['lowpass'])
         
+        if not stage:
+            stage = ['NREM1','NREM2','NREM3', 'REM']
+        
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),
                1,
@@ -477,7 +483,7 @@ class pipeline:
         
         try:
             self.tracking = self.tracking | spectrum.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **spectrum.tracking}
             
         return 
@@ -549,7 +555,7 @@ class pipeline:
                              logger)
         try:
             self.tracking = self.tracking | stages.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **stages.tracking}
         return
     
@@ -560,7 +566,7 @@ class pipeline:
                                chan = None, ref_chan = None, 
                                label = 'Artefact', allchans_marker = False,
                                rater = None, grp_name = 'eeg', 
-                               stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
+                               stage = None,
                                outfile = True):
         
         from seapipe.events.sand import SAND
@@ -603,7 +609,10 @@ class pipeline:
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, 
                                           logger)
         
-    
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM1', 'NREM2', 'NREM3', 'REM']
+            
         # Check annotations directory exists, run detection
         artefacts = SAND(in_dir, xml_dir, out_dir, chan, ref_chan, 
                          rater, grp_name, subs, sessions, self.tracking) 
@@ -613,7 +622,7 @@ class pipeline:
     
         try:
             self.tracking = self.tracking | artefacts.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **artefacts.tracking}
         return
         
@@ -623,7 +632,7 @@ class pipeline:
                                     subs = 'all', sessions = 'all', chan = None, 
                                     ref_chan = None, grp_name = 'eeg', 
                                     rater = None, frequency = (9,16), 
-                                    stage = ['NREM2','NREM3'], cycle_idx = None,
+                                    stage = None, cycle_idx = None,
                                     concat_cycle = True, concat_stage = False,
                                     general_opts = None, frequency_opts = None,
                                     filter_opts = None, epoch_opts = None, 
@@ -668,6 +677,10 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2','NREM3']
+            
         # Format concatenation
         cat = (int(concat_cycle),int(concat_stage),1,1)
         
@@ -706,9 +719,9 @@ class pipeline:
                                        sessions='all', filetype='.edf', 
                                        method = ['Staresina2015'], chan=None,
                                        ref_chan=None, rater=None, grp_name='eeg', 
-                                       stage = ['NREM2','NREM3'], cycle_idx=None, 
+                                       stage = None, cycle_idx=None, 
                                        duration=(0.2, 2), invert = None,
-                                       reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                                       reject_artf = None,
                                        average_channels = False, outfile = True):
         
         from seapipe.events.seasnakes import seasnakes
@@ -752,6 +765,10 @@ class pipeline:
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2','NREM3']
+        
         # Check inversion
         if invert == None:
             invert = check_chans(self.rootpath, None, False, logger)
@@ -775,7 +792,7 @@ class pipeline:
                                average_channels, invert, filetype, logger)
         try:
             self.tracking = self.tracking | SO.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **SO.tracking}
         
         return
@@ -785,11 +802,11 @@ class pipeline:
                               sessions = 'all', filetype = '.edf', 
                               method = ['Moelle2011'], chan = None, 
                               ref_chan = None, rater = None, 
-                              stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                              stage = None, grp_name = 'eeg', 
                               cycle_idx = None, concat_cycle = True, 
                               frequency = None, adap_bands = 'Fixed', 
                               adap_bw = 4, duration = (0.5, 3),
-                              reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                              reject_artf = None, 
                               outfile = True):
         
         # Set up logging
@@ -843,6 +860,10 @@ class pipeline:
             logger.error('Problem loading ref-channel information')
             return
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2','NREM3']
+        
         # Format concatenation
         if concat_cycle == True:
             cat = (1,0,1,1)
@@ -876,7 +897,7 @@ class pipeline:
                          duration, filetype, logger)
         try:
             self.tracking = self.tracking | spindle.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **spindle.tracking}
             
         return
@@ -884,13 +905,13 @@ class pipeline:
     
     def whales(self, xml_dir = None, out_dir = None, subs = 'all', 
                      sessions = 'all', filetype = '.edf', 
-                     method = ['Moelle2011', 'Ray2015'], evt_out = 'spindle',
+                     method = None, evt_out = 'spindle',
                      merge_type = 'consensus', weights = None,
                      chan = None, ref_chan = None, rater = None, 
-                     stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                     stage = None, grp_name = 'eeg', 
                      cycle_idx = None, s_freq = None, keyword = None, 
                      duration =(0.5, 3),
-                     reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                     reject_artf = None, 
                      outfile = True):
         
         # Set up logging
@@ -910,6 +931,11 @@ class pipeline:
             mkdir(out_dir)
         logger.debug(f'Output annotations being saved to: {out_dir}')
         
+        # Set detection methods
+        if not method:
+            method = ['Moelle2011', 'Ray2015']
+        
+        # Define consensus threshold based on method
         if merge_type == 'consensus':
             cs_thresh = 0.5
         elif merge_type == 'addition':
@@ -932,6 +958,10 @@ class pipeline:
             logger.error('Problem loading ref-channel information')
             return
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2','NREM3']
+        
         self.track(step='spindle', show = False, log = False)
         
         logger.debug('Starting Merge Now')
@@ -946,11 +976,11 @@ class pipeline:
     
     def detect_rems(self, xml_dir = None, out_dir = None, subs = 'all', 
                           sessions = 'all', filetype = '.edf', 
-                          method = ['YASA'], chan = None,
+                          method = 'YASA', chan = None,
                           ref_chan = None, rater = None, grp_name = 'eeg', 
-                          stage = ['REM'], cycle_idx = None, 
+                          stage = None, cycle_idx = None, 
                           amplitude = (50, 325), duration = (0.3, 1.5),
-                          reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                          reject_artf = None,
                           average_channels = False, outfile = True):
         
         from seapipe.events.remora import remora
@@ -993,6 +1023,10 @@ class pipeline:
             
         # Set channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['REM']
     
         # Run detection
         REMS = remora(in_dir, xml_dir, out_dir, chan, ref_chan, 
@@ -1002,7 +1036,7 @@ class pipeline:
                          filetype, logger)
         try:
             self.tracking = self.tracking | REMS.tracking
-        except:
+        except Exception:
             self.tracking = {**self.tracking, **REMS.tracking}
             
         return
@@ -1176,7 +1210,7 @@ class pipeline:
     '''    
     def pac(self, xml_dir = None, out_dir = None, subs = 'all', sessions = 'all', 
                   filetype = '.edf', chan = None, ref_chan = None, rater = None, 
-                  grp_name = 'eeg', stage = ['NREM2','NREM3'], concat_stage = True, 
+                  grp_name = 'eeg', stage = None, concat_stage = True, 
                   cycle_idx = None, concat_cycle = True,  
                   method = 'MI', surrogate = 'Time lag', correction = 'Z-score',
                   adap_bands_phase = 'Fixed', frequency_phase = (0.5, 1.25), 
@@ -1184,7 +1218,7 @@ class pipeline:
                   adap_bw = 4, min_dur = 1, nbins = 18, invert = None,
                   frequency_opts = None, filter_opts = None, epoch_opts = None, 
                   evt_name = None, event_opts = None, 
-                  reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                  reject_artf = None, 
                   progress = True, outfile = True):
         
         from seapipe.pac.octopus import octopus, pac_method
@@ -1197,7 +1231,7 @@ class pipeline:
             amp = f'{frequency_amplitude[0]}-{frequency_amplitude[1]}'
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H%M%S")
-            outfile = f'{self.log_dir}/pac_{pha}_{amp}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+            outfile = f'pac_{pha}_{amp}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
         logger = setup_logging(self.log_dir, 'Phase-amplitude coupling', outfile)
         logger.info('')
         
@@ -1232,6 +1266,10 @@ class pipeline:
             return
         elif isinstance(ref_chan, str):
             return
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
         
         # Check for adapted bands 
         cat = (int(concat_cycle),int(concat_stage),0,0)
@@ -1328,7 +1366,7 @@ class pipeline:
                               evttype_tp_target = None, evttype_fn = None,
                               iu_thresh = 0.5, concat_stage = True,
                               concat_cycle = True,
-                              reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                              reject_artf = None,
                               filetype = ('.edf', '.rec', '.eeg'),
                               outfile = True):
 
@@ -1393,7 +1431,7 @@ class pipeline:
                                       evttype_tp_target = None, evttype_fn = None,
                                       iu_thresh = 0.5, concat_stage = True,
                                       concat_cycle = True, outfile_suffix = None,
-                                      reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                                      reject_artf = None,
                                       filetype = ('.edf', '.rec', '.eeg'),
                                       outfile = True):
 
@@ -1465,11 +1503,11 @@ class pipeline:
     '''
     
     def cluster_flucs(self, evt_name, xml_dir = None, out_dir = None,
-                            freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)},
+                            freq_bands = None,
                             subs = 'all', sessions = 'all', 
                             filetype = '.edf',
                             chan = None, ref_chan = None, grp_name = 'eeg', 
-                            stage = ['NREM2'], concat_stage = False,
+                            stage = None, concat_stage = False,
                             spectral_method = 'welch',
                             min_bout_length = 300,
                             allowable_interruptions = 1,
@@ -1491,15 +1529,26 @@ class pipeline:
         else:
             raise TypeError(f"'evt_name' can only be a str or a list, but {type(evt_name)} was passed.")
         
+        # Define default frequency bands
+        if not freq_bands:
+            freq_bands = {'SWA': (0.5, 4), 'Sigma': (10, 15)}
+        
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
             evt_out = '_'.join(evt_name)
             today = date.today().strftime("%Y%m%d")
             now = datetime.now().strftime("%H:%M:%S")
-            outfile = f'{self.log_dir}/event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+            outfile = f'event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
         logger = setup_logging(self.log_dir, 'Event clustering', outfile)
         logger.info('')
+        
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
         
         for evt_name in evts:
             
@@ -1518,9 +1567,6 @@ class pipeline:
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                 logger.info('-' * 10)
                 return
-    
-            # Set channels
-            chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
             
             if not isinstance(chan, DataFrame) and chan == 'error':
                 return
@@ -1546,8 +1592,7 @@ class pipeline:
     def plot_infraslow(self, xml_dir = None, out_dir = None,
                              subs = 'all', sessions = 'all',
                              chan = None, ref_chan = None, grp_name = 'eeg',
-                             stage = ['NREM2', 'NREM3'],
-                             rater = None, seed = 1,
+                             stage = None, rater = None, seed = 1,
                              outfile = True):
 
         """
@@ -1574,6 +1619,10 @@ class pipeline:
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and chan == 'error':
             return
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
 
         # Instantiate CLAM
         CLAM = clam(self.rootpath, self.datapath, xml_dir, out_dir,
@@ -1610,7 +1659,7 @@ class pipeline:
     def export_macro_stats(self, xml_dir = None, out_dir = None, 
                                  subs = 'all', sessions = 'all', 
                                  times = None, rater = None, 
-                                 arousal_name = ['Arousal', 'Arou'], 
+                                 arousal_name = None, 
                                  outfile = True):
         
         # Set up logging
@@ -1627,6 +1676,10 @@ class pipeline:
         
         # Set channels
         times, ref_chan = check_chans(self.rootpath, None, True, logger)
+        
+        # Set Arousal name
+        if not arousal_name:
+            arousal_name = ['Arousal', 'Arou']
         
         self.track(subs = subs, ses = sessions, step = ['staging'], show = False, 
                    log = True)
@@ -1661,7 +1714,7 @@ class pipeline:
                                  xml_dir = None, out_dir = None, subs = 'all', 
                                  sessions = 'all', filetype = '.edf',
                                  chan = None, ref_chan = None, 
-                                 stage = ['NREM2','NREM3'], grp_name = 'eeg', 
+                                 stage = None, grp_name = 'eeg', 
                                  rater = None, cycle_idx = None, 
                                  concat_cycle = True, concat_stage = False, 
                                  keyword = None, segs = None,  
@@ -1693,6 +1746,11 @@ class pipeline:
         elif isinstance(ref_chan, str):
             return
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
+            
+        # Set frequency bands
         frequency, flag = adap_bands_setup(self, adap_bands, frequency, 
                                                  subs, sessions, 
                                                  chan, ref_chan, stage, concat_stage, 
@@ -1748,7 +1806,7 @@ class pipeline:
     
     def event_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
                             subs = 'all', sessions = 'all', 
-                            stage = ['NREM2','NREM3'], concat_stage = False, 
+                            stage = None, concat_stage = False, 
                             concat_cycle = True, cycle_idx = None, 
                             grp_name = 'eeg', adap_bands = 'Fixed',  
                             params = 'all', outfile = True):
@@ -1773,6 +1831,11 @@ class pipeline:
             logger.info('-' * 10)
             return
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
+        
+        # Set frequency bands
         frequency, flag = adap_bands_setup(self, adap_bands, None, None, 
                                            None, None, None, stage, concat_stage, 
                                            concat_cycle, cycle_idx, logger)
@@ -1827,7 +1890,7 @@ class pipeline:
     def split_events_freq(self, chan, evt_name, 
                                 xml_dir = None, out_dir = None,
                                 subs = 'all', sessions = 'all',
-                                stage = ['NREM2','NREM3'], concat_stage = False,
+                                stage = None, concat_stage = False,
                                 concat_cycle = True, cycle_idx = None,
                                 grp_name = 'eeg', adap_bands = 'Fixed',
                                 params = 'all', 
@@ -1876,6 +1939,10 @@ class pipeline:
         # Format channels
         if isinstance(chan, str):
             chan = [chan]
+            
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2', 'NREM3']
 
         for evt in evts:
             # Determine input/output directories
@@ -1982,8 +2049,8 @@ class pipeline:
         if isinstance(chan, str):
             chan = [chan]
         
-        # Default stage
-        if stage == None:
+        # Set stage defaults
+        if not stage:
             stage = ['NREM2','NREM3']
         
         # Run extraction
@@ -2003,7 +2070,7 @@ class pipeline:
     
     def cluster_dataset(self, chan, evt_name, xml_dir = None, out_dir = None, 
                                 subs = 'all', sessions = 'all', 
-                                stage = ['NREM2'], freq_bands = ('SWA', 'Sigma'),
+                                stage = None, freq_bands = ('SWA', 'Sigma'),
                                 params = 'all', outfile = True):
         
         # Set up logging
@@ -2022,6 +2089,10 @@ class pipeline:
             logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
             logger.info('-' * 10)
             return
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM2','NREM3']
         
         for evt_name in evts:    
             # Set input/output directories
@@ -2064,7 +2135,7 @@ class pipeline:
 
     def powerspec_dataset(self, chan, xml_dir = None, out_dir = None, 
                                 subs = 'all', sessions = 'all', 
-                                stage = ['NREM1','NREM2','NREM3', 'REM'], 
+                                stage = None, 
                                 concat_stage = False, concat_cycle = True, 
                                 cycle_idx = None, grp_name = 'eeg', 
                                 rater = None, params = 'all', 
@@ -2114,6 +2185,10 @@ class pipeline:
             filter_opts = default_filter_opts()    
         frequency_opts['frequency'] = (filter_opts['highpass'], filter_opts['lowpass'])
         
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM1','NREM2','NREM3', 'REM']
+        
         # Set suffix for output filename
         if not general_opts['suffix']:
             general_opts['suffix'] = f"{frequency_opts['frequency'][0]}-{frequency_opts['frequency'][1]}Hz"
@@ -2137,7 +2212,7 @@ class pipeline:
                                    filetype = '.edf', chan = None,
                                    ref_chan = None, grp_name = 'eeg',
                                    rater = None,
-                                   stage = ['NREM1','NREM2','NREM3', 'REM'],
+                                   stage = None,
                                    cycle_idx = None, concat_cycle = True,
                                    concat_stage = True,
                                    general_opts = None, filter_opts = None,
@@ -2179,6 +2254,10 @@ class pipeline:
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if isinstance(chan, str):
             return
+        
+        # Set stage defaults
+        if not stage:
+            stage = ['NREM1','NREM2','NREM3', 'REM']
 
         # Defaults
         if general_opts is None:

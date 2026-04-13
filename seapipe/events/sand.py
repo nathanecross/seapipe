@@ -19,7 +19,7 @@ from scipy.signal import butter, correlate, filtfilt, find_peaks, peak_widths
 import yasa
 from copy import deepcopy
 from ..utils.logs import create_logger
-from ..utils.load import load_channels, load_sessions, rename_channels
+from ..utils.load import load_channels, load_sessions, rename_channels, source_filepath
 from ..utils.misc import (merge_events, reconstruct_stitches, remove_event, 
                           remove_duplicate_evts)
 import gc
@@ -146,15 +146,6 @@ class SAND:
                 logger.debug(f'Commencing {sub}, {ses}')
                 tracking[f'{sub}'][f'{ses}'] = {'slowosc':{}} 
                 
-                # Define recording
-                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)][0]
-                except:
-                    logger.warning(f'No input {filetype} file in {rdir}')
-                    flag += 1
-                    break
-                
                 ## f. Channel setup 
                 pflag = deepcopy(flag)
                 flag, chanset = load_channels(sub, ses, self.eeg_chan, 
@@ -184,30 +175,24 @@ class SAND:
                         flag += 1
                         allchans_marker = False
                 
-                # Get data 
-                dset = Dataset(rdir + edf_file)
+                ## Define input files
+                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                xdir = f'{self.xml_dir}/{sub}/{ses}/'
+                
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
+                
+                ## Now import data
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
                 s_freq = int(dset.header['s_freq'])
                 
-                # d. Load/create for annotations file
-                if not path.exists(self.xml_dir + '/' + sub):
-                    mkdir(self.xml_dir + '/' + sub)
-                if not path.exists(self.xml_dir + '/' + sub + '/' + ses):
-                     mkdir(self.xml_dir + '/' + sub + '/' + ses)
-                xdir = self.xml_dir + '/' + sub + '/' + ses
-                
-                xml_file = [x for x in listdir(f'{xdir}') if '.xml' in x]
-                if len(xml_file) > 1:
-                    logger.warning('More than 1 annotations file found for '
-                                   f'{sub}, {ses} in {xdir}. Skipping...')
-                    continue
-                if len(xml_file) < 1:
-                    logger.warning('No annotations file was found for '
-                                   f'{sub}, {ses} in {xdir}. Skipping...')
-                    continue
-                else:
-                    xml_file = f'{xdir}/{xml_file[0]}'
-                    
-                if not path.exists(xml_file):
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
                     create_empty_annotations(xml_file, dset)
                     logger.warning(f"No annotations file exists. Creating " 
                                    f"annotations file for {sub}, {ses} and" 
@@ -307,7 +292,7 @@ class SAND:
                         # Save stitches (to recompute times later)
                         try:
                             stitches = segments[0]['times']
-                        except:
+                        except Exception:
                             logger.warning(f'No valid data found, skipping {chan}')
                             
                         # Read data

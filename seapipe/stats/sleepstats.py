@@ -6,15 +6,14 @@ Created on Wed Jul 28 16:10:26 2021
 @author: Nathan Cross
 """
 
-from datetime import datetime, date
 from numpy import (asarray, float64, int64)
 from os import listdir, path, walk
 from pandas import DataFrame, read_csv
 from wonambi.attr import Annotations
-from ..utils.logs import create_logger, create_logger_outfile
+from ..utils.logs import create_logger
                         
 def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all', 
-               rater = None,  times = None, arousal_name = ['Arousal', 'Arou'],
+               rater = None,  times = None, arousal_name = None,
                logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging
@@ -38,7 +37,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
     elif subs == 'all':
         try:
             subs = next(walk(xml_dir))[1]
-        except:
+        except Exception:
             logger.critical(f"{xml_dir} doesn't exist!") 
             return
         if len(subs) == 0:
@@ -59,7 +58,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
         for sub in subs:
             try:
                 session = next(walk(f'{xml_dir}/{sub}'))[1]
-            except Exception as e:
+            except Exception:
                 logger.critical(f"{xml_dir}/{sub} either doesn't exist or is empty.")
                 return
     
@@ -70,7 +69,12 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
         logger.critical("'sessions' must either be a list of Session IDs or = 'all' ")
         return
     
-    for s, sub in enumerate(sub_ses): #for each participant...
+    # 3. Set Arousal name
+    if not arousal_name:
+        arousal_name = ['Arousal', 'Arou']
+    
+    # 4. Loop through subjects + sessions
+    for s, sub in enumerate(sub_ses): 
         if not sub_ses[sub]:
             logger.warning(f'No visits found in {xml_dir}/{sub}. Skipping..')
             flag +=1
@@ -127,7 +131,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                     else:
                         try:
                             lights_off = lights_off.astype(float64)[0]
-                        except:
+                        except Exception:
                             logger.warning("Error reading Lights Off time in "
                                           f"'tracking.tsv' for {sub}, {ses}. "
                                            "Skipping...")
@@ -148,7 +152,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                     else:
                         try:
                             lights_on = lights_on.astype(float64)[0]
-                        except:
+                        except Exception:
                             logger.warning("Error reading Lights On time in "
                                           f"'tracking.tsv' for {sub}, {ses}. "
                                            "Skipping...")
@@ -170,7 +174,7 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
                     file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_arousals.csv' 
                     annot.export_events(file, evt_type = arousal_name,
                                         stage = ['NREM1', 'NREM2', 'NREM3', 'REM']) 
-                except:
+                except Exception:
                     logger.warning(f'Error exporting arousals for {sub}, {ses}.')
                     flag += 1
  
@@ -184,7 +188,6 @@ def export_sleepstats(xml_dir, out_dir, subs = 'all', sessions = 'all',
 
 
 def sleepstats_from_csvs(xml_dir, out_dir, subs = 'all', sessions = 'all', 
-                         arousal_name = ['Arousal', 'Arou'],
                          logger = create_logger('Export macro stats')):
     
     ### 0.a Set up logging

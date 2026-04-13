@@ -2,5 +2,7 @@
 
 """
 from .peth import perievent_histogram
-from .sleepstats import export_sleepstats, sleepstats_from_csvs
+
+
+__all__ = ['perievent_histogram']
 

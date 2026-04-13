@@ -3,7 +3,7 @@
 # -- Project information
 
 project = 'seapipe'
-copyright = '2024, N. Cross & A. Perrault'
+copyright = '2024, N. Cross & A. Perrault' # noqa
 author = 'Nathan Cross'
 
 release = '0.1'
@@ -35,7 +35,6 @@ html_static_path = ['_static']
 html_logo = 'logo.png'
 html_theme_options = {
     'style_nav_header_background': '#030D7B',
-    'logo_only': True,
     'logo_only': True,
     'collapse_navigation': False,
     'sticky_navigation': True,

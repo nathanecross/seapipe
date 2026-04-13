@@ -8,7 +8,8 @@ Created on Tue Mar 19 16:32:10 2024
 
 import re
 from itertools import product
-from numpy import (asarray, full, nan, ndarray, sum)
+from numpy import (asarray, full, nan, ndarray)
+import numpy.sum as npsum
 from os import listdir, mkdir, path, walk
 from pandas import concat, DataFrame, read_csv
 from pathlib import Path
@@ -16,7 +17,7 @@ from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.trans import (fetch, get_times)
 from wonambi.trans.analyze import event_params, export_event_params
-from ..utils.logs import create_logger, create_logger_empty
+from ..utils.logs import create_logger
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
                           read_manual_peaks, read_tracking_sheet,
                           reverse_chan_lookup)
@@ -328,7 +329,7 @@ class FISH:
                                                         cycle=cycle, 
                                                         chan=[channel], 
                                                         exclude=True)
-                                        total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                        total_dur = npsum([x[1] - x[0] for y in poi for x in y['times']])
                                         count = len(evts)
                                         density = count / (total_dur / epoch_dur)
                                         logger.debug('----- WHOLE NIGHT -----')
@@ -350,7 +351,7 @@ class FISH:
                                             export_event_params(outputfile, data, count=len(evts), 
                                                                 density=density)
                                             logger.debug('Writing to ' + outputfile)
-                                        except:
+                                        except Exception:
                                             logger.warning(f'Issue exporting data for {sub}, {ses}, {fnamechan}, {stagename}, {event}.')
                                             flag +=1
                                             continue
@@ -397,7 +398,7 @@ class FISH:
                                                 poi = get_times(annot, stage=[st], 
                                                                 cycle=[cyc], chan=[channel], 
                                                                 exclude=True)
-                                                total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                                total_dur = npsum([x[1] - x[0] for y in poi for x in y['times']])
                                                 evts = annot.get_events(name=event, 
                                                                         time=cycle[cy][0:2], 
                                                                         chan = f'{channel} ({self.grp_name})', 
@@ -450,7 +451,7 @@ class FISH:
                                             # Get times
                                             poi = get_times(annot, stage=[st], cycle=cycle, 
                                                             chan=[channel], exclude=True)
-                                            total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                            total_dur = npsum([x[1] - x[0] for y in poi for x in y['times']])
                                             evts = annot.get_events(name=event, time=None, 
                                                                     chan = f'{channel} ({self.grp_name})', 
                                                                     stage = st)
@@ -521,7 +522,7 @@ class FISH:
                                             poi = get_times(annot, stage=self.stage, 
                                                             cycle=[cyc], chan=[channel], 
                                                             exclude=True)
-                                            total_dur = sum([x[1] - x[0] for y in poi for x in y['times']])
+                                            total_dur = npsum([x[1] - x[0] for y in poi for x in y['times']])
                                             evts = annot.get_events(name=event, 
                                                                     time=cycle[cy][0:2], 
                                                                     chan = f'{channel} ({self.grp_name})', 
@@ -561,7 +562,7 @@ class FISH:
                                         duos=[]
                                         [duos.extend([(poi[0]['times'][x][0],poi[1]['times'][x][1])]) 
                                                              for x,item in enumerate(poi[0]['times'])]
-                                        total_dur = sum([x[1] - x[0] for x in duos])
+                                        total_dur = npsum([x[1] - x[0] for x in duos])
                                         evts =[]
                                         for d in duos:
                                             evts.extend(annot.get_events(name=event, 
@@ -717,7 +718,7 @@ class FISH:
                         if path.isfile(data_file):
                             try:
                                 df.loc[sub] = extract_event_data(data_file, variables)
-                            except:
+                            except Exception:
                                 extract_data_error(logger)
                                 flag +=1
                                 return
@@ -744,7 +745,7 @@ class FISH:
                                 if path.isfile(data_file):
                                     try:
                                         df.loc[sub] = extract_event_data(data_file, variables)
-                                    except:
+                                    except Exception:
                                         extract_data_error(logger)
                                         flag +=1
                                         return
@@ -773,7 +774,7 @@ class FISH:
                             if path.isfile(data_file):
                                 try:
                                     df.loc[sub] = extract_event_data(data_file, variables)
-                                except:
+                                except Exception:
                                     extract_data_error(logger)
                                     flag +=1
                                     return
@@ -799,7 +800,7 @@ class FISH:
                             if path.isfile(data_file):
                                 try:
                                     df.loc[sub] = extract_event_data(data_file, variables)
-                                except:
+                                except Exception:
                                     extract_data_error(logger)
                                     flag +=1
                                     return
@@ -929,7 +930,7 @@ class FISH:
                     if path.isfile(data_file):
                         try:
                             ar.extend(extract_cluster_data(data_file, variables))
-                        except:
+                        except Exception:
                             extract_data_error(logger)
                             flag +=1
                             continue
@@ -945,7 +946,7 @@ class FISH:
                     if path.isfile(data_file):
                         try:
                             ar.extend(extract_cluster_data(data_file, variables))
-                        except:
+                        except Exception:
                             extract_data_error(logger)
                             flag +=1
                             continue
@@ -977,7 +978,7 @@ class FISH:
                                 hist = read_csv(data_file, index_col = 0)
                                 hist.index = [sub]
                                 df_hist.append(hist)
-                            except:
+                            except Exception:
                                 extract_data_error(logger)
                                 flag +=1
                                 continue
@@ -1014,7 +1015,7 @@ class FISH:
                                 psd = psd['fit_psd'].T
                                 psd.name = sub
                                 df_psd.append(psd)
-                            except:
+                            except Exception:
                                 extract_data_error(logger)
                                 flag +=1
                                 continue
@@ -1435,7 +1436,7 @@ def extract_pac_data(data_file, model, variables, logger = create_logger("Extrac
             if 'mvl' in variables:
                 data.append(df['mvl'][0])					
             data = asarray(data)
-        except:
+        except Exception:
             extract_data_error(logger)  
             data = full(len(variables), nan)
 

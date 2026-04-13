@@ -17,11 +17,11 @@ from wonambi import Dataset, graphoelement
 from wonambi.attr.annotations import Annotations, create_empty_annotations
 from wonambi.trans import fetch
 from wonambi.detect.spindle import transform_signal
-from scipy.signal import butter, filtfilt, find_peaks,  periodogram
+from scipy.signal import find_peaks,  periodogram
 import shutil
-from .logs import create_logger
 from .load import check_adap_bands
 from .audit import check_fooof
+
 
                 
 def remove_event(annot, evt_name, chan = None, stage = None):
@@ -549,8 +549,8 @@ def rainbow_merge_evts(xml_dir, out_dir, chan, grp_name, rater, segments = None,
                 names = set([e['name'] for e in evts])  
                 newevents = copy.deepcopy(evts)
                 d1 = {'name': evt_name[0]}
-                [x.update(d1) for x in newevents]
-                
+                for x in newevents:
+                    x.update(d1)
 
                 for t,typ in enumerate(names):    
                     annot.remove_event_type(name=typ)

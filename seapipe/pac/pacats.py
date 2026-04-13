@@ -4,38 +4,26 @@ Created on Tue Oct  5 15:51:24 2021
 
 @author: Nathan Cross
 """
-from datetime import datetime, date
-
-from os import listdir, mkdir, path, walk
-from . cfc_func import _allnight_ampbin, circ_wwtest, mean_amp, klentropy
+from os import listdir, mkdir, path
+from . cfc_func import  mean_amp
 from . octopus import pac_method
 from seapipe.utils.misc import bandpass_mne, laplacian_mne, notch_mne, notch_mne2
 from copy import deepcopy
 import shutil
-from math import degrees, radians
-import mne
-import matplotlib.pyplot as plt
-from numpy import (angle, append, argmax, array, arange, asarray, ceil, concatenate, 
-                   empty, histogram, interp, isnan, linspace, log, logical_and, mean, 
-                   median, nan, nanmean, nanmedian, ndarray, newaxis, ones, pi, random, repeat, 
-                   reshape, roll, save, sin, size, squeeze, sqrt, std, sum, tile, where, zeros) 
-from numpy.matlib import repmat
-from pandas import DataFrame, concat, read_csv
-from pathlib import Path
-from safepickle import dump, load
-from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc, circ_corrcl)
-from scipy.signal import hilbert
-from scipy.stats import zscore
+from math import degrees
+from numpy import (argmax, asarray, ceil, concatenate, empty, histogram, interp, 
+                   isnan, linspace, mean, nan, nanmean, nanmedian, pi, reshape, 
+                   save, sin, squeeze, zeros) 
+from pandas import DataFrame
+from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc)
 import sys
-from tensorpac import Pac, EventRelatedPac
+from tensorpac import Pac
 from wonambi import Dataset
 from wonambi.trans import fetch
 from wonambi.attr import Annotations 
-from wonambi.detect.spindle import transform_signal
-from seapipe.utils.logs import create_logger, create_logger_outfile
+from seapipe.utils.logs import create_logger
 from ..utils.load import (load_channels, load_adap_bands, rename_channels, 
                           load_sessions, read_inversion, read_manual_peaks)
-from ..utils.misc import remove_duplicate_evts
 from ..utils.misc import infer_polarity
 
 
@@ -229,7 +217,7 @@ class pacats:
                 try:
                     edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
                     dset = Dataset(rdir + edf_file[0])
-                except:
+                except Exception:
                     logger.warning(f' No input {filetype} file in {rdir}')
                     break
                 
@@ -250,7 +238,7 @@ class pacats:
                         shutil.copy(xdir + xml_file[0], backup_file)
                     else:
                         logger.debug(f'Using annotations file from: {xdir}')
-                except:
+                except Exception:
                     logger.warning(f' No input annotations file in {xdir}')
                     flag +=1
                     break
@@ -292,7 +280,7 @@ class pacats:
                         if not filter_opts['oREF']:
                             try:
                                 filter_opts['oREF'] = newchans[ch]
-                            except:
+                            except Exception:
                                 logger.warning("Channel selected is '_REF' but "
                                                "no information has been given "
                                                "about what standard name applies, "
@@ -378,7 +366,7 @@ class pacats:
                         try:
                             segments.read_data(filter_opts['lapchan'], chanset[ch]) 
                             laplace_flag = True
-                        except:
+                        except Exception:
                             logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording for {sub}, {ses}.")
                             logger.warning("Laplacian filtering will NOT be run for {sub}, {ses}, {ch}. Check parameters under: filter_opts['lapchan']")
                             segments.read_data(ch, chanset[ch])

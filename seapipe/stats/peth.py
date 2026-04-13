@@ -7,7 +7,7 @@ Created on Thu Feb 10 11:33:57 2022
 """
 
 from math import floor
-from numpy import where, zeros
+from numpy import amax, where, zeros
 from os import listdir, mkdir, path
 from pandas import DataFrame
 from wonambi import Dataset

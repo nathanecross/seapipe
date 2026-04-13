@@ -5,8 +5,6 @@ Created on Thu Jul 29 10:34:53 2021
 @author: nathancross
 """
 from copy import deepcopy
-from datetime import datetime, date
-from itertools import product
 from os import listdir, mkdir, path
 import shutil
 from pathlib import Path
@@ -19,9 +17,9 @@ from wonambi.detect import consensus, DetectSpindle
 from wonambi.trans import fetch
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks
-from ..utils.logs import create_logger, create_logger_outfile
+from ..utils.logs import create_logger
 from ..utils.load import (load_channels, load_adap_bands, load_sessions, 
-                          rename_channels, read_manual_peaks)
+                          rename_channels, read_manual_peaks, source_filepath)
 from ..utils.misc import remove_duplicate_evts
 
 
@@ -44,7 +42,7 @@ class whales:
     
     def __init__(self, rootpath, rec_dir, xml_dir, out_dir, chan, ref_chan, 
                  grp_name, stage, frequency, rater = None, subs = 'all', 
-                 sessions = 'all', reject_artf = ['Artefact', 'Arou', 'Arousal'], 
+                 sessions = 'all', reject_artf = None, 
                  tracking = None):
         
         self.rootpath = rootpath
@@ -57,7 +55,9 @@ class whales:
         self.stage = stage
         self.frequency = frequency
         self.rater = rater
-        self.reject = reject_artf
+        self.reject = reject_artf if reject_artf is not None else [
+            'Artefact', 'Arou', 'Arousal'
+        ]
         
         self.subs = subs
         self.sessions = sessions
@@ -146,19 +146,19 @@ class whales:
                 if not ses in self.tracking['spindle'][sub].keys():
                     self.tracking['spindle'][sub][ses] = {} 
     
-                ## c. Load recording
-                rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
-                try:
-                    edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                    dset = Dataset(rdir + edf_file[0])
-                except:
-                    logger.warning(f' No input {filetype} file in {rdir}')
-                    flag+=1
-                    break
+                ## c. Define input files
+                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                xdir = f'{self.xml_dir}/{sub}/{ses}/'
                 
-                ## d. Load annotations
-                xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                xml_file = [x for x in listdir(xdir) if x.endswith('.xml')][0]
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
+                
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
+                    logger.warning("Check documentation for how to set up an annotations file...")
+                    continue
+                
                 # Copy annotations file before beginning
                 if not path.exists(self.out_dir):
                     mkdir(self.out_dir)
@@ -169,12 +169,26 @@ class whales:
                 backup = self.out_dir + '/' + sub + '/' + ses + '/'
                 backup_file = (f'{backup}{sub}_{ses}.xml')
                 if not path.exists(backup_file):
-                    shutil.copy(xdir + xml_file, backup_file)
+                    shutil.copy(xml_file, backup_file)
                 else:
-                    logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                    logger.warning(f'Annotations file already exists for {sub}, {ses}, '
+                                   'any previously detected events will be overwritten.')
                     flag += 1
-                # Read annotations file
-                annot = Annotations(backup_file, rater_name=self.rater)
+                    
+                ## Now import data
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+                
+                try:
+                    annot = Annotations(backup_file, rater_name=self.rater)
+                except Exception as e:
+                    logger.warning(f"Could not open {backup_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
                 
                 ## e. Get sleep cycles (if any)
                 if cycle_idx is not None:
@@ -348,43 +362,58 @@ class whales:
                 logger.debug(f'Commencing {sub}, {ses}')
                 if not ses in self.tracking['spindle'][sub].keys():
                     self.tracking['spindle'][sub][ses] = {} 
-                     
+                
+                ## c. Define input files
+                rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
+                xdir = f'{self.xml_dir}/{sub}/{ses}/'
+                
+                edf_file, flag = source_filepath(rdir, filetype, flag, logger)
+                if not edf_file:
+                    continue
+                
+                xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                if not xml_file:
+                    logger.warning("Check documentation for how to set up an annotations file...")
+                    continue
+   
+                # Copy annotations file before beginning
+                if not path.exists(self.out_dir):
+                    mkdir(self.out_dir)
+                if not path.exists(self.out_dir + '/' + sub):
+                    mkdir(self.out_dir + '/' + sub)
+                if not path.exists(self.out_dir + '/' + sub + '/' + ses):
+                    mkdir(self.out_dir + '/' + sub + '/' + ses)
+                backup = self.out_dir + '/' + sub + '/' + ses + '/'
+                backup_file = (f'{backup}{sub}_{ses}.xml')
+                if not path.exists(backup_file):
+                    shutil.copy(xdir + xml_file, backup_file)
+                else:
+                    logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
+                    flag += 1
+                              
+                ## Now import data
+                try:
+                    dset = Dataset(edf_file)
+                except Exception as e:
+                    logger.warning(f"Could not open {edf_file}: {e}. Skipping...")
+                    flag += 1
+                    continue    
+                try:
+                    annot = Annotations(backup_file, rater_name=self.rater)
+                except Exception as e:
+                    logger.warning(f"Could not open {backup_file}: {e}. Skipping...")
+                    flag += 1
+                    continue
+
                 # Get sampling frequency
                 if not s_freq:
-                    rdir = self.rec_dir + '/' + sub + '/' + ses + '/eeg/'
                     try:
-                        edf_file = [x for x in listdir(rdir) if x.endswith(filetype)]
-                        s_freq = Dataset(rdir + edf_file[0]).header['s_freq']
-                    except:
-                        logger.warning(f'No input {filetype} file in {rdir}, cannot obtain sampling frequency for {sub}, {ses}. Skipping...')
+                        dset.header['s_freq']
+                    except Exception as e:
+                        logger.warning(f'Cannot obtain sampling frequency for {sub}, {ses}: {e}. Skipping...')
                         flag +=1
                         continue
-                    
-                ## c. Load annotations
-                xdir = self.xml_dir + '/' + sub + '/' + ses + '/'
-                try:
-                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
-                    # Copy annotations file before beginning
-                    if not path.exists(self.out_dir):
-                        mkdir(self.out_dir)
-                    if not path.exists(self.out_dir + '/' + sub):
-                        mkdir(self.out_dir + '/' + sub)
-                    if not path.exists(self.out_dir + '/' + sub + '/' + ses):
-                        mkdir(self.out_dir + '/' + sub + '/' + ses)
-                    backup = self.out_dir + '/' + sub + '/' + ses + '/'
-                    backup_file = (f'{backup}{sub}_{ses}.xml')
-                    if not path.exists(backup_file):
-                        shutil.copy(xdir + xml_file[0], backup_file)
-                    else:
-                        logger.warning(f'Annotations file already exists for {sub}, {ses}, new events will be written into the same annotations file. Any existing events labelled {evt_out} will be overwritten.')
-                        flag += 1
-                except:
-                    logger.warning(f' No input annotations file in {xdir}')
-                    flag += 1
-                    break
-                
-                # Read annotations file
-                annot = Annotations(backup_file, rater_name=self.rater)
+
                 
                 ## f. Channel setup 
                 pflag = deepcopy(flag)

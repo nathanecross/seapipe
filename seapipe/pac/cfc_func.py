@@ -4,18 +4,14 @@ Created on Mon May 13 13:10:09 2019
 
 CFC Functions
 
-@author: jordan
+@author: job
 """
 
-from numpy import (any, arange, arctan2, argmin, around, array, asarray, 
-                   atleast_2d, ceil, concatenate, cumsum, dot, empty, exp, floor, genfromtxt, 
-                   hstack, hypot, identity, linalg, linspace, log, logical_and, 
-                   max, mean, minimum, multiply, nan, nanmean, nanstd, ones, 
-                   pi, power, prod, reshape, roll, sin, sqrt, squeeze, std, sum, 
-                   transpose, vstack, where, zeros)
-from os import listdir, mkdir, path
+from numpy import (arange, around, asarray, concatenate, exp, floor, hstack, 
+                   linspace, log, logical_and, nanmean, pi, roll, sin, 
+                   sqrt, where, zeros)
+import numpy.sum as npsum
 from scipy.stats import f as fdist
-from scipy.special import lpn
 import matplotlib.pyplot as plt
 from pingouin import circ_r   
 from safepickle import load
@@ -123,8 +119,8 @@ def klentropy(MeanAmp, axis=-1):
     # Quantify the amount of amp modulation by means of a normalized 
     # Kullback-Leibler entropy index
     nbin = MeanAmp.shape[-1]
-    MI = (log(nbin) - (-sum((MeanAmp / sum(MeanAmp, axis=axis, keepdims=True)) * \
-        log((MeanAmp / sum(MeanAmp, axis=axis, keepdims=True))), axis=axis, 
+    MI = (log(nbin) - (-npsum((MeanAmp / npsum(MeanAmp, axis=axis, keepdims=True)) * \
+        log((MeanAmp / npsum(MeanAmp, axis=axis, keepdims=True))), axis=axis, 
         keepdims=True))) / log(nbin)
     return MI.squeeze()
 

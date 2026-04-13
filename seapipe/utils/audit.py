@@ -7,7 +7,7 @@ Created on Mon Jul 31 13:36:12 2023
 """
 from copy import deepcopy
 from datetime import datetime
-from json import dump, dumps
+from json import dump
 from os import listdir, mkdir, path, rename, walk
 from numpy import array, ceil, delete, zeros
 from pandas import DataFrame
@@ -69,7 +69,7 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
         files = [x for x in real_files if path.isfile(path.join(datapath, sub, x))]
         
         nsd.append(len(sessions))
-        annots = 0
+        
         edfs = 0
         
         if len(sessions) < 1:
@@ -435,13 +435,16 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
     # Finally check dataset
     check_dataset(root_dir, in_dir, filetype)
                     
-def extract_channels(in_dir, exclude=['A1','A2','M1','M2'], quality=False):
+def extract_channels(in_dir, exclude=None, quality=False):
     
     """Reads channel information from the files in the directory specified by 
     <in_dir> and writes them to the BIDS compatible channels.tsv file per participant
     and session.
     You can specify whether to exclude any channels, if preferrable.
     """
+    
+    if not exclude:
+        exclude = ['A1','A2','M1','M2']
     
     parts = [x for x in listdir(in_dir) if '.' not in x]
     
