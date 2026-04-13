@@ -18,3 +18,4 @@ from .misc import (clean_annots, remove_event, remove_duplicate_evts,
                    bandpass_mne, csv_stage_import)
 from .splitter import extract_grouped_markers
 
+from .spectrogram import SONAR

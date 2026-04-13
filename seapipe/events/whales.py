@@ -252,13 +252,7 @@ class whales:
                         
                         
                         # j. Define detection
-                        if meth == 'Wamsley2012':
-                            from wonambi.detect import spindle_matlab as spm
-                            detection = spm.DetectSpindle(method='Wamsley2012',
-                                                          frequency=freq, 
-                                                          duration=duration)
-                        else:
-                            detection = DetectSpindle(meth, frequency=freq, duration=duration)
+                        detection = DetectSpindle(meth, frequency=freq, duration=duration)
 
                         ## k. Run detection and save to Annotations file
                         for s, seg in enumerate(segments):

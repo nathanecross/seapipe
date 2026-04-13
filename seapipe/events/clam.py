@@ -360,8 +360,8 @@ class clam:
                         # Example (allowable_interruptions = 1):
                         #   Epochs:  N2  N2  W  N2  N1  N2  W  W  N2
                         #   Bouts:  [N2 N2 W N2] [N1 N2] [N2]
-                        #   (single non-target epoch allowed inside a bout)  
-                        #  
+                        #   (single non-target epoch allowed inside a bout)
+                        
                         epochs_win.sort(key=lambda x: x['start'])
                         bouts = []
                         in_bout = False

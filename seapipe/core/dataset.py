@@ -1095,6 +1095,77 @@ class pipeline:
         return
     
     
+    def plot_spectrogram(self, xml_dir=None, out_dir=None, subs='all',
+                         sessions='all', filetype='.edf', chan=None,
+                         ref_chan=None, rater=None, stage=None,
+                         grp_name='eeg', cycle_idx=None, 
+                         concat_stage=False, concat_cycle=True, 
+                         freq_limits = (0, 25),
+                         event_opts=None, win_sec = 30,
+                         method='yasa', file_extension='.svg',
+                         progress=True, outfile=False):
+
+        from seapipe.utils.spectrogram import SONAR
+
+        # Set up logging
+        logger = setup_logging(self.log_dir, 'Spectrogram', outfile)
+        logger.info('')
+        logger.debug('Creating spectrogram plots.')
+        logger.info('')
+
+        # Set input/output directories
+        in_dir = self.datapath
+
+        if not xml_dir:
+            xml_dir = select_input_dirs(self.outpath, xml_dir, event_opts['evt_type'])
+
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        if not out_dir:
+            out_dir = f'{self.outpath}/spectrogram'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output figures being saved to: {out_dir}')
+
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+
+        # Event options
+        if not event_opts:
+            event_opts = default_event_opts()
+        if event_opts['evt_type']:
+            win_sec = 1
+
+        sonar = SONAR(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan,
+                      grp_name, stage, rater, subs, sessions,
+                      event_opts=event_opts, method=method,
+                      file_extension=file_extension, win_sec = win_sec,
+                      fmin=freq_limits[0], fmax=freq_limits[1],
+                      tracking=self.tracking)
+
+        sonar.spectrogram(cycle_idx=cycle_idx, concat_stage=concat_stage,
+                          concat_cycle=concat_cycle,
+                          filetype=filetype, progress=progress,
+                          logger=logger)
+
+        return
     #--------------------------------------------------------------------------
     '''
     PHASE AMPLITUDE COUPLING.
@@ -1243,7 +1314,148 @@ class pipeline:
                            adap_bw, invert, progress, logger)
 
         return
-    
+
+    #--------------------------------------------------------------------------
+    '''
+    EVENT SYNCHRONY
+
+    event_synchrony -> splits a target event based on co-occurrence with a probe.
+    '''
+    def event_synchrony(self, xml_dir = None, out_dir = None, subs = 'all',
+                              sessions = 'all', chan = None, stage = None,
+                              grp_name = 'eeg', rater = None,
+                              evttype_target = None, evttype_probe = None,
+                              evttype_tp_target = None, evttype_fn = None,
+                              iu_thresh = 0.5, concat_stage = True,
+                              concat_cycle = True,
+                              reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                              filetype = ('.edf', '.rec', '.eeg'),
+                              outfile = True):
+
+        from seapipe.pac.coral import CORAL
+
+        # Set up logging
+        logger = setup_logging(self.log_dir, 'Event synchrony', outfile)
+        logger.info('')
+
+        if not evttype_target or not evttype_probe or not evttype_tp_target:
+            logger.error("Event synchrony requires 'evttype_target', "
+                         "'evttype_probe' and 'evttype_tp_target'.")
+            return
+
+        # Set input/output directories
+        in_dir = self.datapath
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evttype_target)
+
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Events weren't found.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        if not out_dir:
+            out_dir = select_output_dirs(self.outpath, out_dir, 'sync')
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output annotations being saved to: {out_dir}')
+
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+
+        # Concatenation
+        cat = (int(concat_cycle), int(concat_stage), 0, 0)
+
+        coral = CORAL(self.rootpath, in_dir, xml_dir, out_dir,
+                      chan = chan, stage = stage, grp_name = grp_name,
+                      rater = rater, subs = subs, sessions = sessions,
+                      reject_artf = reject_artf, filetype = filetype,
+                      tracking = self.tracking)
+
+        coral.event_sync(evttype_target, evttype_probe, iu_thresh,
+                         evttype_tp_target, evttype_fn, cat = cat,
+                         logger = logger)
+
+        return
+
+    def event_synchrony_dataset(self, xml_dir = None, out_dir = None, subs = 'all',
+                                      sessions = 'all', chan = None, stage = None,
+                                      grp_name = 'eeg', rater = None,
+                                      evttype_target = None, evttype_probe = None,
+                                      evttype_tp_target = None, evttype_fn = None,
+                                      iu_thresh = 0.5, concat_stage = True,
+                                      concat_cycle = True, outfile_suffix = None,
+                                      reject_artf = ['Artefact', 'Arou', 'Arousal'],
+                                      filetype = ('.edf', '.rec', '.eeg'),
+                                      outfile = True):
+
+        from seapipe.pac.synchrony import CORAL
+
+        # Set up logging
+        logger = setup_logging(self.log_dir, 'Event synchrony dataset (CORAL)', outfile)
+        logger.info('')
+
+        if not evttype_target or not evttype_probe or not evttype_tp_target:
+            logger.error("Event synchrony dataset requires 'evttype_target', "
+                         "'evttype_probe' and 'evttype_tp_target'.")
+            return
+
+        # Set input/output directories
+        in_dir = self.datapath
+        xml_dir = select_input_dirs(self.outpath, xml_dir, evttype_target)
+
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Events weren't found.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        if not out_dir:
+            if not path.exists(self.outpath + '/datasets/'):
+                mkdir(self.outpath + '/datasets/')
+            out_dir = f'{self.outpath}/datasets/sync'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output dataset being saved to: {out_dir}')
+
+        if not outfile_suffix:
+            outfile_suffix = f'{evttype_target}_x_{evttype_probe}_sync_stats.csv'
+
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            sessions = read_tracking_sheet(self.rootpath, logger)
+
+        # Concatenation
+        cat = (int(concat_cycle), int(concat_stage), 0, 0)
+
+        coral = CORAL(self.rootpath, in_dir, xml_dir, out_dir,
+                      chan = chan, stage = stage, grp_name = grp_name,
+                      rater = rater, subs = subs, sessions = sessions,
+                      reject_artf = reject_artf, filetype = filetype,
+                      tracking = self.tracking)
+
+        coral.event_sync_dataset(outfile_suffix, evttype_target, evttype_probe,
+                                 iu_thresh, evttype_tp_target, evttype_fn,
+                                 cat = cat, logger = logger)
+
+        return
+
     '''
     DYNAMICS
     
@@ -1426,24 +1638,24 @@ class pipeline:
     def macro_dataset(self, xml_dir = None, out_dir = None, 
                       subs = 'all', sessions = 'all', outfile = True):
          
-         # Set up logging
-         logger = setup_logging(self.log_dir, 'Export macro datast', outfile)
-         logger.info('')
+        # Set up logging
+        logger = setup_logging(self.log_dir, 'Export macro datast', outfile)
+        logger.info('')
 
-         # Set input/output directories
-         if not path.exists(self.outpath + '/datasets/'):
-             mkdir(self.outpath + '/datasets/')
-         out_dir = self.outpath + '/datasets/macro/'
-         
-         xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
-         logger.debug(f'Input annotations being read from: {xml_dir}')
-         
-         out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
-         logger.debug(f'Output being save to: {out_dir}')
-         
-         sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
-                                 subs, sessions, logger)
-         return
+        # Set input/output directories
+        if not path.exists(self.outpath + '/datasets/'):
+            mkdir(self.outpath + '/datasets/')
+        out_dir = self.outpath + '/datasets/macro/'
+        
+        xml_dir = select_input_dirs(self.outpath, xml_dir, 'macro')
+        logger.debug(f'Input annotations being read from: {xml_dir}')
+        
+        out_dir = select_output_dirs(self.outpath, out_dir, 'macro')
+        logger.debug(f'Output being save to: {out_dir}')
+        
+        sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
+                                subs, sessions, logger)
+        return
     
     def export_eventparams(self, evt_name, frequency = None,
                                  xml_dir = None, out_dir = None, subs = 'all', 

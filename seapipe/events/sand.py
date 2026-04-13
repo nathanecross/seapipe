@@ -64,7 +64,7 @@ class SAND:
 
     def detect_artefacts(self, method, label = "Artefact", win_size = 5,
                                filetype = '.edf', allchans_marker = False,
-                               stage = ['NREM1', 'NREM2', 'NREM3', 'REM'],
+                               stage = None,
                                logger = create_logger('Detect artefacts')):
         
         ''' Automatically detects artefacts.
@@ -79,7 +79,7 @@ class SAND:
         ### 0.a Set up logging
         flag = 0
         tracking = self.tracking
-        if allchans_marker == True:
+        if allchans_marker is True:
             chan_msg = "all channels at once."
         else:
             chan_msg = "each channel individually."
@@ -128,6 +128,10 @@ class SAND:
             logger.error("'subs' must either be an array of subject ids or = 'all' ")  
             return
         
+        # Set default stage
+        if stage is None:
+            stage = ['NREM1', 'NREM2', 'NREM3', 'REM']
+            
         ### 2. Begin loop through dataset
        
         # a. Begin loop through participants
@@ -162,7 +166,7 @@ class SAND:
                 newchans = rename_channels(sub, ses, self.eeg_chan, logger) 
                 
                 # Check if applying to all channels or chan-by-chan
-                if allchans_marker == True:
+                if allchans_marker is True:
                     def _freeze_ref(val):
                         """Recursively convert nested iterables to tuples for hashing."""
                         if isinstance(val, (list, tuple)):
@@ -454,7 +458,7 @@ class SAND:
                         return
                     
                     # ---- Append all events in master list ----
-                    if allchans_marker == True:
+                    if allchans_marker is True:
                         channame = ['']
                     else:
                         channame = f'{chan} ({self.grp_name})'
@@ -483,17 +487,22 @@ class SAND:
                 gc.collect()
                 
                 # Remove duplicates
-                if allchans_marker == True:
+                if allchans_marker is True:
                     merge_events(annot, 'Artefact')
                     remove_duplicate_evts(annot, 'Artefact')
-                elif allchans_marker == False:
+                elif allchans_marker is False:
                     for chan in chanset:
                         merge_events(annot, label, 
                                      chan = f'{chan} ({self.grp_name})')
                         remove_duplicate_evts(annot, label, 
                                               chan = f'{chan} ({self.grp_name})')
                         
-                
+        ### 3. Check completion status and print
+        if flag == 0:
+            logger.debug('Event clustering analysis finished without error.')  
+        else:
+            logger.warning(f'Event clustering analysis finished with {flag} WARNINGS. See log for details.')
+            
         return
     
     

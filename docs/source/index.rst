@@ -50,6 +50,6 @@ Contents
    so
    spindle
    pac
+   sync
    api
-
 
