@@ -22,7 +22,7 @@ from scipy.signal import (butter, firwin, filtfilt, detrend,
                           hilbert, resample, sosfiltfilt, welch) 
 import builtins
 import matplotlib.pyplot as plt
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from sklearn.cluster import DBSCAN
 from wonambi import Dataset
 from wonambi.attr import Annotations

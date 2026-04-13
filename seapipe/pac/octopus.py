@@ -14,7 +14,7 @@ import shutil
 from math import degrees
 from numpy import (argmax, array, asarray, ceil, concatenate, histogram, interp, 
                    isnan, linspace, mean, median, nan, nanmean, ones, pi, random, 
-                   reshape, save, sin, squeeze, sum, zeros) 
+                   reshape, save, sin, squeeze, zeros) 
 from pandas import DataFrame, read_csv
 from safepickle import load
 from pingouin import (circ_mean, circ_r, circ_rayleigh, circ_corrcc)

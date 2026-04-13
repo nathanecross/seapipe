@@ -9,7 +9,7 @@ Created on Tue Mar 19 16:32:10 2024
 import re
 from itertools import product
 from numpy import (asarray, full, nan, ndarray)
-import numpy.sum as npsum
+from numpy import sum as npsum
 from os import listdir, mkdir, path, walk
 from pandas import concat, DataFrame, read_csv
 from pathlib import Path

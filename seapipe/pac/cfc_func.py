@@ -10,7 +10,7 @@ CFC Functions
 from numpy import (arange, around, asarray, concatenate, exp, floor, hstack, 
                    linspace, log, logical_and, nanmean, pi, roll, sin, 
                    sqrt, where, zeros)
-import numpy.sum as npsum
+from numpy import sum as npsum
 from scipy.stats import f as fdist
 import matplotlib.pyplot as plt
 from pingouin import circ_r   
