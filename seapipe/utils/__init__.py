@@ -18,6 +18,10 @@
 #                    bandpass_mne, csv_stage_import)
 # from .splitter import extract_grouped_markers
 
-from .spectrogram import SONAR
-
 __all__ = ["SONAR"]
+
+def __getattr__(name):
+    if name == "SONAR":
+        from .spectrogram import SONAR
+        return SONAR
+    raise AttributeError(f"module 'seapipe.utils' has no attribute '{name}'")

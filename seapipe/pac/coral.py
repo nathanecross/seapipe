@@ -4,6 +4,7 @@ Author: Jordan O'Byrne & formatted by Nathan Cross
 Refactored into CORAL by Codex (2026)
 """
 
+from copy import deepcopy
 from numpy import nan, ones
 from os import listdir, mkdir, path
 from pandas import DataFrame
@@ -12,6 +13,8 @@ from wonambi import Dataset
 from wonambi.attr import Annotations
 from wonambi.detect import match_events
 from wonambi.trans import fetch
+from seapipe.utils.logs import create_logger
+from ..utils.load import load_channels, load_sessions, rename_channels
 
 
 class CORAL:
@@ -23,14 +26,16 @@ class CORAL:
     """
 
     def __init__(self, rootpath=None, rec_dir=None, xml_dir=None, out_dir=None,
-                 chan=None, stage=None, grp_name='eeg', rater=None, subs='all',
-                 sessions='all', reject_artf=None, filetype=None, tracking=None):
+                 chan=None, ref_chan=None, stage=None, grp_name='eeg',
+                 rater=None, subs='all', sessions='all', reject_artf=None,
+                 filetype=None, tracking=None):
 
         self.rootpath = rootpath
         self.rec_dir = rec_dir
         self.xml_dir = xml_dir
         self.out_dir = out_dir
         self.chan = chan
+        self.ref_chan = ref_chan
         self.stage = stage
         self.grp_name = grp_name
         self.rater = rater
@@ -49,17 +54,6 @@ class CORAL:
             tracking = {'sync': {}}
         self.tracking = tracking
 
-    def _log(self, msg, logger=None, level='info'):
-        if logger is None:
-            print(msg)
-            return
-        if level == 'error':
-            logger.error(msg)
-        elif level == 'warning':
-            logger.warning(msg)
-        else:
-            logger.info(msg)
-
     def _resolve_rec_dir(self, sub, ses):
         rdir = f'{self.rec_dir}/{sub}/{ses}/'
         if path.exists(f'{rdir}/eeg'):
@@ -76,72 +70,69 @@ class CORAL:
         without a probe.
         '''
         flag = 0 
-        
+        if not logger:
+            logger = create_logger('Event syncrony')
+
         if path.exists(self.out_dir):
-            self._log(self.out_dir + " already exists", logger)
+            logger.debug("Output directory: " + self.out_dir + " exists")
         else:
             mkdir(self.out_dir)
 
-        # Loop through records
+        # Check input list
         if subs is None:
             subs = self.subs
         if isinstance(subs, list):
             None
         elif subs == 'all':
-            subs = listdir(self.xml_dir)
+            subs = listdir(self.rec_dir)
             subs = [p for p in subs if '.' not in p]
         else:
-            self._log("ERROR: 'subs' must either be an array of subject ids or = 'all'",
-                      logger, level='error')
+            logger.error("ERROR: 'subs' must either be an array of subject ids or = 'all'")
             return
 
         if sessions is None:
             sessions = self.sessions
-        if sessions == 'all':
-            sessions = [x for x in listdir(self.xml_dir + '/' + subs[0])
-                        if '.' not in x]
 
-        subs.sort()
-        sessions.sort()
+        logger.debug(
+            rf""" Merging events...
+                                 ⣀
+                                ⠘⢷⣤⣿⡇
+                        ⢰⡗⠀⠀⢠⡀⣠⡄⠀⠈⣿
+                   ⠸⢶⣤⣄⢿⡇⠀⠀⠈⣿⠏⠀⠀⠀⣿⡀⠀⣴⠟⠁
+                      ⠙⠻⣿⣦⡀⢸⡏⠀⠀⠀⠀⢹⣇⣼⣏⣀⣀⣠⣤⡦
+                  ⢰⣶⡄⠀⠀⠘⢿⣿⣾⣧⠀⠀⠀⠀⣼⣿⠟⠉⠉⠉⢉⡀
+                ⠘⠷⠶⢿⣿⡄⠀⠀⠀⠙⠿⣿⣦⣄⡀⣼⣿⠃⠀⠰⣦⣀⣸⡇
+                   ⠈⣿⣷⠀⠀⠀⢀⠀⠈⠛⠿⣿⣿⡏⠀⠀⠀⠈⣹⡟⠀⠀⣀⣤⣄
+                ⢠⡶⠟⠻⣿⣧⡀⣰⠏⠀⠀⠀⠀⢸⣿⡇⠀⣀⣠⣾⣯⣶⣶⣾⡏⠁
+                     ⠈⠻⣿⣿⣀⠀⠀⠀⠀⠸⣿⣷⣿⣿⣿⣯⣉⡉⠉⠙⢷⡄
+                       ⠈⠙⢿⣷⣦⣄⣠⣾⣿⠋⠀⠀⠀⠈⣩⡿⠷⣤
+                    ⠶⠶⣶⡶⠟⠛⠛⢿⣿⡿⠁⠀⠀⠀⠀⣰⡟⠁
+                      ⠹⠇⠀⠀⠀⣼⣿⠃⠀⠀⠀⠀⠀⠉⠁
+                           ⣿⣿
+                           ⠉⠉
 
-        self._log(
-            f""" Merging events...
+⠀⠀⠀⠀⠀⠀⠀⠀⠀Co-Occurrence and Recall Analysis of Labels 
+                       (C.O.R.A.L)
             
-                    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀     ⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢷⣤⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠀⢰⡗⠀⠀⢠⡀⣠⡄⠀⠈⣿⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠸⢶⣤⣄⢿⡇⠀⠀⠈⣿⠏⠀⠀⠀⣿⡀⠀⣴⠟⠁⠀⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠙⠻⣿⣦⡀⢸⡏⠀⠀⠀⠀⢹⣇⣼⣏⣀⣀⣠⣤⡦⠀⠀⠀⠀
-                        ⠀⠀⠀⢰⣶⡄⠀⠀⠘⢿⣿⣾⣧⠀⠀⠀⠀⣼⣿⠟⠉⠉⠉⢉⡀⠀⠀⠀⠀⠀
-                        ⠀⠘⠷⠶⢿⣿⡄⠀⠀⠀⠙⠿⣿⣦⣄⡀⣼⣿⠃⠀⠰⣦⣀⣸⡇⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠈⣿⣷⠀⠀⠀⢀⠀⠈⠛⠿⣿⣿⡏⠀⠀⠀⠈⣹⡟⠀⠀⣀⣤⣄⠀
-                        ⠀⠀⢠⡶⠟⠻⣿⣧⡀⣰⠏⠀⠀⠀⠀⢸⣿⡇⠀⣀⣠⣾⣯⣶⣶⣾⡏⠁⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣀⠀⠀⠀⠀⠸⣿⣷⣿⣿⣿⣯⣉⡉⠉⠙⢷⡄⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⢿⣷⣦⣄⣠⣾⣿⠋⠀⠀⠀⠈⣩⡿⠷⣤⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠶⠶⣶⡶⠟⠛⠛⢿⣿⡿⠁⠀⠀⠀⠀⣰⡟⠁⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠀⠀⠹⠇⠀⠀⠀⣼⣿⠃⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀⠀⠀
-                        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀               ⠉⠉
-
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀Co-Occurrence and Recall Analysis of Labels 
-                            (C.O.R.A.L)
-            
-                Combining events "{evttype_target}" with "{evttype_probe}" into "{evttype_tp_target}"
-                Consesus threshold = {iu_thresh}
+          Combining events "{evttype_target}" with "{evttype_probe}" into "{evttype_tp_target}"
+          Consesus threshold = {iu_thresh}
             
 
                  """,
-            logger,
         )
+
+
 
         # Check for channel specification
         if chan is None:
             chan = self.chan
-        if not chan:
-            chan = [None]
+        if isinstance(chan, str):
+            chan = [chan]
 
         if stage is None:
             stage = self.stage
+        if isinstance(stage, str):
+            stage = [stage]
         if not stage:
             stage = [None]
 
@@ -159,53 +150,81 @@ class CORAL:
         if cat[1] == 1 and len(stage) > 1:
             stage = [stage]
 
-        for stg in stage:
-            for channel in chan:
-                ids = []
-                self._log(f'Channel {channel}; Stage {stg}', logger)
+        # Begin loop through participants
+        subs.sort()
+        for sub in subs:
+            if 'sync' not in self.tracking:
+                self.tracking['sync'] = {}
+            if sub not in self.tracking['sync'].keys():
+                self.tracking['sync'][sub] = {}
 
-                chan_full = channel
-                if channel:
-                    chan_full = channel + ' (' + grp_name + ')'
+            # Begin loop through sessions
+            pflag = deepcopy(flag)
+            flag, sub_sessions = load_sessions(sub, sessions, self.rec_dir,
+                                               flag, logger, verbose=2)
+            if flag - pflag > 0 or not sub_sessions:
+                logger.warning(f'Skipping {sub}...')
+                continue
 
-                for i, sub in enumerate(subs):
-                    for v, ses in enumerate(sessions):
+            for ses in sub_sessions:
+                logger.info('')
+                logger.debug(f'Commencing {sub}, {ses}')
+                if ses not in self.tracking['sync'][sub].keys():
+                    self.tracking['sync'][sub][ses] = {}
 
-                        self._log(f'Subject: {sub}, Visit: {ses}', logger)
-                        self._log(f'{chan_full}', logger)
-                        ids.append(f'{sub}_{ses}')
+                # Load recording
+                rdir = self._resolve_rec_dir(sub, ses)
+                try:
+                    edf_file = [x for x in listdir(rdir)
+                                if x.endswith(self.filetype)]
+                    dset = Dataset(rdir + edf_file[0])
+                except Exception:
+                    logger.warning(f' No input {self.filetype} file in {rdir}')
+                    flag += 1
+                    break
 
-                        # Define files
-                        rdir = self._resolve_rec_dir(sub, ses)
-                        xdir = f'{self.xml_dir}/{sub}/{ses}/'
-                        edf_file = [x for x in listdir(rdir)
-                                    if x.endswith(self.filetype)]
-                        xml_file = [x for x in listdir(xdir)
-                                    if x.endswith('.xml')]
+                # Load annotations
+                xdir = f'{self.xml_dir}/{sub}/{ses}/'
+                try:
+                    xml_file = [x for x in listdir(xdir) if x.endswith('.xml')]
+                    if not path.exists(f'{self.out_dir}/{sub}'):
+                        mkdir(f'{self.out_dir}/{sub}')
+                    if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
+                        mkdir(f'{self.out_dir}/{sub}/{ses}')
 
-                        # Copy annotations file before beginning
-                        if not path.exists(self.out_dir):
-                            mkdir(self.out_dir)
-                        if not path.exists(f'{self.out_dir}/{sub}'):
-                            mkdir(f'{self.out_dir}/{sub}')
-                        if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
-                            mkdir(f'{self.out_dir}/{sub}/{ses}')
-                            backup = f'{self.out_dir}/{sub}/{ses}/'
-                            backup_file = (f'{backup}{sub}_{ses}_spindles.xml')
-                            copy(xdir + xml_file[0], backup_file)
-                        else:
-                            backup = f'{self.out_dir}/{sub}/{ses}/'
-                            backup_file = (f'{backup}{sub}_{ses}_spindles.xml')
+                    outpath = f'{self.out_dir}/{sub}/{ses}'
+                    backup_file = f'{outpath}/{sub}_{ses}_sync.xml'
+                    if not path.exists(backup_file):
+                        copy(xdir + xml_file[0], backup_file)
+                    else:
+                        logger.debug(f'Using annotations file from: {backup_file}')
+                except Exception:
+                    logger.warning(f' No input annotations file in {xdir}')
+                    flag += 1
+                    break
 
-                        # Import data
-                        try:
-                            dset = Dataset(rdir + edf_file[0])
-                            annot = Annotations(backup_file, rater_name=rater)
-                        except Exception as exc:  
-                            logger.warning(f"Failed to load data: {exc}")
-                            flag +=1
-                            continue
-    
+                annot = Annotations(backup_file, rater_name=rater)
+
+                # Channel setup
+                pflag = deepcopy(flag)
+                flag, chanset = load_channels(sub, ses, chan, self.ref_chan,
+                                              flag, logger)
+                if flag - pflag > 0:
+                    logger.warning(f'Skipping {sub}, {ses}...')
+                    flag += 1
+                    break
+
+                newchans = rename_channels(sub, ses, chan, logger)
+
+                # Loop through channels
+                for ch in chanset:
+                    chan_full = f'{ch} ({grp_name})'
+                    fnamechan = newchans.get(ch, ch) if newchans else ch
+                    logger.info(f'Channel {fnamechan}')
+
+                    for stg in stage:
+                        logger.info(f'Stage {stg}')
+
                         # Get events - target
                         segments = fetch(
                             dset,
@@ -219,13 +238,15 @@ class CORAL:
                         )
 
                         if len(segments) < 1:
-                            logger.warning(f"No valid targets found for {sub}, {ses}, {channel}"
-                                           f"Skipping ... ")
-                            flag +=1
+                            logger.warning(
+                                f"No valid targets found for {sub}, {ses}, {ch}. "
+                                "Skipping ..."
+                            )
+                            flag += 1
                             continue
-                        
+
                         evt_target_seg = segments.segments
-                        self._log(f'#targets = {len(evt_target_seg)}', logger)
+                        logger.info(f'#targets = {len(evt_target_seg)}')
                         for i, seg in enumerate(evt_target_seg):
                             evt_target_seg[i]['start'] = seg['times'][0][0]
                             evt_target_seg[i]['end'] = seg['times'][0][1]
@@ -243,38 +264,37 @@ class CORAL:
                             reject_epoch=True,
                             reject_artf=self.reject,
                         )
-                        
+
                         if len(segments) < 1:
-                            logger.warning(f"No valid probes found for {sub}, {ses}, {channel}"
-                                           f"Skipping ... ")
-                            flag +=1
+                            logger.warning(
+                                f"No valid probes found for {sub}, {ses}, {ch}. "
+                                "Skipping ..."
+                            )
+                            flag += 1
                             continue
-                        
+
                         evt_probe_seg = segments.segments
-                        self._log(f'#probes = {len(evt_probe_seg)}', logger)
+                        logger.info(f'#probes = {len(evt_probe_seg)}')
                         for i, seg in enumerate(evt_probe_seg):
                             evt_probe_seg[i]['start'] = seg['times'][0][0]
                             evt_probe_seg[i]['end'] = seg['times'][0][1]
                             evt_probe_seg[i]['chan'] = [seg['chan']]
                             evt_probe_seg[i]['quality'] = 'Good'
 
-                        # Assess co-occurrence
+                        # Assess co-occurrence and write output events to XML.
                         matched = match_events(
                             evt_probe_seg, evt_target_seg, iu_thresh
                         )
-
-                        # Write true positive target events to xml
                         matched.to_annot(annot, 'tp_std', evttype_tp_target)
 
                         if evttype_fn is not None:
                             matched.to_annot(annot, 'fn', evttype_fn)
-                            
-                            
+
         ### 3. Check completion status and print
         if flag == 0:
-            logger.debug('Spindle detection finished without error.')  
+            logger.debug('Event synchrony finished without error.')  
         else:
-            logger.warning(f'Spindle detection finished with {flag} WARNINGS. See log for details.')
+            logger.warning(f'Event synchrony finished with {flag} WARNINGS. See log for details.')
             
         return
 
@@ -289,9 +309,11 @@ class CORAL:
         The {target} is split into 2 depending on the presence of the probe at
         the same time.
         '''
+        if not logger:
+            logger = create_logger('Event syncrony dataset')
 
         if path.exists(self.out_dir):
-            self._log(self.out_dir + " already exists", logger)
+            logger.info(self.out_dir + " already exists")
         else:
             mkdir(self.out_dir)
 
@@ -304,8 +326,7 @@ class CORAL:
             subs = listdir(self.xml_dir)
             subs = [p for p in subs if '.' not in p]
         else:
-            self._log("ERROR: 'subs' must either be an array of subject ids or = 'all'",
-                      logger, level='error')
+            logger.error("ERROR: 'subs' must either be an array of subject ids or = 'all'")
             return
 
         if sessions is None:
@@ -317,7 +338,7 @@ class CORAL:
         subs.sort()
         sessions.sort()
 
-        self._log("Extracting events and creating dataset...", logger)
+        logger.info("Extracting events and creating dataset...")
 
         # Create output
         out_base = self.out_dir if self.out_dir.endswith('/') else self.out_dir + '/'
@@ -353,7 +374,7 @@ class CORAL:
         for stg in stage:
             for channel in chan:
                 ids = []
-                self._log(f'Channel {channel}; Stage {stg}', logger)
+                logger.info(f'Channel {channel}; Stage {stg}')
 
                 if channel:
                     if not stg:
@@ -375,8 +396,8 @@ class CORAL:
                 for i, p in enumerate(subs):
                     for v, vis in enumerate(sessions):
 
-                        self._log(f'Subject: {p}, Visit: {vis}', logger)
-                        self._log(f'{chan_full}', logger)
+                        logger.info(f'Subject: {p}, Visit: {vis}')
+                        logger.info(f'{chan_full}')
                         ids.append(f'{p}_{vis}')
 
                         # Define files
@@ -403,7 +424,7 @@ class CORAL:
                             reject_artf=self.reject,
                         )
                         evt_target_seg = segments.segments
-                        self._log(f'#targets = {len(evt_target_seg)}', logger)
+                        logger.info(f'#targets = {len(evt_target_seg)}')
                         for i, seg in enumerate(evt_target_seg):
                             evt_target_seg[i]['start'] = seg['times'][0][0]
                             evt_target_seg[i]['end'] = seg['times'][0][1]
@@ -422,7 +443,7 @@ class CORAL:
                             reject_artf=self.reject,
                         )
                         evt_probe_seg = segments.segments
-                        self._log(f'#probes = {len(evt_probe_seg)}', logger)
+                        logger.info(f'#probes = {len(evt_probe_seg)}')
                         for i, seg in enumerate(evt_probe_seg):
                             evt_probe_seg[i]['start'] = seg['times'][0][0]
                             evt_probe_seg[i]['end'] = seg['times'][0][1]
@@ -443,7 +464,7 @@ class CORAL:
                         stats[(i * len(sessions)) + v, 5] = matched.n_fn
 
                 # Export stats table
-                self._log(f'Saving {stats_file}', logger)
+                logger.info(f'Saving {stats_file}')
                 df = DataFrame(data=stats, index=ids, columns=stats_header)
                 df.to_csv(stats_file)
 

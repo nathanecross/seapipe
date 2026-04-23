@@ -10,6 +10,7 @@ from numpy import (append, array, asarray, concatenate, cumsum, diff, inf,
                    insert, isnan, median, multiply, nan, nanmean, nanstd, pad, 
                    percentile, repeat, sqrt, squeeze, where)
 from os import listdir, mkdir, path, getpid
+import shutil
 from wonambi import Dataset, graphoelement
 from wonambi.attr import Annotations, create_empty_annotations
 from wonambi.detect.spindle import transform_signal
@@ -175,6 +176,13 @@ class SAND:
                         flag += 1
                         allchans_marker = False
                 
+                ## Create output dirs (if needed)
+                if not path.exists(f'{self.out_dir}/{sub}'):
+                                   mkdir(f'{self.out_dir}/{sub}')
+                if not path.exists(f'{self.out_dir}/{sub}/{ses}'):
+                                   mkdir(f'{self.out_dir}/{sub}/{ses}')                                  
+                odir = f'{self.out_dir}/{sub}/{ses}/'
+                
                 ## Define input files
                 rdir = f'{self.rec_dir}/{sub}/{ses}/eeg/'
                 xdir = f'{self.xml_dir}/{sub}/{ses}/'
@@ -192,21 +200,29 @@ class SAND:
                 s_freq = int(dset.header['s_freq'])
                 
                 xml_file, flag = source_filepath(xdir, '.xml', flag, logger)
+                
                 if not xml_file:
-                    create_empty_annotations(xml_file, dset)
                     logger.warning(f"No annotations file exists. Creating " 
                                    f"annotations file for {sub}, {ses} and" 
                                    "detecting Artefacts WITHOUT hypnogram.")
-                    annot = Annotations(xml_file)
+                    xml_file_out = f'{odir}/{sub}_{ses}_eeg.xml'
+                    create_empty_annotations(xml_file_out, dset)
+                    annot = Annotations(xml_file_out)
                     hypno = None
                 else:
-                    logger.debug(f'Annotations file exists for {sub}, {ses},'
-                                 'staging will be used for Artefact detection.')
-                    logger.warning('Any previously detected artefacts will be '
-                                   'overwritten.')
+                    if self.out_dir == self.xml_dir:
+                        logger.debug(f'Annotations file exists for {sub}, {ses},'
+                                     'staging will be used for Artefact detection.')
+                        logger.warning('Any previously detected artefacts will be '
+                                       'overwritten.')
+                        xml_file_out = xml_file
+                    else:
+                        xml_file_out = xml_file.replace(self.xml_dir, self.out_dir)
+                        logger.debug(f"Annotations file being copied to {xml_file_out}")
+                        shutil.copy(xml_file, xml_file_out)
 
                     # Extract hypnogram
-                    annot = Annotations(xml_file)
+                    annot = Annotations(xml_file_out)
                     hypno = [x['stage'] for x in annot.get_epochs()]
                     stage_key = {'Wake':0,
                                  'NREM1':1,
@@ -225,8 +241,6 @@ class SAND:
                         logger.debug(f'Detecting for {newchans[chan]} : {chanset[chan]}')
                     else:
                         logger.debug(f'Detecting for {chan} : {chanset[chan]}')
-                    
-                    remove_event(annot, 'Artefact', chan)
                     
                     if 'yasa' in method:     
                         
@@ -464,6 +478,7 @@ class SAND:
                     gc.collect()
                     
                 # ---- Save events to Annotations file ----
+                logger.debug(f"Saving artefacts to {xml_file_out}")
                 grapho = graphoelement.Graphoelement()
                 grapho.events = evts          
                 grapho.to_annot(annot)
@@ -473,8 +488,8 @@ class SAND:
                 
                 # Remove duplicates
                 if allchans_marker is True:
-                    merge_events(annot, 'Artefact')
-                    remove_duplicate_evts(annot, 'Artefact')
+                    merge_events(annot, label)
+                    remove_duplicate_evts(annot, label)
                 elif allchans_marker is False:
                     for chan in chanset:
                         merge_events(annot, label, 
@@ -484,9 +499,9 @@ class SAND:
                         
         ### 3. Check completion status and print
         if flag == 0:
-            logger.debug('Event clustering analysis finished without error.')  
+            logger.debug('Artefact detection finished without error.')  
         else:
-            logger.warning(f'Event clustering analysis finished with {flag} WARNINGS. See log for details.')
+            logger.warning(f'Artefact detection finished with {flag} WARNINGS. See log for details.')
             
         return
     

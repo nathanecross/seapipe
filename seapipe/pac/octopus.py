@@ -98,7 +98,7 @@ class octopus:
                  adap_bands_phase = 'Fixed', frequency_phase = (0.5,1.25), 
                  adap_bands_amplitude = 'Fixed', frequency_amplitude = (11,16), 
                  adap_bw = 4, invert = False, progress=True,
-                 logger = create_logger('Phase-amplitude coupling')):
+                 logger = None):
 
         '''
         O.C.T.O.P.U.S
@@ -167,6 +167,9 @@ class octopus:
         #tracking = self.tracking
         flag = 0
         
+        
+        if not logger:
+            logger = create_logger('Phase-amplitude coupling')
         
         logger.info('')
         logger.debug(rf"""Commencing phase-amplitude coupling pipeline... 

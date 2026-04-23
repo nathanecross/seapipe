@@ -12,19 +12,8 @@ from pathlib import Path
 import numpy as np
 import csv
 from pandas import DataFrame
-from seapipe.events.fish import FISH
-from seapipe.events.whales import cluster_peaks_preferred, whales
-from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, default_event_opts,
-                     default_fooof_opts, default_filter_opts, default_frequency_opts, 
-                     default_general_opts,default_norm_opts)
-from seapipe.stats import sleepstats
-from seapipe.utils.squid import SQUID, gather_qc_reports
-from seapipe.utils.audit import (check_dataset, extract_channels, make_bids,
-                        track_processing)
-from seapipe.utils.logs import create_logger, create_logger_outfile
-from seapipe.utils.load import (check_chans, read_tracking_sheet, 
-                                select_input_dirs, select_output_dirs, load_stages)
-from seapipe.utils.misc import adap_bands_setup
+
+
 
 ## TO DO:
 #   - adapt load channels to be flexible for non-equivalent refsets and chansets
@@ -76,6 +65,8 @@ class pipeline:
         
     def __init__(self, indir, tracking = False, outfile = False, 
                        filetype = '.edf'):
+        
+        from seapipe.utils.audit import (check_dataset)
         
         self.rootpath = indir
         if path.exists(indir + '/DATA'):
@@ -131,6 +122,9 @@ class pipeline:
             Includes option to save the audit to an output file.
         '''
         
+        from seapipe.utils.audit import (check_dataset)
+        from seapipe.utils.logs import create_logger, create_logger_outfile
+        
         # Create audit directory
         out_dir = f'{self.outpath}/audit'
         if not path.exists(out_dir):
@@ -164,6 +158,8 @@ class pipeline:
         directories 1 and 2 levels above containing the files. You can specify 
         an optional output filename that will contain the printout.
         """
+        
+        from seapipe.utils.logs import create_logger, create_logger_outfile
 
         if not outfile and not self.outfile:
             logger = create_logger('Audit')  
@@ -199,6 +195,9 @@ class pipeline:
     
     def track(self, subs = 'all', ses = 'all', step = None, chan = None, 
                     stage = None, outfile = False, show = True, log = True):
+        
+        from seapipe.utils.audit import track_processing
+        from seapipe.utils.load import read_tracking_sheet
         
         ## Set up logging
         logger = setup_logging(self.log_dir, 'Tracking', outfile=True)
@@ -263,6 +262,7 @@ class pipeline:
     def make_bids(self, subs = 'all', origin = 'SCN', filetype = '.edf',
                   outfile = True):
         
+        from seapipe.utils.audit import make_bids
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Make bids', outfile)
@@ -272,6 +272,9 @@ class pipeline:
         make_bids(self.datapath, subs, origin, filetype)
         
     def extract_channels(self, exclude = None):
+        
+        from seapipe.utils.audit import extract_channels
+        
         extract_channels(self.datapath, exclude)
         
     def QC_channels(self, subs = 'all', sessions = 'all', filetype = '.edf',
@@ -321,6 +324,8 @@ class pipeline:
             Results are stored in the SQUID object and/or exported downstream.
         """
         
+        from seapipe.utils.squid import SQUID
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'Channel QC', outfile)
         logger.info('')
@@ -341,6 +346,8 @@ class pipeline:
         squid.process_all(filt, chantype)
         
     def QC_summary(self, qc_dir = None, chantype = None):
+        
+        from seapipe.utils.squid import gather_qc_reports
         
         chantype = chantype if chantype is not None else ['eeg', 'eog', 'emg', 'ecg']
         
@@ -369,6 +376,8 @@ class pipeline:
             staging has been listed in a file *acq-PSGScoring_events.tsv, and
             saves the information in an annotations (.xml) file
         '''
+        
+        from seapipe.utils.load import load_stages
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Load sleep stages', outfile)
@@ -410,6 +419,15 @@ class pipeline:
                              epoch_opts = None, event_opts = None, 
                              norm = None, norm_opts = None, 
                              outfile = True):
+        
+        from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, 
+                                          default_event_opts,
+                                          default_filter_opts, 
+                                          default_frequency_opts, 
+                                          default_general_opts, 
+                                          default_norm_opts)
+        
+        from seapipe.utils.load import select_input_dirs, check_chans
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Power spectrum', outfile)
@@ -509,6 +527,7 @@ class pipeline:
                                   rater = None, invert = False, outfile = True):
         
         from seapipe.events.seabass import seabass
+        from seapipe.utils.load import check_chans, read_tracking_sheet
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect sleep stages', outfile)
@@ -570,6 +589,8 @@ class pipeline:
                                outfile = True):
         
         from seapipe.events.sand import SAND
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect artefacts', outfile)
@@ -639,6 +660,15 @@ class pipeline:
                                     event_opts = None, fooof_opts = None, 
                                     filetype = '.edf', suffix = None, 
                                     outfile = True):
+        
+        from seapipe.spectrum.psa import (Spectrum, default_epoch_opts, 
+                                          default_event_opts,
+                                          default_fooof_opts,
+                                          default_filter_opts, 
+                                          default_frequency_opts, 
+                                          default_general_opts)
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect spectral peaks', outfile)
@@ -725,6 +755,8 @@ class pipeline:
                                        average_channels = False, outfile = True):
         
         from seapipe.events.seasnakes import seasnakes
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect slow oscillations', outfile)
@@ -808,6 +840,12 @@ class pipeline:
                               adap_bw = 4, duration = (0.5, 3),
                               reject_artf = None, 
                               outfile = True):
+        
+        from seapipe.events.whales import whales
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs, select_output_dirs)
+        from seapipe.utils.misc import adap_bands_setup
+        
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect spindles', outfile)
@@ -914,6 +952,10 @@ class pipeline:
                      reject_artf = None, 
                      outfile = True):
         
+        from seapipe.events.whales import whales
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect spindles (WHALES)', outfile)
         logger.info('')
@@ -984,6 +1026,8 @@ class pipeline:
                           average_channels = False, outfile = True):
         
         from seapipe.events.remora import remora
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Detect eye movements (REMS)', outfile)
@@ -1060,6 +1104,9 @@ class pipeline:
                           filter_opts = None, progress=True, outfile=False):
         
         from seapipe.spectrum.spectrogram import event_spectrogram
+        from seapipe.spectrum.psa import default_filter_opts
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Event spectrogram', outfile)
@@ -1140,6 +1187,9 @@ class pipeline:
                          progress=True, outfile=False):
 
         from seapipe.utils.spectrogram import SONAR
+        from seapipe.spectrum.psa import default_event_opts
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Spectrogram', outfile)
@@ -1223,6 +1273,14 @@ class pipeline:
         
         from seapipe.pac.octopus import octopus, pac_method
         from seapipe.pac.pacats import pacats
+        from seapipe.spectrum.psa import (default_epoch_opts, 
+                                          default_event_opts,
+                                          default_filter_opts, 
+                                          default_frequency_opts)
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_input_dirs)
+        from seapipe.utils.misc import adap_bands_setup
+        
 
         # Set up logging
         if outfile == True:
@@ -1360,7 +1418,8 @@ class pipeline:
     event_synchrony -> splits a target event based on co-occurrence with a probe.
     '''
     def event_synchrony(self, xml_dir = None, out_dir = None, subs = 'all',
-                              sessions = 'all', chan = None, stage = None,
+                              sessions = 'all', stage = None,
+                              chan = None, ref_chan = None,
                               grp_name = 'eeg', rater = None,
                               evttype_target = None, evttype_probe = None,
                               evttype_tp_target = None, evttype_fn = None,
@@ -1371,6 +1430,8 @@ class pipeline:
                               outfile = True):
 
         from seapipe.pac.coral import CORAL
+        from seapipe.utils.load import (check_chans, read_tracking_sheet, 
+                                        select_output_dirs, select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Event synchrony', outfile)
@@ -1400,7 +1461,15 @@ class pipeline:
         if not path.exists(out_dir):
             mkdir(out_dir)
         logger.debug(f'Output annotations being saved to: {out_dir}')
-
+        
+        
+        # Set channels
+        chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
+        if not isinstance(chan, DataFrame) and not isinstance(chan, list):
+            return
+        elif isinstance(ref_chan, str):
+            return
+        
         # Check subs
         if not subs:
             tracking = read_tracking_sheet(self.rootpath, logger)
@@ -1413,10 +1482,10 @@ class pipeline:
         cat = (int(concat_cycle), int(concat_stage), 0, 0)
 
         coral = CORAL(self.rootpath, in_dir, xml_dir, out_dir,
-                      chan = chan, stage = stage, grp_name = grp_name,
-                      rater = rater, subs = subs, sessions = sessions,
-                      reject_artf = reject_artf, filetype = filetype,
-                      tracking = self.tracking)
+                      chan = chan, ref_chan = ref_chan, stage = stage,
+                      grp_name = grp_name, rater = rater, subs = subs,
+                      sessions = sessions, reject_artf = reject_artf,
+                      filetype = filetype, tracking = self.tracking)
 
         coral.event_sync(evttype_target, evttype_probe, iu_thresh,
                          evttype_tp_target, evttype_fn, cat = cat,
@@ -1436,6 +1505,8 @@ class pipeline:
                                       outfile = True):
 
         from seapipe.pac.synchrony import CORAL
+        from seapipe.utils.load import (read_tracking_sheet, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Event synchrony dataset (CORAL)', outfile)
@@ -1520,6 +1591,8 @@ class pipeline:
                             outfile = True):
         
         from seapipe.events.clam import clam
+        from seapipe.utils.load import (check_chans, 
+                                        select_input_dirs, select_output_dirs)
 
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
@@ -1603,6 +1676,8 @@ class pipeline:
         """
 
         from seapipe.events.clam import clam
+        from seapipe.utils.load import (check_chans, select_output_dirs, 
+                                        select_input_dirs)
 
         # Set up logging
         logger = setup_logging(self.log_dir, 'Plot infraslow', outfile)
@@ -1662,6 +1737,11 @@ class pipeline:
                                  arousal_name = None, 
                                  outfile = True):
         
+        from seapipe.stats import sleepstats
+        from seapipe.utils.load import (check_chans,
+                                        select_output_dirs, 
+                                        select_input_dirs)
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'Export macro stats', outfile)
         logger.info('')
@@ -1690,7 +1770,11 @@ class pipeline:
     
     def macro_dataset(self, xml_dir = None, out_dir = None, 
                       subs = 'all', sessions = 'all', outfile = True):
-         
+        
+        from seapipe.stats import sleepstats
+        from seapipe.utils.load import (select_output_dirs, 
+                                        select_input_dirs)
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'Export macro datast', outfile)
         logger.info('')
@@ -1709,6 +1793,84 @@ class pipeline:
         sleepstats.sleepstats_from_csvs(xml_dir, out_dir,   
                                 subs, sessions, logger)
         return
+
+    def tide(self, xml_dir = None, out_dir = None, subject_out_dir = None,
+             subs = 'all', sessions = 'all', stage = None, rater = None,
+             resolution = 'complete', analyses = 'all', keyword = None,
+             outfile = True):
+
+        from seapipe.stats.tide import tide as TIDE
+        from seapipe.utils.load import (read_tracking_sheet,
+                                        select_input_dirs)
+
+        # Set up logging
+        logger = setup_logging(self.log_dir, 'TIDE hypnogram dynamics', outfile)
+        logger.info('')
+
+        # Set input/output directories
+        in_dir = self.datapath
+        if not xml_dir:
+            xml_dir = select_input_dirs(self.outpath, xml_dir, 'staging')
+
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Sleep staging has not been "
+                            "run or hasn't been converted correctly.")
+            logger.info('Check documentation for how to set up staging data:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+        else:
+            logger.debug(f'Input annotations being read from: {xml_dir}')
+
+        if not out_dir:
+            if not path.exists(self.outpath + '/datasets/'):
+                mkdir(self.outpath + '/datasets/')
+            out_dir = f'{self.outpath}/datasets/hypnogram'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output group dataset being saved to: {out_dir}')
+
+        if not subject_out_dir:
+            subject_out_dir = f'{self.outpath}/hypnogram'
+        if not path.exists(subject_out_dir):
+            mkdir(subject_out_dir)
+        logger.debug(f'Output subject-level files being saved to: {subject_out_dir}')
+
+        # Check subs
+        if not subs:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            subs = [x for x in list(set(tracking['sub']))]
+            subs.sort()
+        if not sessions:
+            tracking = read_tracking_sheet(self.rootpath, logger)
+            sessions = [x for x in list(set(tracking['ses']))]
+            sessions.sort()
+
+        # Set stage defaults
+        if not stage:
+            stage = ['Wake', 'NREM1', 'NREM2', 'NREM3', 'REM']
+
+        if analyses == 'all':
+            analyses = ['transition_matrix',
+                        'stage_duration_distributions',
+                        'hypnogram_similarity']
+        elif isinstance(analyses, str):
+            analyses = [analyses]
+
+        dynamics = TIDE(xml_dir, out_dir, stage, rater, subs, sessions, keyword,
+                        subject_out_dir)
+
+        if 'transition_matrix' in analyses:
+            dynamics.transition_matrix(stage = stage, resolution = resolution,
+                                       logger = logger)
+        if 'stage_duration_distributions' in analyses:
+            dynamics.stage_duration_distributions(stage = stage,
+                                                  logger = logger)
+        if 'hypnogram_similarity' in analyses:
+            dynamics.hypnogram_similarity(stage = stage, logger = logger)
+
+        return
     
     def export_eventparams(self, evt_name, frequency = None,
                                  xml_dir = None, out_dir = None, subs = 'all', 
@@ -1721,6 +1883,12 @@ class pipeline:
                                  adap_bands = 'Fixed',  
                                  adap_bw = 4, params = 'all', epoch_dur = 30, 
                                  average_channels = False, outfile = True):
+        
+        from seapipe.events.fish import FISH
+        from seapipe.utils.misc import adap_bands_setup
+        from seapipe.utils.load import (check_chans,
+                                        select_output_dirs, 
+                                        select_input_dirs)
         
         # Force evt_name into list, and loop through events    
         if isinstance(evt_name, str):
@@ -1810,6 +1978,10 @@ class pipeline:
                             concat_cycle = True, cycle_idx = None, 
                             grp_name = 'eeg', adap_bands = 'Fixed',  
                             params = 'all', outfile = True):
+        
+        from seapipe.events.fish import FISH
+        from seapipe.utils.misc import adap_bands_setup
+        from seapipe.utils.load import (select_input_dirs)
         
         # Set up logging
         today = date.today().strftime("%Y%m%d")
@@ -1909,6 +2081,10 @@ class pipeline:
             Also exports event datasets per cluster.
         """
 
+        from seapipe.events.fish import FISH
+        from seapipe.events.whales import cluster_peaks_preferred
+        from seapipe.utils.load import select_input_dirs
+
         # Set up logging
         logger = setup_logging(self.log_dir, 'Cluster peak dataset (preferred) {event_name}', outfile)
         logger.info('')
@@ -2003,6 +2179,9 @@ class pipeline:
                           adap_bands_amplitude = 'Fixed', frequency_amplitude = (11, 16),  
                           params = 'all', outfile=True):
         
+        from seapipe.events.fish import FISH
+        from seapipe.utils.load import select_input_dirs
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'PAC dataset {event_name}', outfile)
         logger.info('')
@@ -2073,6 +2252,9 @@ class pipeline:
                                 stage = None, freq_bands = ('SWA', 'Sigma'),
                                 params = 'all', outfile = True):
         
+        from seapipe.events.fish import FISH
+        from seapipe.utils.load import select_input_dirs
+        
         # Set up logging
         logger = setup_logging(self.log_dir, 'Cluster dataset {event_name}', outfile)
         logger.info('')
@@ -2142,6 +2324,14 @@ class pipeline:
                                 general_opts = None, frequency_opts = None, 
                                 filter_opts = None, epoch_opts = None, 
                                 event_opts = None, outfile=True):
+        
+        from seapipe.spectrum.psa import (Spectrum, 
+                                          default_epoch_opts, 
+                                          default_event_opts,
+                                          default_filter_opts, 
+                                          default_frequency_opts, 
+                                          default_general_opts)
+        from seapipe.utils.load import select_input_dirs
         
         # Set up logging
         logger = setup_logging(self.log_dir, 'Power spectrum dataset', outfile)
@@ -2222,10 +2412,14 @@ class pipeline:
         """Convenience wrapper that exports band-limited power vs. time."""
 
         # Local import avoids touching module-level imports per request
-        from seapipe.spectrum.bandpower import (
-            BandPowerTimecourse,
-            default_bandpower_opts,
-        )
+        from seapipe.spectrum.bandpower import (BandPowerTimecourse, 
+                                                default_bandpower_opts)
+        from seapipe.spectrum.psa import (default_epoch_opts, 
+                                          default_event_opts, 
+                                          default_filter_opts, 
+                                          default_general_opts)
+        from seapipe.utils.load import (check_chans,
+                                        select_input_dirs)
 
         # Logging
         logger = setup_logging(self.log_dir, 'Bandpower timecourse', outfile)
@@ -2486,6 +2680,8 @@ def _build_cluster_param_tree(src_root, dest_root, evt_name, chan, cluster_label
 
 
 def setup_logging(log_dir, logger_name, outfile):
+    
+    from seapipe.utils.logs import create_logger, create_logger_outfile
     
     # Set up logging
     if outfile == True:
