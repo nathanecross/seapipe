@@ -181,7 +181,7 @@ class CORAL:
                 except Exception:
                     logger.warning(f' No input {self.filetype} file in {rdir}')
                     flag += 1
-                    break
+                    continue
 
                 # Load annotations
                 xdir = f'{self.xml_dir}/{sub}/{ses}/'
@@ -201,7 +201,7 @@ class CORAL:
                 except Exception:
                     logger.warning(f' No input annotations file in {xdir}')
                     flag += 1
-                    break
+                    continue
 
                 annot = Annotations(backup_file, rater_name=rater)
 
@@ -212,7 +212,7 @@ class CORAL:
                 if flag - pflag > 0:
                     logger.warning(f'Skipping {sub}, {ses}...')
                     flag += 1
-                    break
+                    continue
 
                 newchans = rename_channels(sub, ses, chan, logger)
 
@@ -220,10 +220,10 @@ class CORAL:
                 for ch in chanset:
                     chan_full = f'{ch} ({grp_name})'
                     fnamechan = newchans.get(ch, ch) if newchans else ch
-                    logger.info(f'Channel {fnamechan}')
+                    logger.debug(f'Channel {fnamechan}')
 
                     for stg in stage:
-                        logger.info(f'Stage {stg}')
+                        logger.debug(f'Stage {stg}')
 
                         # Get events - target
                         segments = fetch(
@@ -246,7 +246,7 @@ class CORAL:
                             continue
 
                         evt_target_seg = segments.segments
-                        logger.info(f'#targets = {len(evt_target_seg)}')
+                        logger.debug(f"#targets '{evt_target_seg}' = {len(evt_target_seg)}")
                         for i, seg in enumerate(evt_target_seg):
                             evt_target_seg[i]['start'] = seg['times'][0][0]
                             evt_target_seg[i]['end'] = seg['times'][0][1]
@@ -274,7 +274,7 @@ class CORAL:
                             continue
 
                         evt_probe_seg = segments.segments
-                        logger.info(f'#probes = {len(evt_probe_seg)}')
+                        logger.debug(f"#probes '{evt_probe_seg}' = {len(evt_probe_seg)}")
                         for i, seg in enumerate(evt_probe_seg):
                             evt_probe_seg[i]['start'] = seg['times'][0][0]
                             evt_probe_seg[i]['end'] = seg['times'][0][1]

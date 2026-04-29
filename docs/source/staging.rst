@@ -27,6 +27,17 @@ Functions to automatically score staging
     This will copy the :ref:`Annotations file` from every ``/sub-XXX/ses-XXX`` in ``<xml_dir>`` to ``<root_dir>/derivatives/staging/`` and write in the detected stages. 
 |
 
+2) Summarise hypnogram dynamics (TIDE):
+
+.. code-block:: python
+
+   project.tide()
+|
+    This will read the scored hypnogram from each :ref:`Annotations file` and export
+    transition matrices, bout-duration summaries, and group-level hypnogram
+    similarity metrics.
+|
+
 
 .. _detection_staging:
 Detect stages
@@ -182,6 +193,324 @@ Detect stages
             
             * Entering ``False`` won't save a logfile
 
+
+.. _tide_overview:
+TIDE: Transitions, Intervals, and Dynamics of Epochs
+----------------------------------------------------
+
+TIDE reads sleep stages from the staging ``.xml`` annotations and exports three
+families of hypnogram-derived metrics:
+
+1. **Transition matrices**
+    * Row-normalised stage-to-stage transition probabilities.
+    * ``resolution='complete'`` exports a 5 x 5 matrix over
+      ``['Wake', 'NREM1', 'NREM2', 'NREM3', 'REM']`` by default.
+    * ``resolution='reduced'`` collapses ``NREM1``/``NREM2``/``NREM3`` into a
+      single ``NREM`` class and exports a 3 x 3 matrix over ``Wake``, ``NREM``,
+      and ``REM``.
+
+2. **Stage bout duration distributions**
+    * Bout durations are calculated from contiguous runs of the same stage.
+    * Duration-valued columns are reported in **minutes** and include:
+
+      * ``stage_mean_bout_dur_min_*``
+      * ``stage_median_bout_dur_min_*``
+      * ``stage_p75_bout_dur_min_*``
+
+    * Additional per-stage bout metrics include:
+
+      * ``stage_skew_bout_dur_*``
+      * ``stage_num_bouts_*``
+      * ``stage_prop_short_bouts_*`` (proportion of bouts shorter than 2 min)
+
+    * The same six bout metrics are also exported for
+      ``*_all_stages`` (all selected stages pooled together).
+
+3. **Hypnogram similarity**
+    * ``hyp_sim_epoch``: epoch-by-epoch agreement after aligning hypnograms from
+      sleep onset.
+    * ``hyp_sim_kappa``: Cohen's kappa on the aligned hypnograms.
+    * ``hyp_sim_transition_corr``: correlation between subject-level transition
+      matrices.
+
+
+.. _tide_outputs:
+TIDE Outputs
+------------
+
+By default TIDE separates subject/session outputs from group summaries:
+
+* **Subject/session outputs** are written to
+  ``<root_dir>/derivatives/hypnogram/sub-XXX/ses-XXX/``
+
+  * ``*_tide_transition_matrix_complete.csv``
+  * ``*_tide_transition_counts_complete.csv``
+  * ``*_tide_transition_matrix_reduced.csv``
+  * ``*_tide_transition_counts_reduced.csv``
+  * ``*_tide_stage_duration_distributions.csv``
+
+* **Group-level outputs** are written to
+  ``<root_dir>/derivatives/datasets/hypnogram/``
+
+  * ``tide_transition_matrix_complete_summary.csv``
+  * ``tide_transition_matrix_reduced_summary.csv``
+  * ``tide_stage_duration_distributions_summary.csv``
+  * ``hyp_sim_epoch.csv``
+  * ``hyp_sim_kappa.csv``
+  * ``hyp_sim_transition_corr.csv``
+  * ``hypnogram_similarity_manifest.csv``
+
+
+.. _tide_pipeline:
+Run TIDE from the pipeline
+--------------------------
+
+*Command line argument:*
+
+.. code-block:: python
+
+    project.tide(xml_dir = None,
+                 out_dir = None,
+                 subject_out_dir = None,
+                 subs = 'all',
+                 sessions = 'all',
+                 stage = None,
+                 rater = None,
+                 resolution = 'complete',
+                 analyses = 'all',
+                 keyword = None,
+                 outfile = True)
+
+
+*Positional arguments:*
+
+    **xml_dir** *(str)*
+        * Path to the directory with sub-directories ``/sub-XXX/ses-XXX``
+          containing the staging :ref:`Annotations files<Annotations file>`.
+
+        * Default is ``None`` which will point to the staging derivatives
+          directory resolved by seapipe (usually
+          ``<root_dir>/derivatives/staging/`` or
+          ``<root_dir>/derivatives/staging_auto/`` depending on what exists).
+
+    **out_dir** *(str)*
+        * Output path for group-level ``.csv`` summaries.
+
+        * Default is ``None`` which will point to
+          ``<root_dir>/derivatives/datasets/hypnogram/``
+
+    **subject_out_dir** *(str)*
+        * Output path for subject/session-level files.
+
+        * Default is ``None`` which will point to
+          ``<root_dir>/derivatives/hypnogram/``
+
+    **subs** *(str, NoneType or list)*
+        * Subject IDs to analyse
+
+        * *Acceptable options:*
+
+            * Default is ``'all'`` which will analyse all ``sub-XXX/``
+              directories in ``xml_dir``
+
+            * Entering ``None`` will point seapipe to the *sub* column in the
+              :ref:`tracking file<Tracking File>`
+
+            * Entering a list of subject IDs (e.g., ``['sub-01', 'sub-02']``)
+              will analyse those subjects only
+
+    **sessions** *(str, NoneType or list)*
+        * Session IDs to analyse per subject
+
+        * *Acceptable options:*
+
+            * Default is ``'all'`` which will analyse all ``ses-XXX/``
+              directories within each ``sub-XXX/`` directory in ``xml_dir``
+
+            * Entering ``None`` will point seapipe to the *ses* column in the
+              :ref:`tracking file<Tracking File>`
+
+            * Entering a list of session IDs (e.g., ``['ses-V0', 'ses-V1']``)
+              will analyse those sessions only
+
+    **stage** *(NoneType, str or list)*
+        * Stages to include in the calculations.
+
+        * *Acceptable options:*
+
+            * Default is ``['Wake', 'NREM1', 'NREM2', 'NREM3', 'REM']``
+
+            * Entering a single stage name (e.g., ``'REM'``) or a list of stage
+              names restricts the calculations to those stages
+
+    **rater** *(NoneType or str)*
+        * Name of the rater in the :ref:`Annotations file` to read staging from
+
+        * *Acceptable options:*
+
+            * Default is ``None`` which will select the first rater found in the
+              file
+
+            * Entering a rater name (e.g., ``'Vallat2021'``) will read staging
+              only from that rater
+
+    **resolution** *(str)*
+        * Resolution of the transition matrix export.
+
+        * *Acceptable options:*
+
+            * ``'complete'`` exports a 5 x 5 matrix
+
+            * ``'reduced'`` exports a 3 x 3 Wake/NREM/REM matrix
+
+    **analyses** *(str or list)*
+        * Which TIDE analyses to run.
+
+        * *Acceptable options:*
+
+            * Default is ``'all'`` which runs:
+
+              * ``'transition_matrix'``
+              * ``'stage_duration_distributions'``
+              * ``'hypnogram_similarity'``
+
+            * Entering one string (e.g., ``'hypnogram_similarity'``) runs only
+              that analysis
+
+            * Entering a list of names runs the selected subset
+
+    **keyword** *(NoneType or str)*
+        * Optional substring used to select the correct ``.xml`` file when more
+          than one annotations file exists in a subject/session folder.
+
+    **outfile** *(str or logical)*
+        * Logging of the analysis
+
+        * *Acceptable options:*
+
+            * Default is ``True`` which will create a logfile in
+              ``<root_dir>/derivatives/audit/logs/``
+
+            * Entering a string ``<custom_outfile_name.txt>`` will save the
+              logfile under that custom name
+
+            * Entering ``False`` won't save a logfile
+
+
+.. _tide_examples:
+Examples
+--------
+
+Run the full TIDE workflow:
+
+.. code-block:: python
+
+    project.tide()
+
+
+Run only the reduced transition matrices:
+
+.. code-block:: python
+
+    project.tide(analyses = 'transition_matrix',
+                 resolution = 'reduced')
+
+
+Run TIDE on a subset of subjects/sessions and read a specific rater:
+
+.. code-block:: python
+
+    project.tide(subs = ['sub-01', 'sub-02'],
+                 sessions = ['ses-V0'],
+                 rater = 'Vallat2021')
+
+
+.. _tide_metric_details:
+TIDE metric details
+-------------------
+
+**Transition matrices**
+    * ``*_transition_matrix_complete.csv`` and
+      ``*_transition_matrix_reduced.csv`` contain row-normalised probabilities.
+    * Each row sums to 1 within the selected state space.
+    * ``*_transition_counts_complete.csv`` and
+      ``*_transition_counts_reduced.csv`` contain the underlying transition
+      counts used to calculate those probabilities.
+
+**Bout duration metrics**
+    * A bout is a contiguous run of epochs with the same stage label.
+    * ``stage_mean_bout_dur_min_*``:
+      arithmetic mean bout duration in minutes.
+    * ``stage_median_bout_dur_min_*``:
+      median bout duration in minutes.
+    * ``stage_p75_bout_dur_min_*``:
+      75th percentile of the bout duration distribution in minutes.
+    * ``stage_skew_bout_dur_*``:
+      skewness of the bout duration distribution.
+    * ``stage_num_bouts_*``:
+      number of bouts for that stage.
+    * ``stage_prop_short_bouts_*``:
+      proportion of bouts shorter than 2 minutes.
+
+**Whole-hypnogram metrics**
+    * ``p_stay_same_stage``:
+      proportion of epoch-to-epoch transitions that stay in the same stage.
+    * ``transition_entropy``:
+      entropy of the transition probability structure across the selected stages.
+    * ``num_sleep_cycles``:
+      approximate number of NREM-to-REM cycles, estimated from bout structure.
+    * ``rem_first_half_prop``:
+      proportion of epochs scored as REM in the first half of the sleep period.
+    * ``rem_second_half_prop``:
+      proportion of epochs scored as REM in the second half of the sleep period.
+    * ``delta_n3_early_late_ratio``:
+      ratio of N3 proportion in the first half versus the second half of the
+      sleep period.
+
+**Hypnogram similarity**
+    * ``hyp_sim_epoch.csv``:
+      pairwise epoch-by-epoch agreement between hypnograms, aligned from sleep
+      onset.
+    * ``hyp_sim_kappa.csv``:
+      pairwise Cohen's kappa between aligned hypnograms.
+    * ``hyp_sim_transition_corr.csv``:
+      pairwise correlation between subject-level transition matrices.
+    * ``hypnogram_similarity_manifest.csv``:
+      manifest listing the subject/session IDs included in the similarity
+      matrices and the number of epochs used from sleep onset.
+
+
+.. _tide_internal_api:
+Lower-level TIDE class
+----------------------
+
+Advanced users can call the lower-level class directly:
+
+.. code-block:: python
+
+    from seapipe.stats.tide import tide
+
+    T = tide(xml_dir,
+             out_dir = None,
+             stage = None,
+             rater = None,
+             subs = 'all',
+             sessions = 'all',
+             keyword = None,
+             subject_out_dir = None)
+
+    T.transition_matrix(stage = None, resolution = 'complete')
+    T.stage_duration_distributions(stage = None)
+    T.hypnogram_similarity(stage = None)
+
+
+Here:
+
+    **out_dir** controls the group-level outputs, while
+    **subject_out_dir** controls the per-subject/per-session files.
+
+    The method-level ``stage`` argument can be used to override the stage list
+    stored on the class instance.
 
 
 

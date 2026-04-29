@@ -1463,7 +1463,7 @@ class pipeline:
         logger.debug(f'Output annotations being saved to: {out_dir}')
         
         
-        # Set channels
+        # Setup channels
         chan, ref_chan = check_chans(self.rootpath, chan, ref_chan, logger)
         if not isinstance(chan, DataFrame) and not isinstance(chan, list):
             return
@@ -1478,8 +1478,9 @@ class pipeline:
         if not sessions:
             sessions = read_tracking_sheet(self.rootpath, logger)
 
-        # Concatenation
+        # Setup concatenation
         cat = (int(concat_cycle), int(concat_stage), 0, 0)
+        
 
         coral = CORAL(self.rootpath, in_dir, xml_dir, out_dir,
                       chan = chan, ref_chan = ref_chan, stage = stage,
