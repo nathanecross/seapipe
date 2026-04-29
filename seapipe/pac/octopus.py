@@ -80,7 +80,7 @@ class octopus:
         self.stage = stage
         self.rater = rater
         
-        self.reject = reject_artf if reject_artf is not None else [
+        self.reject_artf = reject_artf if reject_artf is not None else [
             'Artefact', 'Arou', 'Arousal'
         ]
         

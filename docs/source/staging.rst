@@ -480,6 +480,9 @@ TIDE metric details
 **Whole-hypnogram metrics**
     * ``p_stay_same_stage``:
       proportion of epoch-to-epoch transitions that stay in the same stage.
+    * ``stage_shift_rate``:
+      number of stage changes divided by the total number of scored epochs in
+      the selected stage set.
     * ``transition_entropy``:
       entropy of the transition probability structure across the selected stages.
     * ``num_sleep_cycles``:
@@ -536,7 +539,6 @@ Here:
 
     The method-level ``stage`` argument can be used to override the stage list
     stored on the class instance.
-
 
 
 

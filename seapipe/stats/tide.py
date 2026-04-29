@@ -229,6 +229,14 @@ class tide:
             return np.nan
         return self._entropy((counts / total).values.ravel())
 
+    def _stage_shift_rate(self, hypno, stage):
+        valid_epoch_count = sum(x in stage for x in hypno)
+        if valid_epoch_count == 0:
+            return np.nan
+        transition_pairs = self._valid_transition_pairs(hypno, stage)
+        stage_changes = sum(a != b for a, b in transition_pairs)
+        return stage_changes / valid_epoch_count
+
     @staticmethod
     def _bouts(epochs):
         bouts = []
@@ -399,6 +407,7 @@ class tide:
                 p_stay = self._safe_divide(
                         sum(a == b for a, b in transition_pairs),
                         len(transition_pairs))
+                stage_shift_rate = self._stage_shift_rate(hypno, stage)
                 transition_entropy = self._transition_entropy(hypno, stage)
                 num_sleep_cycles = self._count_sleep_cycles(bouts)
                 rem_first = self._proportion_in_half(sleep_period, 'REM', 'first')
@@ -422,6 +431,7 @@ class tide:
 
                 row.update({
                     'p_stay_same_stage': p_stay,
+                    'stage_shift_rate': stage_shift_rate,
                     'transition_entropy': transition_entropy,
                     'num_sleep_cycles': num_sleep_cycles,
                     'rem_first_half_prop': rem_first,
