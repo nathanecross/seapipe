@@ -5,17 +5,41 @@ Staging
 
 Overview
 ------------
+Sleep staging is the process of dividing a sleep recording into standard physiological states, 
+typically Wake, NREM1, NREM2, NREM3, and REM, across consecutive epochs. In most PSG-style workflows, 
+the recording is scored in 30-second windows using EEG together with EOG and EMG, because each stage has 
+characteristic patterns such as alpha attenuation at sleep onset, spindles and K-complexes in NREM2, 
+high-amplitude slow waves in NREM3, and rapid eye movements with reduced muscle tone in REM.
 
-Seapipe provides some automatic sleep staging algorithms:
+Traditionally, sleep staging is done manually by a trained scorer who reviews the recording epoch by epoch 
+and assigns stages according to published criteria such as AASM rules. Manual scoring is still the reference 
+standard because it allows contextual judgment when signals are noisy or borderline, but it is slow, 
+labour-intensive, and introduces scorer variability. Automatic staging uses algorithms or machine-learning models 
+to assign stages from the same signals. These methods are much faster and scale well to large datasets, but their 
+quality depends on signal quality, channel availability, and how similar the new data are to the data the model was 
+developed on. In practice, automated staging is often used either as a first-pass scorer or as a way to generate 
+staging that is later reviewed and corrected manually.
 
-1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>`_
-2.  'Sleep ECG' - TO DO
+Sleep staging is used both as a primary outcome and as a structural framework for downstream analysis. At the macro 
+level, it lets you quantify sleep architecture: total sleep time, sleep efficiency, sleep latency, REM latency, 
+wake after sleep onset (WASO), time spent in each stage, stage proportions, fragmentation, and sleep cycles. At the 
+microstructural or dynamical level, it supports analyses of stage transitions, bout durations, transition entropy, 
+stability of stages, and hypnogram similarity across nights or participants. It is also essential for event-based 
+analyses, because many phenomena of interest such as spindles, slow oscillations, REMs, PAC, or power spectra are 
+interpreted differently depending on the stage in which they occur. So staging is both a descriptive summary of 
+sleep organization and the backbone for most stage-specific sleep neurophysiology analyses.
 
-
+Seapipe allows both staging to be performed externally (manually) and can perform automatic sleep staging based on 
+previously published algorithms:
+  1. `Vallat & Walker (2020) <https://elifesciences.org/articles/70092>`_
+  2. `Sleep ECG <https://pmc.ncbi.nlm.nih.gov/articles/PMC7355395/>`_ - TO DO 
+  3. `Sleep U-Sleep (2021) <https://www.nature.com/articles/s41746-021-00440-5>`_ - TO DO 
+  4. `SE-Res-UNet (2025) <https://www.nature.com/articles/s41598-025-00742-8#Abs1>`_ - TO DO 
 
 .. _Functions:
 Functions to automatically score staging
 ----------------
+
 | **Detecting sleep stages will involve these functions:**
 
 1) Detect sleep stages:  
