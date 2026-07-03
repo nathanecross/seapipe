@@ -164,11 +164,11 @@ However it *must* be named: **tracking.tsv/xslx** and placed at the root level d
 
 It's structure should look like this:
 ::
-   sub        ses         loff      lon       format     chanset1            chanset1_rename    refset1    stagechan    eog    emg
-   sub-01     ses-1       330       31500     .edf       F3, C3              F3, C3             M1, M2    C3    EOGl    EMG
-   sub-01     ses-2       4320      32390     .edf       F3, C3              F3, C3             M1, M2    C3    EOGr    EMG2
-   sub-02     ses-1       1900      29945     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2    C3    EOGl    EMG
-   sub-02     ses-2       670       31010     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2    C3    EOGr    EMG
+   sub        ses         loff      lon       format     chanset1            chanset1_rename    refset1    stagechan    eog     emg
+   sub-01     ses-1       330       31500     .edf       F3, C3              F3, C3             M1, M2       C3         EOGl    EMG
+   sub-01     ses-2       4320      32390     .edf       F3, C3              F3, C3             M1, M2       C3         EOGr    EMG2
+   sub-02     ses-1       1900      29945     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2       C3         EOGl    EMG
+   sub-02     ses-2       670       31010     .edf       F3 (A2), C3 (A2)    F3, C3             A1, A2       C3         EOGr    EMG
    ...
 |
 As you can see with this dataset, there are some inconsistences in the channel naming: 
