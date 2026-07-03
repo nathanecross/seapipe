@@ -386,7 +386,7 @@ class whales:
                 backup = self.out_dir + '/' + sub + '/' + ses + '/'
                 backup_file = (f'{backup}{sub}_{ses}.xml')
                 if not path.exists(backup_file):
-                    shutil.copy(xdir + xml_file, backup_file)
+                    shutil.copy(xml_file, backup_file)
                 else:
                     logger.warning(f'Annotations file already exists for {sub}, {ses}, any previously detected events will be overwritten.')
                     flag += 1
@@ -408,7 +408,7 @@ class whales:
                 # Get sampling frequency
                 if not s_freq:
                     try:
-                        dset.header['s_freq']
+                        s_freq = dset.header['s_freq']
                     except Exception as e:
                         logger.warning(f'Cannot obtain sampling frequency for {sub}, {ses}: {e}. Skipping...')
                         flag +=1

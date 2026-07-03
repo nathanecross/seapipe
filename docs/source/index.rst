@@ -29,8 +29,7 @@ It offers a *simple* and *intuitive*, yet *fully customisable* API. The major ad
 
 
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+Check out the :doc:`usage` section for further information, including :ref:`installation` of the project.
 
 .. note::
 

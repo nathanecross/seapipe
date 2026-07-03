@@ -145,7 +145,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
+            * Default is ``None`` which will point to the *stagechan* columns in the :ref:`tracking file<Tracking File>`
 
             * Entering a list of channel names (e.g., ``['Fz', 'Cz']``) will only detect the selected channels (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
@@ -165,7 +165,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
+            * Default is ``None`` which will point to the *eog* columns in the :ref:`tracking file<Tracking File>`
 
             * Entering in a *str* containing a channel name (e.g., ``'EOGr'``) will use that channel (see NOTE in section :ref:`Channel Names<Channel Names>`)
 
@@ -176,7 +176,7 @@ Detect stages
 
         * *Acceptable options:*
 
-            * Default is ``None`` which will point to the *chanset* columns in the :ref:`tracking file<Tracking File>`
+            * Default is ``None`` which will point to the *emg* columns in the :ref:`tracking file<Tracking File>`
 
             * Entering in a *str* containing a channel name (e.g., ``'EMG1'``) will use that channel (see NOTE in section :ref:`Channel Names<Channel Names>`)
 

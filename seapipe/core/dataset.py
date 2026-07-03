@@ -72,7 +72,7 @@ class pipeline:
         if path.exists(indir + '/DATA'):
             self.datapath = indir + '/DATA'
         else:
-            self.datapath = indir + '/sourcedata'
+            self.datapath = indir + '/rawdata'
         self.outpath = indir + '/derivatives'
         if not path.exists(self.outpath):
             mkdir(self.outpath)
@@ -369,7 +369,7 @@ class pipeline:
             
     
     def load_stages(self, xml_dir = None, subs = 'all', sessions = 'all', 
-                          filetype = '.edf', stage_key = None, 
+                          filetype = '.edf', stage_key = None, acq = 'PSG',
                           outfile = True):
         '''
             Extracts stages from the BIDS formatted dataset, in which
@@ -391,7 +391,7 @@ class pipeline:
         
         # Load stages
         flag = load_stages(self.datapath, xml_dir, subs, sessions, filetype, 
-                           stage_key)
+                           stage_key, acq)
         
         # Log finish 
         if flag > 0:
@@ -1904,7 +1904,7 @@ class pipeline:
         evt_out = '_'.join(evt_name)
         today = date.today().strftime("%Y%m%d")
         now = datetime.now().strftime("%H:%M:%S")
-        logfile = f'{self.log_dir}/export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
+        logfile = f'export_params_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
         logger = setup_logging(self.log_dir, 'Export event params', logfile)
         logger.info('')
         

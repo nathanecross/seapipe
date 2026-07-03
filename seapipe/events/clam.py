@@ -364,7 +364,12 @@ class clam:
                                 })
 
                         if len(epochs_win) == 0:
-                            logger.warning(f'No valid NREM epochs found for {sub}. {ses}. Skipping...')
+                            logger.warning(
+                                f'No scored epochs inside the 210-min analysis window for '
+                                f'{sub}, {ses}, {fnamechan}, {stagename}; '
+                                f'sleep_onset={sleep_onset:.1f}s, analysis_end={analysis_end:.1f}s. '
+                                f'Skipping low-frequency fluctuations.'
+                            )
                             flag += 1
                             continue
 
@@ -502,7 +507,21 @@ class clam:
                             baseline_limit_sec = builtins.max(0, baseline_limit_sec - len(times) * step_sec)
 
                         if len(per_seg_series) == 0:
-                            logger.warning(f'No valid NREM bouts found for {sub}. {ses}. Skipping...')
+                            n_candidate_bouts = len(bouts)
+                            n_min_length_bouts = sum(
+                                (bout_end - bout_start) >= min_bout_sec
+                                for bout_start, bout_end in bouts
+                            )
+                            logger.warning(
+                                f'No analysable NREM bouts after bout filtering/extraction for '
+                                f'{sub}, {ses}, {fnamechan}, {stagename}; '
+                                f'candidate_bouts={n_candidate_bouts}, '
+                                f'bouts_ge_min_length={n_min_length_bouts}, '
+                                f'min_bout_length={min_bout_sec}s, '
+                                f'allowable_interruptions={allowable_interruptions}, '
+                                f'rejoin_artefact={rejoin_artefact}. '
+                                f'No band-power time series were created.'
+                            )
                             flag += 1
                             continue
 
@@ -925,7 +944,11 @@ class clam:
                     nrem_epochs.append(ep)
 
             if len(nrem_epochs) == 0:
-                logger.warning(f'No valid NREM epochs found for {sub} {ses}')
+                panel_stage = '-'.join(stage_list)
+                logger.warning(
+                    f'No artifact-free target-stage epochs inside the panel analysis window for '
+                    f'{sub}, {ses}, {fnamechan}, {panel_stage}; panel generation skipped.'
+                )
                 return
 
             nrem_epochs.sort(key=lambda x: x['start'])

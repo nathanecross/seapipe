@@ -172,18 +172,19 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
     return out_dir
 
 def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.edf',
-                stage_key = None, logger = create_logger('Load stages')):
+                stage_key = None, acq = 'PSG', 
+                logger = create_logger('Load stages')):
     
     '''
         Extracts stages from the BIDS formatted dataset, in which
-        staging has been listed in a file *acq-PSGScoring_events.tsv, and
+        staging has been listed in a file *acq-*scoring_events.tsv, and
         saves the information in an annotations file
         
         Parameters
         ----------
                     in_dir   :  str
                                 The path to the BIDS dataset containing EEG recordings
-                                and staging *acq-PSGScoring_events.tsv files
+                                and staging *acq-*coring_events.tsv files
                     xml_dir  :  str
                                 The derivatives path to store the annotations (.xml) 
                                 file under the <sub>/<ses> structure
@@ -201,7 +202,10 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                     stage_key : dict or NoneType
                                 Key for staging names to be saved into annotations
                                 file (default is set to be compatible with Wonambi)
-                    logger   :  logger for logging
+                    acq       : str
+                                acquisition type prefix for filename filtering
+                                (default is 'PSG')
+                    logger    : logger for logging
                     
 
         Returns
@@ -258,7 +262,7 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                 
             # Load BIDS stage event file
             datadir = f'{in_dir}/{sub}/{ses}/eeg'
-            stagefile = [x for x in listdir(datadir) if 'acq-PSGScoring_events.tsv' in x
+            stagefile = [x for x in listdir(datadir) if f'acq-{acq}Scoring_events.tsv' in x
                          if not x.startswith('.')][0]
             stagedf = read_csv(f'{datadir}/{stagefile}', sep ='\t' ) 
             
@@ -878,7 +882,7 @@ def load_stagechan(sub, ses, chan, ref_chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No stagechan found in tracking file for {sub}, "
+                logger.warning(f"No 'stagechan' found in tracking file for {sub}, "
                                f"{ses}, skipping...")
             flag+=1
             return flag, None
@@ -1013,7 +1017,7 @@ def load_eog(sub, ses, chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning("No stagechan found in tracking file for "
+                logger.warning("No 'eog' column found in tracking file for "
                                f"{sub}, {ses}...")
             flag+=1
             return flag, []
@@ -1058,7 +1062,7 @@ def load_emg(sub, ses, chan, flag, logger, verbose=2):
         chans = chans.dropna(axis=1, how='all')
         if len(chans.columns) == 0:
             if verbose>0:
-                logger.warning(f"No emg found in tracking file for {sub}, {ses}...")
+                logger.warning(f"No 'emg' column found in tracking file for {sub}, {ses}...")
             flag+=1
             return flag, []
         chans = [x for x in chans['emg']]
