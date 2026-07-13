@@ -49,6 +49,7 @@ setup(
     packages=find_packages(),
     python_requires=">=3.7",
     install_requires=[
+        "defusedxml",
         "fooof",
         "mne",
         "numpy<=1.26.4",

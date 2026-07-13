@@ -329,6 +329,7 @@ class clam:
                             # ---- Pull artifact-free segments for the selected stages ----
                             segs = fetch(dset, annot, cat = cat,
                                          stage = stage_fetch,
+                                         chan_full = [f'{ch} ({grp_name})'],
                                          reject_artf = True)
                             segs.read_data(chan = [ch], ref_chan = chanset[ch])
 

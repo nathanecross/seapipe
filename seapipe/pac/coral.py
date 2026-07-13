@@ -197,7 +197,7 @@ class CORAL:
                     if not path.exists(backup_file):
                         copy(xdir + xml_file[0], backup_file)
                     else:
-                        logger.debug(f'Using annotations file from: {backup_file}')
+                        logger.debug(f'Using annotations file: {backup_file}')
                 except Exception:
                     logger.warning(f' No input annotations file in {xdir}')
                     flag += 1

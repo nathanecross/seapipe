@@ -1006,7 +1006,6 @@ class pipeline:
         
         self.track(step='spindle', show = False, log = False)
         
-        logger.debug('Starting Merge Now')
         spindle = whales(self.rootpath, in_dir, xml_dir, out_dir, chan, ref_chan, 
                          grp_name, stage, frequency = None, rater = rater, 
                          subs = subs, sessions = sessions, 
@@ -1454,7 +1453,7 @@ class pipeline:
             logger.info('-' * 10)
             return
         else:
-            logger.debug(f'Input annotations being read from: {xml_dir}')
+            logger.debug(f'Input annotations being copied from: {xml_dir}')
 
         if not out_dir:
             out_dir = select_output_dirs(self.outpath, out_dir, 'sync')
@@ -1505,7 +1504,7 @@ class pipeline:
                                       filetype = ('.edf', '.rec', '.eeg'),
                                       outfile = True):
 
-        from seapipe.pac.synchrony import CORAL
+        from seapipe.pac.coral import CORAL
         from seapipe.utils.load import (read_tracking_sheet, 
                                         select_input_dirs)
 
@@ -1610,9 +1609,9 @@ class pipeline:
         # Set up logging
         if outfile == True:
             subs_str, ses_str = out_names(subs, sessions)
-            evt_out = '_'.join(evt_name)
+            evt_out = '_'.join(evts)
             today = date.today().strftime("%Y%m%d")
-            now = datetime.now().strftime("%H:%M:%S")
+            now = datetime.now().strftime("%H%M%S")
             outfile = f'event_clustering_{evt_out}_subs-{subs_str}_ses-{ses_str}_{today}_{now}_log.txt'
         logger = setup_logging(self.log_dir, 'Event clustering', outfile)
         logger.info('')
@@ -2492,11 +2491,11 @@ class pipeline:
 
 def out_names(subs, sessions):
     if isinstance(subs, list):
-        subs_str = "_".join(subs).replace('\n', '').replace('\r', '').replace('sub','')
+        subs_str = f"{len(subs)}subs"
     else:
         subs_str = subs
     if isinstance(sessions, list):
-        ses_str = "_".join(sessions).replace('\n', '').replace('\r', '').replace('ses','')
+        ses_str = f"{len(sessions)}ses"
     else:
         ses_str = sessions     
         
