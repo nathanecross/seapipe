@@ -8,7 +8,7 @@ Created on Mon Jul 31 13:36:12 2023
 from copy import deepcopy
 from datetime import datetime
 from json import dump
-from os import listdir, mkdir, makedirs, path, walk
+from os import listdir, makedirs, path, walk
 from numpy import array, ceil, delete, zeros
 from pandas import DataFrame
 from pyedflib import highlevel
@@ -143,102 +143,319 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
 
 
 
+def _ensure_dir(directory):
+    makedirs(directory, exist_ok=True)
+
+
+def _copy_file(src, dst, logger):
+    if path.exists(dst):
+        logger.warning(f"Destination already exists, not overwriting: {dst}")
+        return False
+    _ensure_dir(path.dirname(dst))
+    copy2(src, dst)
+    return True
+
+
+def _visible_dirs(directory):
+    return sorted([x for x in listdir(directory) if not x.startswith('.')
+                   if path.isdir(path.join(directory, x))])
+
+
+def _visible_files(directory):
+    return sorted([x for x in listdir(directory) if not x.startswith('.')
+                   if path.isfile(path.join(directory, x))])
+
+
+def _prefix(value, prefix):
+    value = str(value).strip().rstrip('/')
+    return value if value.startswith(prefix) else f'{prefix}{value}'
+
+
+def _normalise_sub(value):
+    value = str(value).strip()
+    match = re.search(r'(\d{4})', value)
+    if match is not None and 'ABC' in value:
+        return f"sub-ABC{match.group(1)}"
+    return _prefix(value, 'sub-')
+
+
+def _normalise_ses(value):
+    return _prefix(value, 'ses-')
+
+
+def _normalise_run(value):
+    value = str(value).strip()
+    if value.endswith('.0'):
+        value = value[:-2]
+    return int(value)
+
+
+def _session_dirs(src_sub_dir):
+    return _visible_dirs(src_sub_dir)
+
+
+def _tracking_map(root_dir, logger):
+    tracking = read_tracking_sheet(root_dir, logger)
+    if isinstance(tracking, str) and tracking == 'error':
+        return None
+    required_cols = ['sub', 'ses', 'run']
+    missing_cols = [x for x in required_cols if x not in tracking.columns]
+    if len(missing_cols) > 0:
+        logger.critical("Tracking sheet is missing required columns: "
+                        f"{', '.join(missing_cols)}")
+        return None
+    mapping = {}
+    for _, row in tracking.iterrows():
+        try:
+            key = (_normalise_sub(row['sub']), _normalise_run(row['run']))
+        except (TypeError, ValueError):
+            logger.warning(f"Skipping tracking row with invalid sub/run: {row}")
+            continue
+        if key in mapping:
+            logger.warning(f"Duplicate tracking row for {key[0]}, run {key[1]}. "
+                           "Using the first entry.")
+            continue
+        mapping[key] = _normalise_ses(row['ses'])
+    return mapping
+
+
+def _sleep_profiler_sub(value):
+    match = re.search(r'\b(\d{4})\s+\(', value)
+    if match is None:
+        return None
+    return f"sub-ABC{match.group(1)}"
+
+
+def _normalise_sleep_profiler_sub(value):
+    match = re.search(r'(\d{4})', str(value))
+    if match is None:
+        return _normalise_sub(value)
+    return f"sub-ABC{match.group(1)}"
+
+
+def _sleep_profiler_night(filename):
+    night_match = re.search(r'_Export_N(\d+)\.edf$', filename)
+    if night_match:
+        return int(night_match.group(1))
+    if re.search(r'_Export\.edf$', filename):
+        return 1
+    return None
+
+
+def _copy_flat_sessions(in_dir, out_dir, derivs_dir, subs, filetype, logger, origin):
+    copied = 0
+    skipped = 0
+    sub_dirs = _visible_dirs(in_dir) if subs == 'all' else subs
+    for sub_dir in sub_dirs:
+        src_sub_dir = path.join(in_dir, sub_dir)
+        if not path.isdir(src_sub_dir):
+            logger.warning(f"Subject directory does not exist: {src_sub_dir}")
+            skipped += 1
+            continue
+        sub = _normalise_sub(sub_dir)
+        for ses_dir in _session_dirs(src_sub_dir):
+            src_ses_dir = path.join(src_sub_dir, ses_dir)
+            ses = _normalise_ses(ses_dir)
+            eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+            stage_dir = path.join(derivs_dir, 'staging_manual', sub, ses)
+            for file in _visible_files(src_ses_dir):
+                src = path.join(src_ses_dir, file)
+                dst = _bids_dst(file, filetype, eeg_dir, stage_dir, sub, ses, origin)
+                if dst is not None:
+                    copied += int(_copy_file(src, dst, logger))
+    return copied, skipped
+
+
+def _bids_dst(file, filetype, eeg_dir, stage_dir, sub, ses, origin):
+    if file.endswith('.xml'):
+        return path.join(stage_dir, f'{sub}_{ses}_eeg.xml')
+    if not file.endswith(filetype):
+        return None
+    if origin == 'woolcock':
+        ext = path.splitext(file)[1]
+        return path.join(eeg_dir, f'{sub}_{ses}_task-psg_eeg{ext}')
+    return path.join(eeg_dir, f'{sub}_{ses}_eeg{filetype}')
+
+
+def _make_bids_sleepprofiler(root_dir, in_dir, out_dir, subs, filetype, logger):
+    copied = 0
+    skipped = 0
+    tracking = _tracking_map(root_dir, logger)
+    if tracking is None:
+        return None
+    source_dirs = _visible_dirs(in_dir)
+    if subs != 'all':
+        wanted = [_normalise_sleep_profiler_sub(x) for x in subs]
+        source_dirs = [x for x in source_dirs if _sleep_profiler_sub(x) in wanted]
+    for sub_dir in source_dirs:
+        sub = _sleep_profiler_sub(sub_dir)
+        if sub is None:
+            logger.warning(f"Could not determine ABC subject ID from {sub_dir}.")
+            skipped += 1
+            continue
+        src_dir = path.join(in_dir, sub_dir)
+        edfs = [x for x in _visible_files(src_dir) if x.endswith(filetype)]
+        if len(edfs) == 0:
+            logger.warning(f"No {filetype} files found for {sub} in {src_dir}.")
+            skipped += 1
+            continue
+        for edf in edfs:
+            result = _copy_sleepprofiler_edf(src_dir, edf, sub, tracking,
+                                            out_dir, filetype, logger)
+            copied += int(result == 'copied')
+            skipped += int(result == 'skipped')
+    return copied, skipped
+
+
+def _copy_sleepprofiler_edf(src_dir, edf, sub, tracking, out_dir, filetype, logger):
+    night = _sleep_profiler_night(edf)
+    if night is None:
+        logger.warning(f"Could not determine night/run from {edf}.")
+        return 'skipped'
+    if (sub, night) not in tracking:
+        logger.warning(f"No tracking row found for {sub}, run {night}.")
+        return 'skipped'
+    ses = f"{tracking[(sub, night)]}_{night}"
+    src = path.join(src_dir, edf)
+    dst = path.join(out_dir, sub, ses, 'eeg',
+                    f'{sub}_{ses}_task-sleep_acq-EEG_eeg{filetype}')
+    return 'copied' if _copy_file(src, dst, logger) else 'exists'
+
+
+def _make_bids_mass(root_dir, out_dir, derivs_dir, subs, filetype, logger):
+    dir_check = _visible_dirs(root_dir)
+    data_dir = path.join(root_dir, 'Biosignals') if 'Biosignals' in dir_check else root_dir
+    annot_dir = path.join(root_dir, 'Annotations') if 'Annotations' in dir_check else None
+    stage_dir = path.join(derivs_dir, 'staging')
+    _ensure_dir(stage_dir)
+
+    files = [x for x in _visible_files(data_dir) if 'PSG' in x]
+    stages = [x for x in _visible_files(data_dir) if 'Base' in x]
+    sublist = _mass_sublist(files, subs)
+    if len(sublist) == 0:
+        logger.critical(f'No {filetype} files in {data_dir}. Check paths are correct.')
+        return None
+
+    copied = 0
+    skipped = 0
+    for sub_id in sublist:
+        result = _copy_mass_subject(sub_id, files, stages, data_dir, annot_dir,
+                                    out_dir, stage_dir, logger)
+        copied += result[0]
+        skipped += result[1]
+
+    load_stages(out_dir, stage_dir, subs=subs)
+    return copied, skipped
+
+
+def _mass_sublist(files, subs):
+    if subs != 'all':
+        return [str(x).replace('sub-', '') for x in subs]
+    sublist = []
+    for file in files:
+        match = re.search(r'SS\d+\s*-\s*(\d+)', file)
+        if match is not None:
+            sublist.append(match.group(1))
+    return sorted(set(sublist))
+
+
+def _copy_mass_subject(sub_id, files, stages, data_dir, annot_dir, out_dir,
+                       stage_dir, logger):
+    sub = _normalise_sub(sub_id)
+    ses = 'ses-1'
+    eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+    psg = [x for x in files if sub_id in x]
+    if len(psg) == 0:
+        logger.warning(f"No PSG file found for {sub}.")
+        return 0, 1
+
+    dst = path.join(eeg_dir, f'{sub}_{ses}_acq-PSG.edf')
+    copied = int(_copy_file(path.join(data_dir, psg[0]), dst, logger))
+    _write_mass_sidecar(dst)
+    _write_mass_stages(sub_id, sub, ses, stages, data_dir, eeg_dir, stage_dir, logger)
+    _copy_mass_annotations(sub_id, sub, ses, annot_dir, stage_dir, logger)
+    return copied, 0
+
+
+def _write_mass_sidecar(dst):
+    hd = Dataset(dst).header
+    s_freq = hd['s_freq']
+    dur = hd['n_samples'] / s_freq
+    dictionary = {
+        "TaskName": "Sleep",
+        "SamplingFrequency": s_freq,
+        "EEGReference": "Unknown",
+        "PowerLineFrequency": "Unknown",
+        "SoftwareFilters": "n/a",
+        "InstitutionName": "University of Sydney",
+        "InstitutionalDepartmentName": "Woolcock Institute of Medical Research",
+        "RecordingDuration": dur}
+    json_file = '.'.join(dst.split('.')[0:-1]) + '.json'
+    with open(json_file, "w") as outfile:
+        dump(dictionary, outfile)
+
+
+def _write_mass_stages(sub_id, sub, ses, stages, data_dir, eeg_dir, stage_dir, logger):
+    stage_files = [x for x in stages if sub_id in x]
+    if len(stage_files) == 0:
+        logger.warning(f"No staging EDF found for {sub}.")
+        return
+    stage_file = stage_files[0]
+    _, _, header = highlevel.read_edf(path.join(data_dir, stage_file))
+    stage_df = _mass_stage_dataframe(header)
+    stage_df.to_csv(path.join(eeg_dir, f'{sub}_{ses}_acq-PSGScoring_events.tsv'),
+                    sep='\t', header=True, index=False)
+    dst_stage_dir = path.join(stage_dir, sub, ses)
+    _copy_file(path.join(data_dir, stage_file),
+               path.join(dst_stage_dir, stage_file), logger)
+
+
+def _mass_stage_dataframe(header):
+    stagekey = {'Sleep stage 1': 1,
+                'Sleep stage 2': 2,
+                'Sleep stage 3': 3,
+                'Sleep stage 4': 3,
+                'Sleep stage ?': 0,
+                'Sleep stage R': 4,
+                'Sleep stage W': 0}
+    epochs = [x for x in header['annotations']]
+    length = int(epochs[-1][0])
+    hypno = zeros(length)
+    for e, epoch in enumerate(epochs):
+        if e == 0:
+            start = 0
+            end = int(epoch[0]) + int(ceil(epoch[1]))
+        else:
+            start = int(epoch[0])
+            end = start + int(ceil(epoch[1]))
+        hypno[start:end] = stagekey[epoch[2]]
+
+    stage_df = DataFrame(columns=['onset', 'duration', 'staging'])
+    for row, onset in enumerate(range(0, length, 30)):
+        stage_df.loc[row, 'onset'] = onset
+        stage_df.loc[row, 'duration'] = 30
+        stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
+    return stage_df
+
+
+def _copy_mass_annotations(sub_id, sub, ses, annot_dir, stage_dir, logger):
+    if annot_dir is None:
+        return
+    annot_files = [x for x in _visible_files(annot_dir) if sub_id in x]
+    for afile in annot_files:
+        _copy_file(path.join(annot_dir, afile),
+                   path.join(stage_dir, sub, ses, afile), logger)
+
+
 def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
               indir = 'sourcedata', logger = create_logger("Make bids")):
-
-    """Copy data from a known source layout into a BIDS-style rawdata tree.
+    """
+    Copy data from a known source layout into a BIDS-style rawdata tree.
 
     Files are copied from ``<root_dir>/<indir>`` and written under
     ``<root_dir>/rawdata``. Supported origin values are ``SCN``, ``Woolcock``,
     ``MASS``, and ``SleepProfiler``.
     """
-
-    def _ensure_dir(directory):
-        makedirs(directory, exist_ok=True)
-
-    def _copy_file(src, dst):
-        if path.exists(dst):
-            logger.warning(f"Destination already exists, not overwriting: {dst}")
-            return False
-        _ensure_dir(path.dirname(dst))
-        copy2(src, dst)
-        return True
-
-    def _visible_dirs(directory):
-        return sorted([x for x in listdir(directory) if not x.startswith('.')
-                       if path.isdir(path.join(directory, x))])
-
-    def _visible_files(directory):
-        return sorted([x for x in listdir(directory) if not x.startswith('.')
-                       if path.isfile(path.join(directory, x))])
-
-    def _prefix(value, prefix):
-        value = str(value).strip().rstrip('/')
-        return value if value.startswith(prefix) else f'{prefix}{value}'
-
-    def _normalise_sub(value):
-        value = str(value).strip()
-        match = re.search(r'(\d{4})', value)
-        if match is not None and 'ABC' in value:
-            return f"sub-ABC{match.group(1)}"
-        return _prefix(value, 'sub-')
-
-    def _normalise_ses(value):
-        return _prefix(value, 'ses-')
-
-    def _normalise_run(value):
-        value = str(value).strip()
-        if value.endswith('.0'):
-            value = value[:-2]
-        return int(value)
-
-    def _session_dirs(src_sub_dir):
-        return _visible_dirs(src_sub_dir)
-
-    def _tracking_map(root_dir):
-        tracking = read_tracking_sheet(root_dir, logger)
-        if isinstance(tracking, str) and tracking == 'error':
-            return None
-        required_cols = ['sub', 'ses', 'run']
-        missing_cols = [x for x in required_cols if x not in tracking.columns]
-        if len(missing_cols) > 0:
-            logger.critical("Tracking sheet is missing required columns: "
-                            f"{', '.join(missing_cols)}")
-            return None
-        mapping = {}
-        for _, row in tracking.iterrows():
-            try:
-                key = (_normalise_sub(row['sub']), _normalise_run(row['run']))
-            except (TypeError, ValueError):
-                logger.warning(f"Skipping tracking row with invalid sub/run: {row}")
-                continue
-            if key in mapping:
-                logger.warning(f"Duplicate tracking row for {key[0]}, run {key[1]}. "
-                               "Using the first entry.")
-                continue
-            mapping[key] = _normalise_ses(row['ses'])
-        return mapping
-
-    def _sleep_profiler_sub(value):
-        match = re.search(r'\b(\d{4})\s+\(', value)
-        if match is None:
-            return None
-        return f"sub-ABC{match.group(1)}"
-
-    def _normalise_sleep_profiler_sub(value):
-        match = re.search(r'(\d{4})', str(value))
-        if match is None:
-            return _normalise_sub(value)
-        return f"sub-ABC{match.group(1)}"
-
-    def _sleep_profiler_night(filename):
-        night_match = re.search(r'_Export_N(\d+)\.edf$', filename)
-        if night_match:
-            return int(night_match.group(1))
-        if re.search(r'_Export\.edf$', filename):
-            return 1
-        return None
-
     root_dir = path.normpath(root_dir)
     if path.basename(root_dir) in ['rawdata', 'DATA']:
         logger.warning("make_bids() received a data directory rather than the "
@@ -247,196 +464,24 @@ def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
     in_dir = indir if path.isabs(indir) else path.join(root_dir, indir)
     out_dir = path.join(root_dir, 'rawdata')
     derivs_dir = path.join(root_dir, 'derivatives')
-    copied = 0
-    skipped = 0
     origin_key = origin.lower()
     _ensure_dir(out_dir)
 
-    if origin_key == 'scn':
-        sub_dirs = _visible_dirs(in_dir) if subs == 'all' else subs
-        for sub_dir in sub_dirs:
-            src_sub_dir = path.join(in_dir, sub_dir)
-            if not path.isdir(src_sub_dir):
-                logger.warning(f"Subject directory does not exist: {src_sub_dir}")
-                skipped += 1
-                continue
-            sub = _normalise_sub(sub_dir)
-            for ses_dir in _session_dirs(src_sub_dir):
-                src_ses_dir = path.join(src_sub_dir, ses_dir)
-                ses = _normalise_ses(ses_dir)
-                eeg_dir = path.join(out_dir, sub, ses, 'eeg')
-                stage_dir = path.join(derivs_dir, 'staging_manual', sub, ses)
-                for file in _visible_files(src_ses_dir):
-                    src = path.join(src_ses_dir, file)
-                    if file.endswith(filetype):
-                        dst = path.join(eeg_dir, f'{sub}_{ses}_eeg{filetype}')
-                    elif file.endswith('.xml'):
-                        dst = path.join(stage_dir, f'{sub}_{ses}_eeg.xml')
-                    else:
-                        continue
-                    copied += int(_copy_file(src, dst))
-
-    elif origin_key == 'woolcock':
-        sub_dirs = _visible_dirs(in_dir) if subs == 'all' else subs
-        for sub_dir in sub_dirs:
-            src_sub_dir = path.join(in_dir, sub_dir)
-            if not path.isdir(src_sub_dir):
-                logger.warning(f"Subject directory does not exist: {src_sub_dir}")
-                skipped += 1
-                continue
-            sub = _normalise_sub(sub_dir)
-            for ses_dir in _session_dirs(src_sub_dir):
-                src_ses_dir = path.join(src_sub_dir, ses_dir)
-                ses = _normalise_ses(ses_dir)
-                eeg_dir = path.join(out_dir, sub, ses, 'eeg')
-                stage_dir = path.join(derivs_dir, 'staging_manual', sub, ses)
-                for file in _visible_files(src_ses_dir):
-                    src = path.join(src_ses_dir, file)
-                    ext = path.splitext(file)[1]
-                    if file.endswith('.xml'):
-                        dst = path.join(stage_dir, f'{sub}_{ses}_eeg.xml')
-                    elif file.endswith(filetype):
-                        dst = path.join(eeg_dir, f'{sub}_{ses}_task-psg_eeg{ext}')
-                    else:
-                        continue
-                    copied += int(_copy_file(src, dst))
-
+    if origin_key in ['scn', 'woolcock']:
+        copied, skipped = _copy_flat_sessions(in_dir, out_dir, derivs_dir, subs,
+                                              filetype, logger, origin_key)
     elif origin_key in ['sleepprofiler', 'sleepprofileroriginal']:
-        tracking = _tracking_map(root_dir)
-        if tracking is None:
+        result = _make_bids_sleepprofiler(root_dir, in_dir, out_dir, subs,
+                                          filetype, logger)
+        if result is None:
             return
-        source_dirs = _visible_dirs(in_dir)
-        if subs != 'all':
-            wanted = [_normalise_sleep_profiler_sub(x) for x in subs]
-            source_dirs = [x for x in source_dirs if _sleep_profiler_sub(x) in wanted]
-        for sub_dir in source_dirs:
-            sub = _sleep_profiler_sub(sub_dir)
-            if sub is None:
-                logger.warning(f"Could not determine ABC subject ID from {sub_dir}.")
-                skipped += 1
-                continue
-            src_dir = path.join(in_dir, sub_dir)
-            edfs = [x for x in _visible_files(src_dir) if x.endswith(filetype)]
-            if len(edfs) == 0:
-                logger.warning(f"No {filetype} files found for {sub} in {src_dir}.")
-                skipped += 1
-                continue
-            for edf in edfs:
-                night = _sleep_profiler_night(edf)
-                if night is None:
-                    logger.warning(f"Could not determine night/run from {edf}.")
-                    skipped += 1
-                    continue
-                if (sub, night) not in tracking:
-                    logger.warning(f"No tracking row found for {sub}, run {night}.")
-                    skipped += 1
-                    continue
-                ses = f"{tracking[(sub, night)]}_{night}"
-                src = path.join(src_dir, edf)
-                dst = path.join(out_dir, sub, ses, 'eeg',
-                                f'{sub}_{ses}_task-sleep_acq-EEG_eeg{filetype}')
-                copied += int(_copy_file(src, dst))
-
+        copied, skipped = result
     elif origin_key == 'mass':
-        dir_check = _visible_dirs(root_dir)
-        data_dir = path.join(root_dir, 'Biosignals') if 'Biosignals' in dir_check else root_dir
-        annot_dir = path.join(root_dir, 'Annotations') if 'Annotations' in dir_check else None
-        stage_dir = path.join(derivs_dir, 'staging')
-        _ensure_dir(stage_dir)
-
-        files = [x for x in _visible_files(data_dir) if 'PSG' in x]
-        stages = [x for x in _visible_files(data_dir) if 'Base' in x]
-        if subs == 'all':
-            sublist = []
-            for file in files:
-                match = re.search(r'SS\d+\s*-\s*(\d+)', file)
-                if match is not None:
-                    sublist.append(match.group(1))
-            sublist = sorted(set(sublist))
-        else:
-            sublist = [str(x).replace('sub-', '') for x in subs]
-
-        if len(sublist) == 0:
-            logger.critical(f'No {filetype} files in {data_dir}. Check paths are correct.')
+        result = _make_bids_mass(root_dir, out_dir, derivs_dir, subs,
+                                 filetype, logger)
+        if result is None:
             return
-
-        stagekey = {'Sleep stage 1' : 1,
-                    'Sleep stage 2' : 2,
-                    'Sleep stage 3' : 3,
-                    'Sleep stage 4' : 3,
-                    'Sleep stage ?' : 0,
-                    'Sleep stage R' : 4,
-                    'Sleep stage W' : 0}
-
-        for sub_id in sublist:
-            sub = _normalise_sub(sub_id)
-            ses = 'ses-1'
-            eeg_dir = path.join(out_dir, sub, ses, 'eeg')
-            psg = [x for x in files if sub_id in x]
-            if len(psg) == 0:
-                logger.warning(f"No PSG file found for {sub}.")
-                skipped += 1
-                continue
-            src = path.join(data_dir, psg[0])
-            dst = path.join(eeg_dir, f'{sub}_{ses}_acq-PSG.edf')
-            if _copy_file(src, dst):
-                copied += 1
-
-            hd = Dataset(dst).header
-            s_freq = hd['s_freq']
-            dur = hd['n_samples'] / s_freq
-            dictionary = {
-                "TaskName": "Sleep",
-                "SamplingFrequency": s_freq,
-                "EEGReference": "Unknown",
-                "PowerLineFrequency": "Unknown",
-                "SoftwareFilters": "n/a",
-                "InstitutionName": "University of Sydney",
-                "InstitutionalDepartmentName": "Woolcock Institute of Medical Research",
-                "RecordingDuration": dur}
-            json_file = '.'.join(dst.split('.')[0:-1]) + '.json'
-            with open(json_file, "w") as outfile:
-                dump(dictionary, outfile)
-
-            stage_files = [x for x in stages if sub_id in x]
-            if len(stage_files) == 0:
-                logger.warning(f"No staging EDF found for {sub}.")
-            else:
-                stage_file = stage_files[0]
-                _, _, header = highlevel.read_edf(path.join(data_dir, stage_file))
-                epochs = [x for x in header['annotations']]
-                length = int(epochs[-1][0])
-                hypno = zeros(length)
-                for e, epoch in enumerate(epochs):
-                    if e == 0:
-                        start = 0
-                        end = int(epoch[0]) + int(ceil(epoch[1]))
-                    else:
-                        start = int(epoch[0])
-                        end = start + int(ceil(epoch[1]))
-                    hypno[start:end] = stagekey[epoch[2]]
-
-                stage_df = DataFrame(columns=['onset', 'duration', 'staging'])
-                for row, onset in enumerate(range(0, length, 30)):
-                    stage_df.loc[row, 'onset'] = onset
-                    stage_df.loc[row, 'duration'] = 30
-                    stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
-                stage_df.to_csv(path.join(eeg_dir,
-                                f'{sub}_{ses}_acq-PSGScoring_events.tsv'),
-                                sep='\t', header=True, index=False)
-
-                dst_stage_dir = path.join(stage_dir, sub, ses)
-                _copy_file(path.join(data_dir, stage_file),
-                           path.join(dst_stage_dir, stage_file))
-
-            if annot_dir is not None:
-                annot_files = [x for x in _visible_files(annot_dir) if sub_id in x]
-                for afile in annot_files:
-                    _copy_file(path.join(annot_dir, afile),
-                               path.join(stage_dir, sub, ses, afile))
-
-        load_stages(out_dir, stage_dir, subs=subs)
-
+        copied, skipped = result
     else:
         logger.critical(f"Unknown origin '{origin}'. Expected one of: "
                         "SCN, Woolcock, MASS, SleepProfiler.")
@@ -826,6 +871,5 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
     ses = list(chan['ses'])
 
     return 'review', chan, sub, ses
-
 
 

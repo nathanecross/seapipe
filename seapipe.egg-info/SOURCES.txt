@@ -37,6 +37,7 @@ seapipe/spectrum/psa.py
 seapipe/stats/__init__.py
 seapipe/stats/peth.py
 seapipe/stats/sleepstats.py
+seapipe/stats/tide.py
 seapipe/utils/__init__.py
 seapipe/utils/audit.py
 seapipe/utils/load.py

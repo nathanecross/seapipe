@@ -285,9 +285,7 @@ class pipeline:
                     subs = 'all', sessions = 'all',
                     rater = None, min_overlap = 0.5,
                     outfile = True):
-
         """Copy annotations and mask one event type to marker-defined windows."""
-
         from seapipe.utils.misc import mask_events_annots
         from seapipe.utils.load import select_input_dirs
 
