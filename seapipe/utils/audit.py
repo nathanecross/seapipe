@@ -8,11 +8,12 @@ Created on Mon Jul 31 13:36:12 2023
 from copy import deepcopy
 from datetime import datetime
 from json import dump
-from os import listdir, mkdir, path, rename, walk
+from os import listdir, mkdir, makedirs, path, walk
 from numpy import array, ceil, delete, zeros
 from pandas import DataFrame
 from pyedflib import highlevel
-from shutil import rmtree
+from shutil import copy2
+import re
 from statistics import mode
 from wonambi import Dataset
 from wonambi.attr import Annotations
@@ -21,24 +22,24 @@ from .load import load_channels, load_stages, rename_channels, read_tracking_she
 
 
 
-def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf', 
+def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
                   tracking = False, logger = create_logger("Audit")):
-    
+
     """ Audits the directory specified by <in_dir> to check if the dataset is
         BIDS compatible, how many sessions, recordings (e.g. edfs) and annotations
         files there are per participant.
         You can specify  an optional output filename that will contain the printout.
     """
-    
-    
+
+
     if not path.exists(datapath):
         logger.critical(f"PATH: {datapath} does not exist. Check documentation for "
                      "how to arrange data:"
                      "\nhttps://seapipe.readthedocs.io/en/latest/index.html\n")
         return DataFrame()
-    
+
     logger.debug(f'Checking dataset in directory: {datapath}')
-    
+
     # Extract participants to check
     if not tracking:
         subs = [x for x in listdir(datapath) if path.isdir(path.join(datapath, x))]
@@ -48,34 +49,34 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
         tracking = read_tracking_sheet(rootpath, logger)
         subs = tracking['sub'].drop_duplicates().to_list()
     subs.sort()
-    
+
     # Initialise certain reporting metrics
     nsd = [] #num subject dirs
     nedf = [] #num subject files
-    bids = [] 
+    bids = []
     finalbids = 0
     filesize = 0
-    
+
     if isinstance(filetype, str):
         filetype = [filetype]
-        
+
     if len(subs) == 0:
         logger.critical(f"{datapath} doesn't contain any directories.\n")
         finalbids += 1
-    
+
     for sub in subs:
         real_files = [x for x in listdir(path.join(datapath, sub)) if not x.startswith('.')]
         sessions = [x for x in real_files if path.isdir(path.join(datapath, sub, x))]
         files = [x for x in real_files if path.isfile(path.join(datapath, sub, x))]
-        
+
         nsd.append(len(sessions))
-        
+
         edfs = 0
-        
+
         if len(sessions) < 1:
             finalbids += 1
             if len(files) > 0:
-                nedf.append(len([x for x in files if filetype in x]))
+                edfs = len([x for x in files if any(ft in x for ft in filetype)])
                 logger.critical(f"{sub} doesn't have sessions directories.\n")
                 logger.info('Check documentation for how to setup data in BIDS:')
                 logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
@@ -106,21 +107,21 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
                     logger.info('Check documentation for how to setup data in BIDS:')
                     logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
                     logger.info('-' * 10)
-            
+
         bids.append(all([len(dirs2) < 1 for dirs2 in sessions]))
         nedf.append(edfs)
-    
+
     if len(set(nsd)) > 1:
         logger.warning('Not all participants have the same number of sessions\n')
-    
+
     subdirs = DataFrame({'BIDS?': bids, '#sessions': nsd, '#recordings': nedf},
                         index=subs)
-    subdirs[''] = ['!!' if c1 != c2 
-                   else '!!' if c1 == 0 
-                   else '!!' if c2 == 0 
-                   else '' 
+    subdirs[''] = ['!!' if c1 != c2
+                   else '!!' if c1 == 0
+                   else '!!' if c2 == 0
+                   else ''
                    for c1, c2 in zip(subdirs['#sessions'], subdirs['#recordings'])]
-    
+
     if outfile:
         if isinstance(outfile, str):
             subdirs.to_csv(outfile)
@@ -128,7 +129,7 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
             subdirs.to_csv(f'{rootpath}/derivatives/seapipe/audit/audit.csv')
         else:
             logger.warning("'outfile' should be set to an instance of boolean or str, not {type(outfile)}. No log will be saved. \n")
-            
+
     if finalbids == 0:
         logger.info('\n                      Summary:')
         logger.info(f"                      {sum(subdirs['#recordings'])} files, {filesize / (10**9):,.2f} GB")
@@ -137,212 +138,253 @@ def check_dataset(rootpath, datapath, outfile = False, filetype = '.edf',
         logger.debug('The dataset appears compatible for SEAPIPE analysis.\n')
     else:
         logger.critical('The dataset DOES NOT appear compatible for SEAPIPE analysis.\n')
-    
+
     return subdirs
 
 
 
-def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
-              logger = create_logger("Make bids")):
-    
-    """Converts the directory specified by <in_dir> to be BIDS compatible.
-    You can specify the origin format of the data. For now, this only converts
-    from the Sleep Cognition Neuroimaging laboratory format, but please contact 
-    me (nathan.cross.90@gmail.com)if you would like more formats.
-    """
-    
-    if origin=='SCN':
-        if subs == 'all':
-            subs = [x for x in listdir(in_dir) if '.' not in x]
-        
-        root_dir = '/'.join(in_dir.split('/')[0:-1])
-        derivs_dir = f'{root_dir}/derivatives/'
-        if not path.exists(derivs_dir):
-            mkdir(derivs_dir)
-            
-        for s, sub in enumerate(subs):
-            
-            src = f'{in_dir}/{sub}'
-            dst = f'{in_dir}/sub-{sub}'
-            rename(src, dst)
-            
-            sess = [x for x in listdir(dst) if '.' not in x]
-            
-            for s, ses in enumerate(sess):
-                src = f'{in_dir}/sub-{sub}/{ses}'
-                dst = f'{in_dir}/sub-{sub}/ses-{ses}/'
-                rename(src, dst)
-                
-                mkdir(f'{in_dir}/sub-{sub}/ses-{ses}/eeg/')
-                
-                # EDFs
-                files = [x for x in listdir(dst) if filetype in x] 
-                for f, file in enumerate(files):
-                    src = f'{in_dir}/sub-{sub}/ses-{ses}/{file}'
-                    dst = f'{in_dir}/sub-{sub}/ses-{ses}/eeg/sub-{sub}_ses-{ses}_eeg{filetype}'
-                    rename(src, dst)
-                
-                # XMLs
-                odir = f'{derivs_dir}/staging_manual/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/sub-{sub}/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/ses-{ses}/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                
-                dst = f'{in_dir}/sub-{sub}/ses-{ses}/'
-                files = [x for x in listdir(dst) if '.xml' in x]
-                for f, file in enumerate(files):
-                    src = f'{in_dir}/sub-{sub}/ses-{ses}/{file}'
-                    
-                    if len(file.split('_')) > 1:
-                        newfile = file.split('_')[0]
-                    else:
-                        newfile = file.split('.')[0]
-                    
-                    dst = f'{odir}/sub-{newfile}_ses-{ses}_eeg.xml'
-                    rename(src, dst)
-    
-    
-    if origin=='Woolcock':
-        
-        if subs == 'all':
-            subs = [x for x in listdir(in_dir) if '.' not in x]
-        
-        root_dir = '/'.join(in_dir.split('/')[0:-1])
-        derivs_dir = f'{root_dir}/derivatives/'
-        if not path.exists(derivs_dir):
-            mkdir(derivs_dir)
-            
-        # Loop subjects
-        for s, sub in enumerate(subs):
-            
-            # Check for preceeding 'sub-' label
-            newsub = f'sub-{sub}' if not 'sub' in sub else sub
-            
-            # Update name of subject directory
-            src = f'{in_dir}/{sub}'
-            dst = f'{in_dir}/{newsub}'
-            rename(src, dst)
-            
-            # Loop sessions
-            sess = [x for x in listdir(dst) if '.' not in x]
-            for s, ses in enumerate(sess):
-                
-                # Check for preceeding 'sub-' label
-                newses = f'ses-{ses}' if not 'ses' in ses else ses
-                
-                # Update name of session directory
-                src = f'{in_dir}/{newsub}/{ses}'
-                newdir = f'{in_dir}/{newsub}/{newses}/'
-                rename(src, newdir)
-                
-                # Make derivatives, staging, <sub>, <ses> folders
-                odir = f'{derivs_dir}/staging_manual/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/{newsub}/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                odir = f'{odir}/{newses}/'
-                if not path.exists(odir):
-                    mkdir(odir)
-                
-                # Move XMLs to derivatives 
-                files = [x for x in listdir(newdir) if not x.startswith('.')]
-                mkdir(f'{in_dir}/{newsub}/{newses}/eeg')
-                for f, file in enumerate(files):
-                    src = f'{newdir}/{file}'
-                    
-                    # Rename files
-                    file_parts = file.split('_')
-                    if len(file_parts) > 1:
-                        
-                        sub_ind = [i for i,x in enumerate(file_parts) if
-                                    'sub' in x]
-                        if len(sub_ind) < 1:
-                            sub_ind = None
-                        else:
-                            sub_ind = sub_ind[0]
-                        
-                        ses_ind = [i for i,x in enumerate(file_parts) if
-                                    'ses' in x]
-                        if len(ses_ind) < 1:
-                            ses_ind = None
-                        else:
-                            ses_ind = ses_ind[0]
-                        
-                        if sub_ind is None:
-                            file_parts.insert(0, 'sub_')
-                        if ses_ind is None:
-                            file_parts[sub_ind + 1] = newses 
-                        else:
-                            file_parts[ses_ind] = newses
-                        newfile = '_'.join(file_parts)    
-                    else:
-                        ext = file.split('.')[-1]
-                        newfile = f'{newsub}_{newses}_task-psg_eeg.{ext}' 
-                        
-                    if '.xml' in newfile:
-                        dst = f'{odir}/{newfile}'
-                    else:
-                        dst = f'{newdir}/eeg/{newfile}'
-                    rename(src, dst)
-    
-    if origin=='MASS':
-        
-        # Update in_dir for MASS
-        root_dir = '/'.join(in_dir.split('/')[0:-1])
-        dir_check = [x for x in listdir(root_dir) if '.' not in x]
-        
-        data_dir = f'{root_dir}/Biosignals/' if 'Biosignals' in dir_check else root_dir
-        annot_dir = f'{root_dir}/Annotations/' if 'Annotations' in dir_check else []
-        derivs_dir = f'{root_dir}/derivatives/'
-        
-        # Make '/derivatives' directory if not already exists
-        if not path.exists(derivs_dir):
-            mkdir(derivs_dir)
-        if not path.exists(f'{derivs_dir}/staging/'):
-            mkdir(f'{derivs_dir}/staging/')
+def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
+              indir = 'sourcedata', logger = create_logger("Make bids")):
 
-        # Make '/DATA' directory if not already exists
-        in_dir = f'{root_dir}/sourcedata'
-        if not path.exists(in_dir):
-            mkdir(in_dir)
-        
-        files = [x for x in listdir(data_dir) if not x.startswith('.') if 'PSG' in x]
-        stages = [x for x in listdir(data_dir) if not x.startswith('.') if 'Base' in x]
-        
+    """Copy data from a known source layout into a BIDS-style rawdata tree.
+
+    Files are copied from ``<root_dir>/<indir>`` and written under
+    ``<root_dir>/rawdata``. Supported origin values are ``SCN``, ``Woolcock``,
+    ``MASS``, and ``SleepProfiler``.
+    """
+
+    def _ensure_dir(directory):
+        makedirs(directory, exist_ok=True)
+
+    def _copy_file(src, dst):
+        if path.exists(dst):
+            logger.warning(f"Destination already exists, not overwriting: {dst}")
+            return False
+        _ensure_dir(path.dirname(dst))
+        copy2(src, dst)
+        return True
+
+    def _visible_dirs(directory):
+        return sorted([x for x in listdir(directory) if not x.startswith('.')
+                       if path.isdir(path.join(directory, x))])
+
+    def _visible_files(directory):
+        return sorted([x for x in listdir(directory) if not x.startswith('.')
+                       if path.isfile(path.join(directory, x))])
+
+    def _prefix(value, prefix):
+        value = str(value).strip().rstrip('/')
+        return value if value.startswith(prefix) else f'{prefix}{value}'
+
+    def _normalise_sub(value):
+        value = str(value).strip()
+        match = re.search(r'(\d{4})', value)
+        if match is not None and 'ABC' in value:
+            return f"sub-ABC{match.group(1)}"
+        return _prefix(value, 'sub-')
+
+    def _normalise_ses(value):
+        return _prefix(value, 'ses-')
+
+    def _normalise_run(value):
+        value = str(value).strip()
+        if value.endswith('.0'):
+            value = value[:-2]
+        return int(value)
+
+    def _session_dirs(src_sub_dir):
+        return _visible_dirs(src_sub_dir)
+
+    def _tracking_map(root_dir):
+        tracking = read_tracking_sheet(root_dir, logger)
+        if isinstance(tracking, str) and tracking == 'error':
+            return None
+        required_cols = ['sub', 'ses', 'run']
+        missing_cols = [x for x in required_cols if x not in tracking.columns]
+        if len(missing_cols) > 0:
+            logger.critical("Tracking sheet is missing required columns: "
+                            f"{', '.join(missing_cols)}")
+            return None
+        mapping = {}
+        for _, row in tracking.iterrows():
+            try:
+                key = (_normalise_sub(row['sub']), _normalise_run(row['run']))
+            except (TypeError, ValueError):
+                logger.warning(f"Skipping tracking row with invalid sub/run: {row}")
+                continue
+            if key in mapping:
+                logger.warning(f"Duplicate tracking row for {key[0]}, run {key[1]}. "
+                               "Using the first entry.")
+                continue
+            mapping[key] = _normalise_ses(row['ses'])
+        return mapping
+
+    def _sleep_profiler_sub(value):
+        match = re.search(r'\b(\d{4})\s+\(', value)
+        if match is None:
+            return None
+        return f"sub-ABC{match.group(1)}"
+
+    def _normalise_sleep_profiler_sub(value):
+        match = re.search(r'(\d{4})', str(value))
+        if match is None:
+            return _normalise_sub(value)
+        return f"sub-ABC{match.group(1)}"
+
+    def _sleep_profiler_night(filename):
+        night_match = re.search(r'_Export_N(\d+)\.edf$', filename)
+        if night_match:
+            return int(night_match.group(1))
+        if re.search(r'_Export\.edf$', filename):
+            return 1
+        return None
+
+    root_dir = path.normpath(root_dir)
+    if path.basename(root_dir) in ['rawdata', 'DATA']:
+        logger.warning("make_bids() received a data directory rather than the "
+                       "project root. Using its parent directory as root_dir.")
+        root_dir = path.dirname(root_dir)
+    in_dir = indir if path.isabs(indir) else path.join(root_dir, indir)
+    out_dir = path.join(root_dir, 'rawdata')
+    derivs_dir = path.join(root_dir, 'derivatives')
+    copied = 0
+    skipped = 0
+    origin_key = origin.lower()
+    _ensure_dir(out_dir)
+
+    if origin_key == 'scn':
+        sub_dirs = _visible_dirs(in_dir) if subs == 'all' else subs
+        for sub_dir in sub_dirs:
+            src_sub_dir = path.join(in_dir, sub_dir)
+            if not path.isdir(src_sub_dir):
+                logger.warning(f"Subject directory does not exist: {src_sub_dir}")
+                skipped += 1
+                continue
+            sub = _normalise_sub(sub_dir)
+            for ses_dir in _session_dirs(src_sub_dir):
+                src_ses_dir = path.join(src_sub_dir, ses_dir)
+                ses = _normalise_ses(ses_dir)
+                eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+                stage_dir = path.join(derivs_dir, 'staging_manual', sub, ses)
+                for file in _visible_files(src_ses_dir):
+                    src = path.join(src_ses_dir, file)
+                    if file.endswith(filetype):
+                        dst = path.join(eeg_dir, f'{sub}_{ses}_eeg{filetype}')
+                    elif file.endswith('.xml'):
+                        dst = path.join(stage_dir, f'{sub}_{ses}_eeg.xml')
+                    else:
+                        continue
+                    copied += int(_copy_file(src, dst))
+
+    elif origin_key == 'woolcock':
+        sub_dirs = _visible_dirs(in_dir) if subs == 'all' else subs
+        for sub_dir in sub_dirs:
+            src_sub_dir = path.join(in_dir, sub_dir)
+            if not path.isdir(src_sub_dir):
+                logger.warning(f"Subject directory does not exist: {src_sub_dir}")
+                skipped += 1
+                continue
+            sub = _normalise_sub(sub_dir)
+            for ses_dir in _session_dirs(src_sub_dir):
+                src_ses_dir = path.join(src_sub_dir, ses_dir)
+                ses = _normalise_ses(ses_dir)
+                eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+                stage_dir = path.join(derivs_dir, 'staging_manual', sub, ses)
+                for file in _visible_files(src_ses_dir):
+                    src = path.join(src_ses_dir, file)
+                    ext = path.splitext(file)[1]
+                    if file.endswith('.xml'):
+                        dst = path.join(stage_dir, f'{sub}_{ses}_eeg.xml')
+                    elif file.endswith(filetype):
+                        dst = path.join(eeg_dir, f'{sub}_{ses}_task-psg_eeg{ext}')
+                    else:
+                        continue
+                    copied += int(_copy_file(src, dst))
+
+    elif origin_key in ['sleepprofiler', 'sleepprofileroriginal']:
+        tracking = _tracking_map(root_dir)
+        if tracking is None:
+            return
+        source_dirs = _visible_dirs(in_dir)
+        if subs != 'all':
+            wanted = [_normalise_sleep_profiler_sub(x) for x in subs]
+            source_dirs = [x for x in source_dirs if _sleep_profiler_sub(x) in wanted]
+        for sub_dir in source_dirs:
+            sub = _sleep_profiler_sub(sub_dir)
+            if sub is None:
+                logger.warning(f"Could not determine ABC subject ID from {sub_dir}.")
+                skipped += 1
+                continue
+            src_dir = path.join(in_dir, sub_dir)
+            edfs = [x for x in _visible_files(src_dir) if x.endswith(filetype)]
+            if len(edfs) == 0:
+                logger.warning(f"No {filetype} files found for {sub} in {src_dir}.")
+                skipped += 1
+                continue
+            for edf in edfs:
+                night = _sleep_profiler_night(edf)
+                if night is None:
+                    logger.warning(f"Could not determine night/run from {edf}.")
+                    skipped += 1
+                    continue
+                if (sub, night) not in tracking:
+                    logger.warning(f"No tracking row found for {sub}, run {night}.")
+                    skipped += 1
+                    continue
+                ses = f"{tracking[(sub, night)]}_{night}"
+                src = path.join(src_dir, edf)
+                dst = path.join(out_dir, sub, ses, 'eeg',
+                                f'{sub}_{ses}_task-sleep_acq-EEG_eeg{filetype}')
+                copied += int(_copy_file(src, dst))
+
+    elif origin_key == 'mass':
+        dir_check = _visible_dirs(root_dir)
+        data_dir = path.join(root_dir, 'Biosignals') if 'Biosignals' in dir_check else root_dir
+        annot_dir = path.join(root_dir, 'Annotations') if 'Annotations' in dir_check else None
+        stage_dir = path.join(derivs_dir, 'staging')
+        _ensure_dir(stage_dir)
+
+        files = [x for x in _visible_files(data_dir) if 'PSG' in x]
+        stages = [x for x in _visible_files(data_dir) if 'Base' in x]
         if subs == 'all':
-            sublist = [x.split(' ')[0] for x in files]
-            sublist = [x.split('-')[2] for x in sublist]
-        
+            sublist = []
+            for file in files:
+                match = re.search(r'SS\d+\s*-\s*(\d+)', file)
+                if match is not None:
+                    sublist.append(match.group(1))
+            sublist = sorted(set(sublist))
+        else:
+            sublist = [str(x).replace('sub-', '') for x in subs]
+
         if len(sublist) == 0:
             logger.critical(f'No {filetype} files in {data_dir}. Check paths are correct.')
             return
-        
-        sublist.sort()
-        for s, sub in enumerate(sublist):
-            
-            if not path.exists(f'{in_dir}/sub-{sub}'):
-                mkdir(f'{in_dir}/sub-{sub}')
-                mkdir(f'{in_dir}/sub-{sub}/ses-1/')
-                mkdir(f'{in_dir}/sub-{sub}/ses-1/eeg/')
-            
-                
-            file = [x for x in files if sub in x][0]
-            
-            src = f'{data_dir}/{file}'
-            dst = f'{in_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSG.edf'
-            rename(src, dst)
-            
-            ## JSON SIDECAR
+
+        stagekey = {'Sleep stage 1' : 1,
+                    'Sleep stage 2' : 2,
+                    'Sleep stage 3' : 3,
+                    'Sleep stage 4' : 3,
+                    'Sleep stage ?' : 0,
+                    'Sleep stage R' : 4,
+                    'Sleep stage W' : 0}
+
+        for sub_id in sublist:
+            sub = _normalise_sub(sub_id)
+            ses = 'ses-1'
+            eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+            psg = [x for x in files if sub_id in x]
+            if len(psg) == 0:
+                logger.warning(f"No PSG file found for {sub}.")
+                skipped += 1
+                continue
+            src = path.join(data_dir, psg[0])
+            dst = path.join(eeg_dir, f'{sub}_{ses}_acq-PSG.edf')
+            if _copy_file(src, dst):
+                copied += 1
+
             hd = Dataset(dst).header
             s_freq = hd['s_freq']
-            dur = hd['n_samples']/s_freq
+            dur = hd['n_samples'] / s_freq
             dictionary = {
                 "TaskName": "Sleep",
                 "SamplingFrequency": s_freq,
@@ -352,118 +394,87 @@ def make_bids(in_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
                 "InstitutionName": "University of Sydney",
                 "InstitutionalDepartmentName": "Woolcock Institute of Medical Research",
                 "RecordingDuration": dur}
-             
             json_file = '.'.join(dst.split('.')[0:-1]) + '.json'
-            
-            # Writing to .json
             with open(json_file, "w") as outfile:
                 dump(dictionary, outfile)
 
-            # Read staging data
-            file = [x for x in stages if sub in x][0]
-            _, _, header = highlevel.read_edf(f'{data_dir}/{file}')
-            epochs = [x for x in header['annotations']]
-            length = int(epochs[-1][0])
-            hypno = zeros(length)
-            
-            
-            stagekey = {'Sleep stage 1' : 1,
-                        'Sleep stage 2' : 2,
-                        'Sleep stage 3' : 3,
-                        'Sleep stage 4' : 3,
-                        'Sleep stage ?' : 0,
-                        'Sleep stage R' : 4,
-                        'Sleep stage W' : 0}
-            
-            for e, epoch in enumerate(epochs):
-                if e == 0:
-                    end = int(epoch[0]) + int(ceil(epoch[1]))
-                    hypno[0:end] = stagekey[epoch[2]]
-                else:
-                    start = int(epoch[0])
-                    end = start + int(ceil(epoch[1]))
+            stage_files = [x for x in stages if sub_id in x]
+            if len(stage_files) == 0:
+                logger.warning(f"No staging EDF found for {sub}.")
+            else:
+                stage_file = stage_files[0]
+                _, _, header = highlevel.read_edf(path.join(data_dir, stage_file))
+                epochs = [x for x in header['annotations']]
+                length = int(epochs[-1][0])
+                hypno = zeros(length)
+                for e, epoch in enumerate(epochs):
+                    if e == 0:
+                        start = 0
+                        end = int(epoch[0]) + int(ceil(epoch[1]))
+                    else:
+                        start = int(epoch[0])
+                        end = start + int(ceil(epoch[1]))
                     hypno[start:end] = stagekey[epoch[2]]
-            
-            stage_df = DataFrame(columns = ['onset', 'duration', 'staging'])
-            
-            for row, onset in enumerate(range(0,length,30)):
-                
-                stage_df.loc[row, 'onset'] = onset
-                stage_df.loc[row, 'duration'] = 30
-                stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
-                
-            stage_df.to_csv(f'{in_dir}/sub-{sub}/ses-1/eeg/sub-{sub}_ses-1_acq-PSGScoring_events.tsv', 
-                            sep = '\t', header=True, index=False)
-            
-            # Move original .edf staging file to /derivatives
-            if not path.exists(f'{derivs_dir}/staging/sub-{sub}/'):
-                mkdir(f'{derivs_dir}/staging/sub-{sub}/')
-                mkdir(f'{derivs_dir}/staging/sub-{sub}/ses-1')
-            rename(f'{data_dir}/{file}', f'{derivs_dir}/staging/sub-{sub}/ses-1/{file}')
-            
-            
-            # TODO : Add import of MASS annotations
-            #if len(annot_dir) > 0:
-            annot_files = [x for x in listdir(annot_dir) if not x.startswith('.') 
-                           if sub in x]    
-            
-            for afile in annot_files:
-                rename(f'{annot_dir}/{afile}', 
-                       f'{derivs_dir}/staging/sub-{sub}/ses-1/{afile}')
-            
-            
-        # Make XMLs and add staging
-        load_stages(in_dir, derivs_dir + '/staging', subs = subs)
-        
-        # Clean up and finish
-        if path.exists(f'{root_dir}/Biosignals/'):
-            if len([x for x in listdir(f'{root_dir}/Biosignals/') if not x.startswith('.')]) == 0:
-                rmtree(f'{root_dir}/Biosignals/')
-            else:
-                logger.warning(f'{root_dir}/Annotations/ is not empty - check the '
-                               'contents and remove this from the path {root_dir} '
-                               'before proceeding any analysis.')
-        if path.exists(f'{root_dir}/Annotations/'):
-            if len([x for x in listdir(f'{root_dir}/Annotations/') if not x.startswith('.')]) == 0:
-                rmtree(f'{root_dir}/Annotations/')
-            else:
-                logger.warning(f'{root_dir}/Biosignals/ is not empty - check the '
-                               'contents and remove this from the path {root_dir} '
-                               'before proceeding any analysis.')
-        
-       
-    # Finally check dataset
-    check_dataset(root_dir, in_dir, filetype)
-                    
+
+                stage_df = DataFrame(columns=['onset', 'duration', 'staging'])
+                for row, onset in enumerate(range(0, length, 30)):
+                    stage_df.loc[row, 'onset'] = onset
+                    stage_df.loc[row, 'duration'] = 30
+                    stage_df.loc[row, 'staging'] = int(mode(hypno[onset:onset+30]))
+                stage_df.to_csv(path.join(eeg_dir,
+                                f'{sub}_{ses}_acq-PSGScoring_events.tsv'),
+                                sep='\t', header=True, index=False)
+
+                dst_stage_dir = path.join(stage_dir, sub, ses)
+                _copy_file(path.join(data_dir, stage_file),
+                           path.join(dst_stage_dir, stage_file))
+
+            if annot_dir is not None:
+                annot_files = [x for x in _visible_files(annot_dir) if sub_id in x]
+                for afile in annot_files:
+                    _copy_file(path.join(annot_dir, afile),
+                               path.join(stage_dir, sub, ses, afile))
+
+        load_stages(out_dir, stage_dir, subs=subs)
+
+    else:
+        logger.critical(f"Unknown origin '{origin}'. Expected one of: "
+                        "SCN, Woolcock, MASS, SleepProfiler.")
+        return
+
+    logger.info(f"{origin} BIDS conversion complete: copied {copied} file(s), "
+                f"skipped {skipped} file(s).")
+    check_dataset(root_dir, out_dir, filetype=filetype)
+
 def extract_channels(in_dir, exclude=None, quality=False):
-    
-    """Reads channel information from the files in the directory specified by 
+
+    """Reads channel information from the files in the directory specified by
     <in_dir> and writes them to the BIDS compatible channels.tsv file per participant
     and session.
     You can specify whether to exclude any channels, if preferrable.
     """
-    
+
     if not exclude:
         exclude = ['A1','A2','M1','M2']
-    
+
     parts = [x for x in listdir(in_dir) if '.' not in x]
-    
+
     for p, part in enumerate(parts):
         ppath = f'{in_dir}/{part}'
         sess = [x for x in listdir(ppath) if '.' not in x]
-        
+
         for s, ses in enumerate(sess):
             spath = f'{ppath}/{ses}/eeg/'
-            files = [x for x in listdir(spath) if '.edf' in x] 
-            
+            files = [x for x in listdir(spath) if '.edf' in x]
+
             for f, file in enumerate(files):
                 src = f'{spath}/{file}'
-                
+
                 data = Dataset(src)
                 chans = data.header['orig']['label'] #data.header['chan_name']
                 types = array([x.split('-')[0] for x in data.header['orig']['transducer']])
                 units = array(data.header['orig']['physical_dim'])
-                
+
                 if exclude:
                     ex = [chans.index(x) for x in exclude if x in chans]
                     chans = delete(array(chans), ex)
@@ -471,7 +482,7 @@ def extract_channels(in_dir, exclude=None, quality=False):
                     units = delete(units, ex)
                 else:
                     chans = array(chans)
-                
+
                 # Save dataframe
                 df = DataFrame(chans)
                 df.columns = ['name']
@@ -479,22 +490,22 @@ def extract_channels(in_dir, exclude=None, quality=False):
                 df['units'] = units
                 df['status'] = 'N/A'
                 df['status_description'] = 'N/A'
-                df.to_csv(f"{spath}{part}_{ses}_channels.tsv", sep = "\t", 
+                df.to_csv(f"{spath}{part}_{ses}_channels.tsv", sep = "\t",
                           header=True, index=False)
-                
-                
-def track_processing(self, step, subs, tracking, df, chan, stage, show=False, 
+
+
+def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                      log=True):
 
     ## Set up logging
     lg = create_logger('Tracking')
-    
+
     ## Ensure correct format of chan and stage
     if isinstance(chan, str):
         chan = [chan]
     if isinstance(stage, str):
         stage = [stage]
-    
+
     ## Track sleep staging
     if 'staging' in step or 'stage' in step:
          stage_df = []
@@ -503,17 +514,17 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
          for sub in subs:
             try:
                 stage_ses = next(walk(f'{spath}/{sub}'))[1]
-                stage_dict[sub] = dict([(x,[]) if x in stage_ses else (x,'-') 
+                stage_dict[sub] = dict([(x,[]) if x in stage_ses else (x,'-')
                                      for x in tracking['ses'][sub]])
-                stage_df.append([x if x in stage_ses else '-' 
+                stage_df.append([x if x in stage_ses else '-'
                               for x in tracking['ses'][sub]])
             except:
                 stage_df.append(['-'])
-        
+
          # Update tracking
-         tracking['staging'] = stage_dict 
+         tracking['staging'] = stage_dict
          df['staging'] = stage_df
-         
+
          # Check for Artefact or Arousal events
          if list(map(list, list(set(map(tuple, stage_dict.values()))))) == [['-']]:
             lg.warning('Staging has NOT been run.')
@@ -527,7 +538,7 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                         if len(xml) == 0:
                             if log:
                                 lg.warning(f'No staging found for {sub}, {ses}')
-                        elif len(xml) > 2: 
+                        elif len(xml) > 2:
                             if log:
                                 lg.warning(f'>1 staging files found for {sub}, {ses} - only 1 staging file is allowed.')
                         else:
@@ -536,33 +547,33 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                             events = sorted(set([x['name'] for x in annot.get_events()]))
                             for event in events:
                                 if event in ['Arou', 'Arousal', 'Artefact']:
-                                    tracking['staging'][sub][ses].append(event)  
+                                    tracking['staging'][sub][ses].append(event)
                     except:
                         if log:
-                            lg.warning(f'No staging found for {sub}, {ses}')    
-                            
-         
-    ## Track spindle detection                 
+                            lg.warning(f'No staging found for {sub}, {ses}')
+
+
+    ## Track spindle detection
     if 'spindles' in step or 'spindle' in step:
         spin_dict = {}
         spath = self.outpath + '/spindle/'
         df['spindle'] = [['-']] * len(df)
         spin_df = deepcopy(df['spindle'])
-        
+
         for sub in subs:
            try:
                stage_ses = next(walk(f'{spath}/{sub}'))[1]
-               spin_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-') 
+               spin_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-')
                                     for x in tracking['ses'][sub]])
-               spin_df.loc[sub] = [x if x in stage_ses else '-' 
+               spin_df.loc[sub] = [x if x in stage_ses else '-'
                              for x in tracking['ses'][sub]]
            except:
                spin_dict[sub] = {'-':'-'}
 
 
         # Update tracking
-        tracking['spindle'] = spin_dict 
-        
+        tracking['spindle'] = spin_dict
+
         # Check for events
         if list(map(list, list(set(map(tuple, spin_dict.values()))))) == [['-']]:
             if log:
@@ -576,12 +587,12 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                        'UCSD_adap','Concordia_adap']
             for sub in spin_dict.keys():
                 for ses in spin_dict[sub]:
-                    if not spin_dict[sub][ses] == '-': 
+                    if not spin_dict[sub][ses] == '-':
                         xml = [x for x in listdir(f'{spath}/{sub}/{ses}') if '.xml' in x]
                         if len(xml) == 0:
                             if log:
                                 lg.warning(f'No spindle annotations found for {sub}, {ses}')
-                        elif len(xml) > 2: 
+                        elif len(xml) > 2:
                             if log:
                                 lg.warning(f'>1 spindle annotation files found for {sub}, {ses}..')
                         else:
@@ -609,34 +620,34 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                                                                      'Stage':'',      # FLAG FOR UPDATE
                                                                                      'Cycle':'',      # FLAG FOR UPDATE
                                                                                      'File':f'{spath}/{sub}/{ses}/{xml}',
-                                                                                     'Updated':update}) 
+                                                                                     'Updated':update})
                             except:
                                 lg.warning(f'Error loading nnotations found for {sub}, {ses}')
-                                
+
 
         df['spindle'] = spin_df
-    
-    
-    ## Track slow oscillation detection                 
+
+
+    ## Track slow oscillation detection
     if 'slow wave' in step or 'slow oscillation' in step or 'so' in step:
         so_dict = {}
         spath = self.outpath + '/slow_oscillation/'
         df['slow_osc'] = [['-']] * len(df)
         so_df = deepcopy(df['slow_osc'])
-        
+
         for sub in subs:
            try:
                stage_ses = next(walk(f'{spath}/{sub}'))[1]
-               so_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-') 
+               so_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-')
                                     for x in tracking['ses'][sub]])
-               so_df.loc[sub] = [x if x in stage_ses else '-' 
+               so_df.loc[sub] = [x if x in stage_ses else '-'
                              for x in tracking['ses'][sub]]
            except:
                so_dict[sub] = {'-':'-'}
 
         # Update tracking
-        tracking['slow_osc'] = so_dict 
-        
+        tracking['slow_osc'] = so_dict
+
         # Check for events
         if list(map(list, list(set(map(tuple, so_dict.values()))))) == [['-']]:
             if log:
@@ -645,12 +656,12 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
             methods = ['Massimini2004','AASM/Massimini2004','Ngo2015','Staresina2015',]
             for sub in so_dict.keys():
                 for ses in so_dict[sub]:
-                    if not so_dict[sub][ses] == '-': 
+                    if not so_dict[sub][ses] == '-':
                         xml = [x for x in listdir(f'{spath}/{sub}/{ses}') if '.xml' in x]
                         if len(xml) == 0:
                             if log:
                                 lg.warning(f'No slow oscillation annotations found for {sub}, {ses}')
-                        elif len(xml) > 2: 
+                        elif len(xml) > 2:
                             if log:
                                 lg.warning(f'>1 slow oscillation annotation files found for {sub}, {ses}..')
                         else:
@@ -678,34 +689,34 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                                                                      'Stage':xml.split(f'_{sochan}_')[1].split('_')[0],      # FLAG FOR UPDATE
                                                                                      'Cycle':'',      # FLAG FOR UPDATE
                                                                                      'File':f'{spath}/{sub}/{ses}/{xml}',
-                                                                                     'Updated':update}) 
+                                                                                     'Updated':update})
                             except:
                                 lg.warning(f'Error loading Annotations found for {sub}, {ses}')
 
         df['slow_osc'] = so_df
-    
-    
-    ## Track fooof detection                 
+
+
+    ## Track fooof detection
     if 'fooof' in step or 'specparams' in step:
         fooof_dict = {}
         spath = self.outpath + '/fooof/'
         df['fooof'] = [['-']] * len(df)
         fooof_df = deepcopy(df['fooof'])
-        
+
         for sub in subs:
            try:
                stage_ses = next(walk(f'{spath}/{sub}'))[1]
-               fooof_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-') 
+               fooof_dict[sub] = dict([(x,{}) if x in stage_ses else (x,'-')
                                     for x in tracking['ses'][sub]])
-               fooof_df.loc[sub] = [x if x in stage_ses else '-' 
+               fooof_df.loc[sub] = [x if x in stage_ses else '-'
                              for x in tracking['ses'][sub]]
            except:
                fooof_dict[sub] = dict([(ses,'-') for ses in tracking['ses'][sub]])
 
 
         # Update tracking
-        tracking['fooof'] = fooof_dict 
-        
+        tracking['fooof'] = fooof_dict
+
         # Check for events
         if list(map(list, list(set(map(tuple, fooof_dict.values()))))) == [['-']]:
             if log:
@@ -713,9 +724,9 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
         else:
             for sub in fooof_dict.keys():
                 for ses in fooof_dict[sub]:
-                    if not fooof_dict[sub][ses] == '-': 
+                    if not fooof_dict[sub][ses] == '-':
                         files = [x for x in listdir(f'{spath}/{sub}/{ses}') if '.csv' in x]
-                        
+
                         chans = sorted(set([file.split(ses)[1].split('_')[1] for file in files]))
                         if chan:
                             chans = [x for x in chans for y in chan if y in x]
@@ -731,16 +742,16 @@ def track_processing(self, step, subs, tracking, df, chan, stage, show=False,
                                 chan_files = [file for file in files if f'_{fooofchan}_' in file]
                                 for chanfile in chan_files:
                                     update = datetime.fromtimestamp(path.getmtime(f'{spath}/{sub}/{ses}/{chanfile}')).strftime("%m-%d-%Y, %H:%M:%S")
-                                    tracking['fooof'][sub][ses][fooofchan].append({'Stage':chanfile.split(f'_{fooofchan}_')[1].split('_')[0],      
+                                    tracking['fooof'][sub][ses][fooofchan].append({'Stage':chanfile.split(f'_{fooofchan}_')[1].split('_')[0],
                                                                               'Cycle':'',      # FLAG FOR UPDATE
                                                                               'Bandwidth':chanfile.split('specparams_')[1].split('.csv')[0],
                                                                               'File':f'{spath}/{sub}/{ses}/{chanfile}',
                                                                               'Updated':update})
         df['fooof'] = fooof_df
 
-    return df, tracking               
-                
-                
+    return df, tracking
+
+
 def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
 
     bandwidth = f'{frequency[0]}-{frequency[1]}Hz'
@@ -749,12 +760,12 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
         sessions = list(self.tracking['fooof'][sub].keys())
         for ses in sessions:
             if not self.tracking['fooof'][sub][ses] == '-':
-                flag, chanset = load_channels(sub, ses, chan, ref_chan, 0, 
+                flag, chanset = load_channels(sub, ses, chan, ref_chan, 0,
                                               logger, verbose=0)
                 if flag>0:
                     return 'error', None, None, None
                 newchans = rename_channels(sub, ses, chan, logger)
-                
+
                 for c, ch in enumerate(chanset):
                     if newchans:
                         fnamechan = newchans[ch]
@@ -768,15 +779,15 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
                     if cat[0] + cat[1] == 2: # whole night
                         num_files = 1
                         stagename = '-'.join(stage)
-                        files = [x['File'] for x in fooof if stagename in x['Stage'] 
+                        files = [x['File'] for x in fooof if stagename in x['Stage']
                                  if bandwidth in x['Bandwidth']]
                     elif cat[0] + cat[1] == 0: # stage*cycle
                         # num_files = len(stage)*len(cycle_idx)
                         # files = []
                         # for stg in stage:
                         #     for cyc in cycle_idx:
-                        #         files.append([x['File'] for x in fooof 
-                        #                       if stage in x['Stage'] 
+                        #         files.append([x['File'] for x in fooof
+                        #                       if stage in x['Stage']
                         #                       if cyc in x['Cycle']
                         #                       if bandwidth in x['Bandwidth']])
                         logger.error('Adapted bands for stage*cycle has not yet been implemented')
@@ -785,8 +796,8 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
                         # num_files = len(cycle_idx)
                         # files = []
                         # for cyc in cycle_idx:
-                        #     files.append([x['File'] for x in fooof 
-                        #                   if stage in x['Stage'] 
+                        #     files.append([x['File'] for x in fooof
+                        #                   if stage in x['Stage']
                         #                   if cyc in x['Cycle']
                         #                   if bandwidth in x['Bandwidth']])
                         logger.error('Adapted bands for per_cycle has not yet been implemented')
@@ -797,27 +808,24 @@ def check_fooof(self, frequency, chan, ref_chan, stage, cat, cycle_idx, logger):
                         for stg in stage:
                             [files.append(x['File']) for x in fooof if stg in x['Stage']
                                           if bandwidth in x['Bandwidth']]
-                    
+
                     if num_files != len(files):
                         flag +=1
             else:
                 flag = 1
-        
+
             if flag>0:
                 review.append([sub, ses])
-    
+
     for row in chan.index:
         subses = [chan['sub'].loc[row], chan['ses'].loc[row]]
         if not subses in review:
             chan = chan.drop([row])
-    
+
     sub = list(chan['sub'])
     ses = list(chan['ses'])
-    
+
     return 'review', chan, sub, ses
-        
-                
-                
-                
-                
-                
+
+
+

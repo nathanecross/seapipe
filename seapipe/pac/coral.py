@@ -5,7 +5,7 @@ Refactored into CORAL by Codex (2026)
 """
 
 from copy import deepcopy
-from numpy import nan, ones
+from numpy import asarray, nan, ones
 from os import listdir, mkdir, path
 from pandas import DataFrame
 from shutil import copy
@@ -147,7 +147,8 @@ class CORAL:
         cat[3] = 0  # force event type non-concatenation (required for analysis)
         cat = tuple(cat)
 
-        if cat[1] == 1 and len(stage) > 1:
+        multi_stage = len(stage) > 1
+        if cat[1] == 1 and multi_stage:
             stage = [stage]
 
         # Begin loop through participants
@@ -224,6 +225,7 @@ class CORAL:
 
                     for stg in stage:
                         logger.debug(f'Stage {stg}')
+                        stage_arg = stg if isinstance(stg, list) else [stg] if stg is not None else None
 
                         # Get events - target
                         segments = fetch(
@@ -231,7 +233,7 @@ class CORAL:
                             annot,
                             cat=cat,
                             evt_type=[evttype_target],
-                            stage=stg,
+                            stage=stage_arg,
                             chan_full=[chan_full],
                             reject_epoch=True,
                             reject_artf=self.reject,
@@ -247,11 +249,11 @@ class CORAL:
 
                         evt_target_seg = segments.segments
                         logger.debug(f"#targets '{evt_target_seg}' = {len(evt_target_seg)}")
-                        for i, seg in enumerate(evt_target_seg):
-                            evt_target_seg[i]['start'] = seg['times'][0][0]
-                            evt_target_seg[i]['end'] = seg['times'][0][1]
-                            evt_target_seg[i]['chan'] = [seg['chan']]
-                            evt_target_seg[i]['quality'] = 'Good'
+                        for evt_idx, seg in enumerate(evt_target_seg):
+                            evt_target_seg[evt_idx]['start'] = seg['times'][0][0]
+                            evt_target_seg[evt_idx]['end'] = seg['times'][0][1]
+                            evt_target_seg[evt_idx]['chan'] = [seg['chan']]
+                            evt_target_seg[evt_idx]['quality'] = 'Good'
 
                         # Get events - probe
                         segments = fetch(
@@ -259,7 +261,7 @@ class CORAL:
                             annot,
                             cat=cat,
                             evt_type=[evttype_probe],
-                            stage=stg,
+                            stage=stage_arg,
                             chan_full=[chan_full],
                             reject_epoch=True,
                             reject_artf=self.reject,
@@ -275,11 +277,11 @@ class CORAL:
 
                         evt_probe_seg = segments.segments
                         logger.debug(f"#probes '{evt_probe_seg}' = {len(evt_probe_seg)}")
-                        for i, seg in enumerate(evt_probe_seg):
-                            evt_probe_seg[i]['start'] = seg['times'][0][0]
-                            evt_probe_seg[i]['end'] = seg['times'][0][1]
-                            evt_probe_seg[i]['chan'] = [seg['chan']]
-                            evt_probe_seg[i]['quality'] = 'Good'
+                        for evt_idx, seg in enumerate(evt_probe_seg):
+                            evt_probe_seg[evt_idx]['start'] = seg['times'][0][0]
+                            evt_probe_seg[evt_idx]['end'] = seg['times'][0][1]
+                            evt_probe_seg[evt_idx]['chan'] = [seg['chan']]
+                            evt_probe_seg[evt_idx]['quality'] = 'Good'
 
                         # Assess co-occurrence and write output events to XML.
                         matched = match_events(
@@ -368,33 +370,33 @@ class CORAL:
         cat[3] = 0  # force event type non-concatenation (required for analysis)
         cat = tuple(cat)
 
-        if cat[1] == 1 and len(stage) > 1:
+        multi_stage = len(stage) > 1
+        if cat[1] == 1 and multi_stage:
             stage = [stage]
 
         for stg in stage:
             for channel in chan:
                 ids = []
-                logger.info(f'Channel {channel}; Stage {stg}')
+                stage_arg = stg if isinstance(stg, list) else [stg] if stg is not None else None
+                stage_label = None if stage_arg is None else '-'.join(stage_arg)
+                logger.info(f'Channel {channel}; Stage {stage_arg}')
 
                 if channel:
-                    if not stg:
-                        stats_file = out_base + channel + '_' + outfile_suffix
-                    elif len(stg) < 2:
-                        stats_file = (out_base + channel + '_' + stg[0]
-                                      + '_' + outfile_suffix)
-                    else:
-                        if type(stg) is not list:
-                            stg = [stg]
-                        stages = '_'.join(stg)
-                        stats_file = (out_base + channel + '_' + stages + '_'
+                    if stage_label:
+                        stats_file = (out_base + channel + '_' + stage_label + '_'
                                       + outfile_suffix)
+                    else:
+                        stats_file = out_base + channel + '_' + outfile_suffix
                     chan_full = channel + ' (' + grp_name + ')'
                 else:
-                    stats_file = out_base + outfile_suffix
+                    if stage_label:
+                        stats_file = out_base + stage_label + '_' + outfile_suffix
+                    else:
+                        stats_file = out_base + outfile_suffix
                     chan_full = channel
 
-                for i, p in enumerate(subs):
-                    for v, vis in enumerate(sessions):
+                for sub_idx, p in enumerate(subs):
+                    for ses_idx, vis in enumerate(sessions):
 
                         logger.info(f'Subject: {p}, Visit: {vis}')
                         logger.info(f'{chan_full}')
@@ -418,18 +420,18 @@ class CORAL:
                             annot,
                             cat=cat,
                             evt_type=[evttype_target],
-                            stage=stg,
+                            stage=stage_arg,
                             chan_full=[chan_full],
                             reject_epoch=True,
                             reject_artf=self.reject,
                         )
                         evt_target_seg = segments.segments
                         logger.info(f'#targets = {len(evt_target_seg)}')
-                        for i, seg in enumerate(evt_target_seg):
-                            evt_target_seg[i]['start'] = seg['times'][0][0]
-                            evt_target_seg[i]['end'] = seg['times'][0][1]
-                            evt_target_seg[i]['chan'] = [seg['chan']]
-                            evt_target_seg[i]['quality'] = 'Good'
+                        for evt_idx, seg in enumerate(evt_target_seg):
+                            evt_target_seg[evt_idx]['start'] = seg['times'][0][0]
+                            evt_target_seg[evt_idx]['end'] = seg['times'][0][1]
+                            evt_target_seg[evt_idx]['chan'] = [seg['chan']]
+                            evt_target_seg[evt_idx]['quality'] = 'Good'
 
                         # Get events - probe
                         segments = fetch(
@@ -437,31 +439,57 @@ class CORAL:
                             annot,
                             cat=cat,
                             evt_type=[evttype_probe],
-                            stage=stg,
+                            stage=stage_arg,
                             chan_full=[chan_full],
                             reject_epoch=True,
                             reject_artf=self.reject,
                         )
                         evt_probe_seg = segments.segments
                         logger.info(f'#probes = {len(evt_probe_seg)}')
-                        for i, seg in enumerate(evt_probe_seg):
-                            evt_probe_seg[i]['start'] = seg['times'][0][0]
-                            evt_probe_seg[i]['end'] = seg['times'][0][1]
-                            evt_probe_seg[i]['chan'] = [seg['chan']]
-                            evt_probe_seg[i]['quality'] = 'Good'
+                        for evt_idx, seg in enumerate(evt_probe_seg):
+                            evt_probe_seg[evt_idx]['start'] = seg['times'][0][0]
+                            evt_probe_seg[evt_idx]['end'] = seg['times'][0][1]
+                            evt_probe_seg[evt_idx]['chan'] = [seg['chan']]
+                            evt_probe_seg[evt_idx]['quality'] = 'Good'
 
                         # Assess co-occurrence
                         matched = match_events(
                             evt_probe_seg, evt_target_seg, iu_thresh
                         )
 
+                        # Wonambi's fp/fn counters can be inconsistent for some
+                        # overlap patterns, so derive summary stats directly
+                        # from the TP matrix and event-list lengths.
+                        tp_matrix = asarray(
+                            matched.tp, dtype=bool
+                        ).reshape((len(evt_probe_seg), len(evt_target_seg)))
+                        n_tp = int(tp_matrix.sum())
+                        n_fp = int(len(evt_probe_seg) - tp_matrix.any(axis=1).sum())
+                        n_fn = int(len(evt_target_seg) - tp_matrix.any(axis=0).sum())
+
+                        if n_tp + n_fn == 0:
+                            recall = 0.0
+                        else:
+                            recall = n_tp / (n_tp + n_fn)
+
+                        if n_tp + n_fp == 0:
+                            precision = 0.0
+                        else:
+                            precision = n_tp / (n_tp + n_fp)
+
+                        if precision + recall == 0:
+                            f1score = 0.0
+                        else:
+                            f1score = 2 * precision * recall / (precision + recall)
+
                         # Store stats in master table
-                        stats[(i * len(sessions)) + v, 0] = matched.recall
-                        stats[(i * len(sessions)) + v, 1] = matched.precision
-                        stats[(i * len(sessions)) + v, 2] = matched.f1score
-                        stats[(i * len(sessions)) + v, 3] = matched.n_tp
-                        stats[(i * len(sessions)) + v, 4] = matched.n_fp
-                        stats[(i * len(sessions)) + v, 5] = matched.n_fn
+                        row_idx = (sub_idx * len(sessions)) + ses_idx
+                        stats[row_idx, 0] = recall
+                        stats[row_idx, 1] = precision
+                        stats[row_idx, 2] = f1score
+                        stats[row_idx, 3] = n_tp
+                        stats[row_idx, 4] = n_fp
+                        stats[row_idx, 5] = n_fn
 
                 # Export stats table
                 logger.info(f'Saving {stats_file}')

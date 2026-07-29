@@ -301,6 +301,196 @@ def clean_annots(xml_dir, out_dir, rater, keep_evts = None, subs = 'all',
                             annot.remove_event_type(name=ev)
 
 
+
+
+def _as_event_name_list(event_names):
+    if event_names is None:
+        return []
+    if isinstance(event_names, str):
+        return [event_names]
+    return list(event_names)
+
+
+def _pair_sensible_event_windows(start_events, end_events):
+    start_times = sorted(evt['end'] for evt in start_events)
+    end_times = sorted(evt['start'] for evt in end_events)
+
+    windows = []
+    end_idx = 0
+    for start_time in start_times:
+        while end_idx < len(end_times) and end_times[end_idx] <= start_time:
+            end_idx += 1
+
+        if end_idx >= len(end_times):
+            break
+
+        windows.append((start_time, end_times[end_idx]))
+        end_idx += 1
+
+    return windows
+
+
+def _merge_time_windows(windows):
+    if not windows:
+        return []
+
+    windows = sorted(windows, key=itemgetter(0, 1))
+    merged = [list(windows[0])]
+
+    for start, end in windows[1:]:
+        last = merged[-1]
+        if start <= last[1]:
+            last[1] = max(last[1], end)
+        else:
+            merged.append([start, end])
+
+    return [tuple(win) for win in merged]
+
+
+def _event_overlap_ratio(event, windows):
+    duration = event['end'] - event['start']
+    if duration <= 0:
+        for start, end in windows:
+            if start <= event['start'] <= end:
+                return 1.0
+        return 0.0
+
+    overlap = 0.0
+    for start, end in windows:
+        overlap += max(0.0, min(event['end'], end) - max(event['start'], start))
+
+    return min(overlap / duration, 1.0)
+
+
+def mask_events_annots(xml_dir, out_dir, event_name, segs_start, segs_end,
+                       subs='all', sessions='all', rater=None,
+                       min_overlap=0.5, logger=create_logger('Mask events')):
+
+    """
+        Copies annotations files from xml_dir to out_dir and masks one event
+        type to windows defined by paired start/end marker events.
+    """
+
+    if not 0 <= min_overlap <= 1:
+        raise ValueError("'min_overlap' must be between 0 and 1.")
+
+    start_names = _as_event_name_list(segs_start)
+    end_names = _as_event_name_list(segs_end)
+    if not start_names or not end_names:
+        logger.error("Both 'segs_start' and 'segs_end' must be provided.")
+        return
+
+    logger.debug('')
+    logger.debug(f'Time start: {datetime.now()}')
+    logger.debug(f"Masking '{event_name}' in annotations from: {xml_dir}")
+    logger.debug(f"Using segment markers start={start_names}, end={end_names}")
+    logger.debug(f'Saving masked annotations to: {out_dir}')
+    logger.debug(f'Minimum event overlap retained: {min_overlap}')
+    logger.debug('')
+
+    if isinstance(subs, list):
+        subs_list = list(subs)
+    elif subs == 'all':
+        subs_list = [x for x in listdir(xml_dir) if '.' not in x]
+    elif isinstance(subs, str):
+        subs_list = [subs]
+    else:
+        logger.error("'subs' must be a list, a subject id, or 'all'.")
+        return
+
+    subs_list.sort()
+    for sub in subs_list:
+        sub_dir = f'{xml_dir}/{sub}'
+        if not path.exists(sub_dir):
+            logger.warning(f'{sub_dir} does not exist - skipping {sub}.')
+            continue
+
+        if sessions == 'all':
+            sub_sessions = [x for x in listdir(sub_dir) if '.' not in x]
+        elif isinstance(sessions, list):
+            sub_sessions = list(sessions)
+        else:
+            sub_sessions = [sessions]
+
+        sub_sessions.sort()
+        for ses in sub_sessions:
+            xdir = f'{xml_dir}/{sub}/{ses}/'
+            if not path.exists(xdir):
+                logger.warning(f'{xdir} does not exist - skipping {sub}, {ses}.')
+                continue
+
+            xml_files = sorted([
+                x for x in listdir(xdir)
+                if x.endswith('.xml') and not x.startswith('.')
+            ])
+            if len(xml_files) == 0:
+                logger.warning(f'No xml files found for {sub}, {ses} - skipping.')
+                continue
+
+            if not path.exists(out_dir):
+                mkdir(out_dir)
+            if not path.exists(f'{out_dir}/{sub}'):
+                mkdir(f'{out_dir}/{sub}')
+            if not path.exists(f'{out_dir}/{sub}/{ses}'):
+                mkdir(f'{out_dir}/{sub}/{ses}')
+
+            for xml_file in xml_files:
+                backup_file = f'{out_dir}/{sub}/{ses}/{xml_file}'
+                if path.exists(backup_file):
+                    logger.warning(f'{backup_file} already exists - overwriting copied annotations.')
+                if not xdir + xml_file == backup_file:
+                    shutil.copy(xdir + xml_file, backup_file)
+
+                annot = Annotations(backup_file, rater_name=rater)
+
+                start_events = []
+                for name in start_names:
+                    start_events.extend(annot.get_events(name=name))
+
+                end_events = []
+                for name in end_names:
+                    end_events.extend(annot.get_events(name=name))
+
+                windows = _pair_sensible_event_windows(start_events, end_events)
+                ignored_starts = max(0, len(start_events) - len(windows))
+                ignored_ends = max(0, len(end_events) - len(windows))
+                if ignored_starts or ignored_ends:
+                    logger.warning(
+                        f'Ignored unmatched segment markers for {sub}, {ses} in {xml_file}: '
+                        f'{ignored_starts} start, {ignored_ends} end.'
+                    )
+
+                windows = _merge_time_windows(windows)
+                if not windows:
+                    logger.warning(
+                        f'No valid segment windows found for {sub}, {ses} in {xml_file} - '
+                        f"leaving '{event_name}' unchanged."
+                    )
+                    continue
+
+                events = annot.get_events(name=event_name)
+                if len(events) == 0:
+                    logger.warning(f"No '{event_name}' events found for {sub}, {ses} in {xml_file}.")
+                    continue
+
+                kept_events = [
+                    evt for evt in events
+                    if _event_overlap_ratio(evt, windows) >= min_overlap
+                ]
+
+                annot.remove_event_type(name=event_name)
+                if kept_events:
+                    grapho = graphoelement.Graphoelement()
+                    grapho.events = kept_events
+                    grapho.to_annot(annot, event_name)
+
+                logger.info(
+                    f"Masked '{event_name}' for {sub}, {ses} in {xml_file}: "
+                    f'kept {len(kept_events)}/{len(events)} events across {len(windows)} windows.'
+                )
+
+    return
+
 def merge_epochs(epochs):
     
     ''' Function to merge epochs of the same stage together into larger segments,

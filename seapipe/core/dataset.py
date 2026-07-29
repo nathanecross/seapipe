@@ -110,6 +110,9 @@ class pipeline:
                             
     extract_channels -> Extracts and lists which channels exist in the dataset. 
 
+    mask_events -> Copies annotations into a new derivatives directory and
+                        masks one event type to windows defined by marker events.
+
     load_stages -> Extracts stages from the BIDS formatted dataset, in which
                         staging has been listed in a file *acq-PSGScoring_events.tsv
     
@@ -260,7 +263,7 @@ class pipeline:
         return   
 
     def make_bids(self, subs = 'all', origin = 'SCN', filetype = '.edf',
-                  outfile = True):
+                  indir = 'sourcedata', outfile = True):
         
         from seapipe.utils.audit import make_bids
         
@@ -269,7 +272,7 @@ class pipeline:
         logger.info('')
         logger.debug('Formatting dataset into BIDS.')
         
-        make_bids(self.datapath, subs, origin, filetype)
+        make_bids(self.rootpath, subs, origin, filetype, indir, logger)
         
     def extract_channels(self, exclude = None):
         
@@ -277,6 +280,47 @@ class pipeline:
         
         extract_channels(self.datapath, exclude)
         
+    def mask_events(self, event_name, segs_start, segs_end,
+                    xml_dir = None, out_dir = None,
+                    subs = 'all', sessions = 'all',
+                    rater = None, min_overlap = 0.5,
+                    outfile = True):
+
+        """Copy annotations and mask one event type to marker-defined windows."""
+
+        from seapipe.utils.misc import mask_events_annots
+        from seapipe.utils.load import select_input_dirs
+
+        logger = setup_logging(self.log_dir, 'Mask events', outfile)
+        logger.info('')
+
+        if not event_name or not segs_start or not segs_end:
+            logger.error("'event_name', 'segs_start', and 'segs_end' are all required.")
+            return
+
+        xml_dir = select_input_dirs(self.outpath, xml_dir, event_name)
+        logger.debug(f'Input annotations being read from: {xml_dir}')
+        if not path.exists(xml_dir):
+            logger.info('')
+            logger.critical(f"{xml_dir} doesn't exist. Event detection has not been "
+                            "run or an incorrect event type has been selected.")
+            logger.info('Check documentation for how to run a pipeline:')
+            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
+            logger.info('-' * 10)
+            return
+
+        if not out_dir:
+            out_dir = f'{self.outpath}/masked'
+        if not path.exists(out_dir):
+            mkdir(out_dir)
+        logger.debug(f'Output annotations being saved to: {out_dir}')
+
+        mask_events_annots(xml_dir, out_dir, event_name, segs_start, segs_end,
+                           subs = subs, sessions = sessions, rater = rater,
+                           min_overlap = min_overlap, logger = logger)
+
+        return
+
     def QC_channels(self, subs = 'all', sessions = 'all', filetype = '.edf',
                     filt = None, chantype = None, 
                     outfile=True):
