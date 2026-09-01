@@ -225,7 +225,7 @@ class seasnakes:
                     # h. Read data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(chanset[ch])}")
                     try:
-                        segments = fetch(dset, annot, cat=cat, chan_full = [ch], 
+                        segments = fetch(dset, annot, cat=cat, 
                                          stage=self.stage, 
                                          cycle=cycle, reject_epoch=True, 
                                          reject_artf=self.reject)

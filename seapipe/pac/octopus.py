@@ -424,7 +424,7 @@ class octopus:
                     # 5.a. Fetch data
                     logger.debug(f"Reading EEG data for {sub}, {ses}, {str(ch)}:{'-'.join(logchan)}")
                     try:
-                        segments = fetch(dset, annot, cat = cat, chan_full = [chan_full],
+                        segments = fetch(dset, annot, cat = cat,
                                          evt_type = evt_type, stage = self.stage, 
                                          cycle = cycle, reject_artf=self.reject_artf,
                                          buffer = event_opts['buffer'])

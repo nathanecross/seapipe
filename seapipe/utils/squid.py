@@ -54,7 +54,7 @@ class SQUID:
                  sessions = None, logger = None):
         self.bids_root = Path(bids_root)
         
-        self.datapath = Path(f'{self.bids_root}/sourcedata/')
+        self.datapath = Path(f'{self.bids_root}/rawdata/')
         if not path.exists(self.datapath):
             self.datapath = Path(f'{self.bids_root}/DATA/')
 

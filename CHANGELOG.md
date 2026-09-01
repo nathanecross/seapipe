@@ -51,3 +51,4 @@ Beta Version
 0.7.9 Cleaned up the code a lot to improve quality
 0.8.0 Fixed broken imports from previous build
 0.8.1 Added helper functions to filter events in Annotations file, minor bug fixes in audit.py
+0.8.2 Fixed bug in event detection and PAC where Artefacts were not being properly excluded

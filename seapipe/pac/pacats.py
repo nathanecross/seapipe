@@ -353,7 +353,7 @@ class pacats:
                         return
     
                     # 5.a. Fetch data
-                    segments = fetch(dset, annot, cat = cat, chan_full = [ch],
+                    segments = fetch(dset, annot, cat = cat,
                                      stage = self.stage, cycle = cycle)
 
                     if len(segments)==0:
