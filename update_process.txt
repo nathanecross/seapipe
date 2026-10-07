@@ -1,0 +1,7 @@
+To build a new version of a package
+
+1. Delete old build in <root>/dist/
+2. Update CHANGELOG.md
+3. Update <root>/<package>/version.py
+4. Run python -m build [from inside <root>]
+5. Run python3 -m twine upload dist/* [enter in pip token]
