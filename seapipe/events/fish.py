@@ -1275,6 +1275,13 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
         out_filename = f'{ses}_{chan}_{stagename}{evt}_{pac_outname}.csv'
         for s, sub in enumerate(subs): 
             logger.debug(f'Extracting from {sub}, {ses}')
+
+            if not path.exists(f'{xml_dir}/{sub}/{ses}'):
+                logger.warning(f"{xml_dir}/{sub}/{ses} not found. Has pac been "
+                               f"run for {sub}, {ses}?")
+                df.loc[sub] = full(len(variables), nan)
+                flag += 1
+                continue
             
             phase_bw, amp_bw = extract_phase_amp_bw(rootpath, sub, ses, 
                                                            chan, stage, adap_bw,
@@ -1284,8 +1291,9 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                            frequency_amplitude,
                                                            tracking, logger)
             
-            subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
-            data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{subject_pac_name}_parameters.csv' 
+            data_file = resolve_pac_data_file(
+                xml_dir, sub, ses, chan, [stagename], evt_name, pac_name_template,
+                phase_bw, amp_bw, adap_bands_phase, adap_bands_amplitude, logger)
             df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
             flag += df.loc[sub].isna().any()
         df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1300,6 +1308,13 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                 out_filename = f'{ses}_{chan}_{st}_{cycle}{evt}_{pac_outname}.csv'
                 for s, sub in enumerate(subs): 
                     logger.debug(f'Extracting from {sub}, {ses}')
+
+                    if not path.exists(f'{xml_dir}/{sub}/{ses}'):
+                        logger.warning(f"{xml_dir}/{sub}/{ses} not found. Has pac "
+                                       f"been run for {sub}, {ses}?")
+                        df.loc[sub] = full(len(variables), nan)
+                        flag += 1
+                        continue
                     
                     phase_bw, amp_bw = extract_phase_amp_bw(rootpath, sub, ses, 
                                                                    chan, stage, adap_bw,
@@ -1309,8 +1324,9 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                    frequency_amplitude,
                                                                    tracking, logger)
                     
-                    subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
-                    data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{cycle}_{subject_pac_name}_parameters.csv'
+                    data_file = resolve_pac_data_file(
+                        xml_dir, sub, ses, chan, [st, cycle], evt_name, pac_name_template,
+                        phase_bw, amp_bw, adap_bands_phase, adap_bands_amplitude, logger)
                     df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                     flag += df.loc[sub].isna().any()
                 df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1325,6 +1341,13 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
             out_filename = f'{ses}_{chan}_{stagename}_{cycle}{evt}_{pac_outname}.csv'
             for s, sub in enumerate(subs): 
                 logger.debug(f'Extracting from {sub}, {ses}')
+
+                if not path.exists(f'{xml_dir}/{sub}/{ses}'):
+                    logger.warning(f"{xml_dir}/{sub}/{ses} not found. Has pac been "
+                                   f"run for {sub}, {ses}?")
+                    df.loc[sub] = full(len(variables), nan)
+                    flag += 1
+                    continue
                 
                 phase_bw, amp_bw = extract_phase_amp_bw(rootpath, sub, ses, 
                                                                chan, stage, adap_bw,
@@ -1334,8 +1357,9 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                frequency_amplitude,
                                                                tracking, logger)
                 
-                subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
-                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{cycle}_{subject_pac_name}_parameters.csv'
+                data_file = resolve_pac_data_file(
+                    xml_dir, sub, ses, chan, [stagename, cycle], evt_name, pac_name_template,
+                    phase_bw, amp_bw, adap_bands_phase, adap_bands_amplitude, logger)
                 df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                 flag += df.loc[sub].isna().any()
             df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1348,6 +1372,13 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
             out_filename = f'{ses}_{chan}_{st}_{pac_outname}.csv'
             for s, sub in enumerate(subs): 
                 logger.debug(f'Extracting from {sub}, {ses}')
+
+                if not path.exists(f'{xml_dir}/{sub}/{ses}'):
+                    logger.warning(f"{xml_dir}/{sub}/{ses} not found. Has pac been "
+                                   f"run for {sub}, {ses}?")
+                    df.loc[sub] = full(len(variables), nan)
+                    flag += 1
+                    continue
                 
                 phase_bw, amp_bw = extract_phase_amp_bw(rootpath, sub, ses, 
                                                                chan, stage, adap_bw,
@@ -1357,15 +1388,49 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                frequency_amplitude,
                                                                tracking, logger)
                 
-                subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
-                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{subject_pac_name}_parameters.csv'
+                data_file = resolve_pac_data_file(
+                    xml_dir, sub, ses, chan, [st], evt_name, pac_name_template,
+                    phase_bw, amp_bw, adap_bands_phase, adap_bands_amplitude, logger)
                 df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                 flag += df.loc[sub].isna().any()
             df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
 
     return flag
  
-    
+
+def resolve_pac_data_file(xml_dir, sub, ses, chan, labels, evt_name,
+                          pac_name_template, phase_bw, amp_bw,
+                          adap_bands_phase, adap_bands_amplitude, logger):
+
+    subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
+    stem = f'{sub}_{ses}_{chan}_{"_".join(labels)}'
+    data_file = f'{xml_dir}/{sub}/{ses}/{stem}_{subject_pac_name}_parameters.csv'
+
+    if path.exists(data_file):
+        return data_file
+
+    if adap_bands_phase == 'Fixed' and adap_bands_amplitude == 'Fixed':
+        return data_file
+
+    phase_label = 'fixed' if adap_bands_phase == 'Fixed' else 'adap'
+    amp_label = 'fixed' if adap_bands_amplitude == 'Fixed' else 'adap'
+    phase_pattern = phase_bw if adap_bands_phase == 'Fixed' else 'pha-*Hz'
+    amp_pattern = amp_bw if adap_bands_amplitude == 'Fixed' else 'amp-*Hz'
+    evt = f'{evt_name}_' if evt_name else ''
+    pattern = (f'{stem}_{evt}{phase_pattern}-{phase_label}_'
+               f'{amp_pattern}-{amp_label}_pac_parameters.csv')
+    matches = sorted(Path(xml_dir, sub, ses).glob(pattern))
+
+    if len(matches) == 1:
+        logger.debug(f'Using discovered PAC file: {matches[0]}')
+        return str(matches[0])
+    if len(matches) > 1:
+        logger.warning(f">1 PAC files found for {sub}, {ses}, {chan}, "
+                       f"{'_'.join(labels)} matching {pattern}.")
+
+    return data_file
+ 
+   
 def extract_phase_amp_bw(rootpath, sub, ses, ch, stage, adap_bw,
                             adap_bands_phase, frequency_phase, 
                             adap_bands_amplitude, frequency_amplitude,
