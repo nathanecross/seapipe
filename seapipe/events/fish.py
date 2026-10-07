@@ -1264,6 +1264,7 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
         mkdir(f'{out_dir}/{pac_outname}_{model}')
 
     evt = f'_{evt_name}' if evt_name else ""
+    pac_name_template = pac_name
     
     # ---- Extract data based on cycle and stage setup ----
     if model == 'whole_night':
@@ -1283,8 +1284,8 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                            frequency_amplitude,
                                                            tracking, logger)
             
-            pac_name = pac_name.replace("**", phase_bw).replace("##", amp_bw)
-            data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{pac_name}_parameters.csv' 
+            subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
+            data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{subject_pac_name}_parameters.csv' 
             df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
             flag += df.loc[sub].isna().any()
         df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1308,8 +1309,8 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                    frequency_amplitude,
                                                                    tracking, logger)
                     
-                    pac_name = pac_name.replace("**", phase_bw).replace("##", amp_bw)
-                    data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{cycle}_{pac_name}_parameters.csv'
+                    subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
+                    data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{cycle}_{subject_pac_name}_parameters.csv'
                     df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                     flag += df.loc[sub].isna().any()
                 df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1333,8 +1334,8 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                frequency_amplitude,
                                                                tracking, logger)
                 
-                pac_name = pac_name.replace("**", phase_bw).replace("##", amp_bw)
-                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{cycle}_{pac_name}_parameters.csv'
+                subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
+                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{stagename}_{cycle}_{subject_pac_name}_parameters.csv'
                 df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                 flag += df.loc[sub].isna().any()
             df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")
@@ -1356,8 +1357,8 @@ def extract_pac_summary(subs, ses, model, evt_name, pac_name, pac_outname,
                                                                frequency_amplitude,
                                                                tracking, logger)
                 
-                pac_name = pac_name.replace("**", phase_bw).replace("##", amp_bw)
-                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{pac_name}_parameters.csv'
+                subject_pac_name = pac_name_template.replace("**", phase_bw).replace("##", amp_bw)
+                data_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_{chan}_{st}_{subject_pac_name}_parameters.csv'
                 df.loc[sub] = extract_pac_data(data_file, model, variables, logger)
                 flag += df.loc[sub].isna().any()
             df.to_csv(f"{out_dir}/{pac_outname}_{model}/{out_filename}")

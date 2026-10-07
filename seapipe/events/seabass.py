@@ -187,12 +187,12 @@ class seabass:
                 try:
                     chans = eeg_chan + ref_chan + eog_chan + emg_chan
                     chans = [x for x in chans if x]
-                    raw = mne.io.read_raw_edf(rdir + edf_file, 
+                    raw = mne.io.read_raw_edf(edf_file, 
                                               include = chans,
                                               preload=True, verbose = False)
                 except Exception as e:
                     if 'latin' in str(e):
-                        raw = mne.io.read_raw_edf(rdir + edf_file, 
+                        raw = mne.io.read_raw_edf(edf_file, 
                                                   include = chans,
                                                   preload=True, verbose = False,
                                                   encoding='latin1')

@@ -2028,7 +2028,7 @@ class pipeline:
         # Set up logging
         today = date.today().strftime("%Y%m%d")
         now = datetime.now().strftime("%H:%M:%S")
-        logfile = f'{self.log_dir}/event_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
+        logfile = f'/event_dataset_{evt_name}_subs-{subs}_ses-{sessions}_{today}_{now}_log.txt'
         logger = setup_logging(self.log_dir, 'Export event dataset', logfile)
         logger.info('')
         
@@ -2225,7 +2225,9 @@ class pipeline:
         from seapipe.utils.load import select_input_dirs
         
         # Set up logging
-        logger = setup_logging(self.log_dir, 'PAC dataset {event_name}', outfile)
+        if evt_name is not None:
+            event = "(event based)"
+        logger = setup_logging(self.log_dir, f'PAC dataset {event}', outfile)
         logger.info('')
         
         # Set input/output directories

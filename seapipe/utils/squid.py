@@ -279,7 +279,9 @@ def get_candidate_eeg(dset, filt=None,logger=create_logger('Get Candidate EEG'))
                                                                 'Pz', 'PZ',
                                                                 'P3', 'P4',
                                                                 'Fpz', 'Oz',
-                                                                'O1', 'O2'])]
+                                                                'O1', 'O2',
+                                                                'AF7', 'AF8',
+                                                                'TP9', 'TP10'])]
 
         if len(eeg) == 0:
             eeg = [x for x in h["chan_name"] if 'E' in x and not 
