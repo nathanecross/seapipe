@@ -48,3 +48,7 @@ seapipe/utils/process.py
 seapipe/utils/spectrogram.py
 seapipe/utils/splitter.py
 seapipe/utils/squid.py
+tests/test_laplacian.py
+tests/test_polarity.py
+tests/test_sleep_edfx.py
+tests/test_temporal_filters.py

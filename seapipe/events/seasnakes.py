@@ -206,11 +206,11 @@ class seasnakes:
                     # g. Check if channel needs to be inverted for detection
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
-                        if not inversion:
+                        if inversion is None:
                             logger.debug(f'Inferring channel polarity {ch} for {sub}, {ses}')
                             inversion = infer_polarity(dset, annot, ch, chanset[ch], 
                                                        (1,1,1,1), None, self.stage, 
-                                                       cycle, logger)
+                                                       cycle, logger, reject_artf=self.reject)
                     elif type(invert) == bool:
                         inversion = invert
                     else:

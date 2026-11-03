@@ -447,6 +447,158 @@ def _copy_mass_annotations(sub_id, sub, ses, annot_dir, stage_dir, logger):
                    path.join(stage_dir, sub, ses, afile), logger)
 
 
+def _sleep_edfx_copy(src, dst, logger):
+    """Publish complete PSG copies atomically; verify files reused on reruns."""
+    from hashlib import sha256
+    from os import replace, unlink
+    from tempfile import NamedTemporaryFile
+
+    def checksum(filename):
+        digest = sha256()
+        with open(filename, 'rb') as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(block)
+        return digest.digest()
+
+    if path.exists(dst):
+        if path.getsize(src) != path.getsize(dst) or checksum(src) != checksum(dst):
+            raise FileExistsError(
+                f'Existing PSG differs from source (possibly an interrupted copy): {dst}. '
+                'Move or remove that destination file before retrying; it was not overwritten.')
+        logger.info(f'Verified existing PSG, not copying: {dst}')
+        return False
+    _ensure_dir(path.dirname(dst))
+    with NamedTemporaryFile(dir=path.dirname(dst), prefix='.sleep-edfx-',
+                            suffix='.tmp', delete=False) as stream:
+        temporary = stream.name
+    try:
+        copy2(src, temporary)
+        replace(temporary, dst)
+    finally:
+        if path.exists(temporary):
+            unlink(temporary)
+    return True
+
+
+def _sleep_edfx_write(filename, value, logger):
+    """Create missing sidecars without replacing existing user metadata."""
+    if path.exists(filename):
+        logger.warning(f"Destination already exists, not overwriting: {filename}")
+        return
+    from os import replace, unlink
+    from tempfile import NamedTemporaryFile
+    with NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.dirname(filename),
+                            prefix='.sleep-edfx-', suffix='.tmp', delete=False) as stream:
+        temporary = stream.name
+        try:
+            if isinstance(value, DataFrame):
+                value.to_csv(stream, sep='\t', index=False, na_rep='n/a')
+            else:
+                dump(value, stream, indent=2, allow_nan=False)
+                stream.write('\n')
+            stream.close()
+            replace(temporary, filename)
+        finally:
+            if path.exists(temporary):
+                unlink(temporary)
+
+
+def _sleep_edfx_metadata(psg, hypnogram):
+    """Read headers and EDF+ TAL annotations only; never load PSG samples."""
+    from pyedflib import EdfReader
+    with EdfReader(psg) as reader:
+        headers = reader.getSignalHeaders()
+        start = reader.getStartdatetime()
+        duration = float(reader.file_duration)
+    rows = []
+    for header in headers:
+        label = header['label']
+        kind = label.split()[0].upper()
+        kind = {'RESP': 'RESP', 'TEMP': 'TEMP', 'EVENT': 'TRIG'}.get(kind, kind)
+        if kind not in ('EEG', 'EOG', 'EMG', 'RESP', 'TEMP', 'TRIG'):
+            kind = 'MISC'
+        rows.append({'name': label, 'type': kind,
+                     'units': header['dimension'].strip() or 'n/a',
+                     'sampling_frequency': float(header['sample_frequency']),
+                     'reference': label.rsplit('-', 1)[-1] if kind == 'EEG' and '-' in label else 'n/a',
+                     'description': header['prefilter'].strip() or 'n/a'})
+    channels = DataFrame(rows)
+    metadata = {
+        'TaskName': 'sleep', 'SamplingFrequency': max(
+            row['sampling_frequency'] for row in rows if row['type'] == 'EEG'),
+        'EEGReference': 'Bipolar: Fpz-Cz and Pz-Oz',
+        'PowerLineFrequency': 50, 'SoftwareFilters': 'n/a',
+        'RecordingType': 'continuous', 'RecordingDuration': duration,
+        'EEGChannelCount': sum(row['type'] == 'EEG' for row in rows),
+        'EOGChannelCount': sum(row['type'] == 'EOG' for row in rows),
+        'EMGChannelCount': sum(row['type'] == 'EMG' for row in rows),
+        'MiscChannelCount': sum(row['type'] in ('RESP', 'TEMP', 'MISC') for row in rows),
+        'TriggerChannelCount': sum(row['type'] == 'TRIG' for row in rows)}
+    with EdfReader(hypnogram) as reader:
+        offset = (reader.getStartdatetime() - start).total_seconds()
+        onsets, durations, labels = reader.readAnnotations()
+    events = DataFrame({'onset': onsets + offset, 'duration': durations,
+                        'trial_type': labels}).sort_values('onset', kind='stable')
+    if (events['duration'] < 0).any():
+        raise ValueError(f'Undefined or negative annotation duration in {hypnogram}')
+    event_metadata = {
+        'onset': {'Description': 'Annotation onset relative to first PSG sample', 'Units': 's'},
+        'duration': {'Description': 'Original scored interval duration', 'Units': 's'},
+        'trial_type': {
+            'Description': 'Original Rechtschaffen and Kales (1968) annotation; intervals are not resampled or cropped to PSG length',
+            'Levels': {'Sleep stage W': 'Wake', 'Sleep stage 1': 'Stage 1',
+                       'Sleep stage 2': 'Stage 2', 'Sleep stage 3': 'Stage 3',
+                       'Sleep stage 4': 'Stage 4', 'Sleep stage R': 'REM',
+                       'Movement time': 'Movement time', 'Sleep stage ?': 'Unscored'}}}
+    return channels, metadata, events, event_metadata
+
+
+def _make_bids_sleep_edfx(in_dir, out_dir, subs, logger):
+    """Discover both Sleep-EDF cohorts recursively, paired by subject and night."""
+    if not path.isdir(in_dir):
+        raise FileNotFoundError(in_dir)
+    recordings, annotations = {}, {}
+    for directory, dirs, files in walk(in_dir):
+        dirs[:] = sorted(d for d in dirs if not d.startswith('.') and
+                         path.realpath(path.join(directory, d)) != path.realpath(out_dir))
+        for filename in sorted(files):
+            match = re.fullmatch(r'(SC4\d{2}|ST7\d{2})([12])[A-Za-z0-9]{2}-(PSG|Hypnogram)\.edf',
+                                 filename, flags=re.IGNORECASE)
+            if match is None:
+                continue
+            subject, night, kind = match.groups()
+            key = (subject.upper(), night)
+            collection = recordings if kind.lower() == 'psg' else annotations
+            collection.setdefault(key, []).append(path.join(directory, filename))
+    if not recordings:
+        raise ValueError(f'No Sleep-EDF PSG recordings found under {in_dir}')
+    selected = None if subs == 'all' else {
+        _prefix(s, 'sub-') for s in ([subs] if isinstance(subs, str) else subs)}
+    copied = skipped = 0
+    for (subject, night), sources in sorted(recordings.items()):
+        sub, ses = f'sub-{subject}', f'ses-X{night}'
+        if selected is not None and sub not in selected:
+            continue
+        hypnograms = annotations.get((subject, night), [])
+        if len(sources) != 1 or len(hypnograms) != 1:
+            raise ValueError(f'{subject}, night {night}: expected one PSG and one '
+                             f'hypnogram; found {len(sources)} and {len(hypnograms)}')
+        channels, metadata, events, event_metadata = _sleep_edfx_metadata(sources[0], hypnograms[0])
+        eeg_dir = path.join(out_dir, sub, ses, 'eeg')
+        stem = path.join(eeg_dir, f'{sub}_{ses}_task-sleep_acq-PSG')
+        if _sleep_edfx_copy(sources[0], stem + '_eeg.edf', logger):
+            copied += 1
+        else:
+            skipped += 1
+        for suffix, value in [('_eeg.json', metadata), ('_channels.tsv', channels),
+                              ('_events.tsv', events), ('_events.json', event_metadata)]:
+            _sleep_edfx_write(stem + suffix, value, logger)
+    _sleep_edfx_write(path.join(out_dir, 'dataset_description.json'), {
+        'Name': 'Sleep-EDF Expanded', 'BIDSVersion': '1.11.2', 'DatasetType': 'raw',
+        'ReferencesAndLinks': ['https://physionet.org/content/sleep-edfx/1.0.0/']}, logger)
+    return copied, skipped
+
+
 def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
               indir = 'sourcedata', logger = create_logger("Make bids")):
     """
@@ -454,7 +606,19 @@ def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
 
     Files are copied from ``<root_dir>/<indir>`` and written under
     ``<root_dir>/rawdata``. Supported origin values are ``SCN``, ``Woolcock``,
-    ``MASS``, and ``SleepProfiler``.
+    ``MASS``, ``SleepProfiler``, and ``sleep-cassette`` (both Sleep-EDF cohorts).
+
+    For ``sleep-cassette``, ``indir`` may point to either cohort or their common
+    parent (absolute paths supported). Discovery is recursive; RECORDS is not
+    needed. Subjects retain cohort IDs (sub-SC400, sub-ST701); nights become
+    ses-X1/ses-X2. ``subs`` accepts these BIDS subject IDs. Existing files are
+    preserved, allowing separate cohort runs into the same root. Existing PSGs
+    must match the source checksum; mismatches raise FileExistsError. New PSGs
+    and sidecars are written via temporary files and atomic renames. PSG bytes and
+    per-channel sample rates are preserved. EDF+ annotations become onset,
+    duration, trial_type events, aligned using the EDF start datetimes. Original
+    R&K labels and full intervals (including any beyond the PSG) are retained.
+    No 30-second expansion or AASM stage remapping is applied.
     """
     root_dir = path.normpath(root_dir)
     if path.basename(root_dir) in ['rawdata', 'DATA']:
@@ -467,7 +631,9 @@ def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
     origin_key = origin.lower()
     _ensure_dir(out_dir)
 
-    if origin_key in ['scn', 'woolcock']:
+    if origin_key == 'sleep-cassette':
+        copied, skipped = _make_bids_sleep_edfx(in_dir, out_dir, subs, logger)
+    elif origin_key in ['scn', 'woolcock']:
         copied, skipped = _copy_flat_sessions(in_dir, out_dir, derivs_dir, subs,
                                               filetype, logger, origin_key)
     elif origin_key in ['sleepprofiler', 'sleepprofileroriginal']:
@@ -484,7 +650,7 @@ def make_bids(root_dir, subs = 'all', origin = 'SCN', filetype = '.edf',
         copied, skipped = result
     else:
         logger.critical(f"Unknown origin '{origin}'. Expected one of: "
-                        "SCN, Woolcock, MASS, SleepProfiler.")
+                        "SCN, Woolcock, MASS, SleepProfiler, sleep-cassette.")
         return
 
     logger.info(f"{origin} BIDS conversion complete: copied {copied} file(s), "

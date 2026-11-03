@@ -237,11 +237,9 @@ class pipeline:
                 tracking['ses'][sub] = ['-']
             
         # Dataframe
-        df = DataFrame(data=None, dtype=object)
-        df.index = subs
-        df['ses'] = '-'
-        for x in df.index:
-            df.loc[x,'ses'] = tracking['ses'][x]
+        # Session lists need object dtype; string inference rejects sequences.
+        df = DataFrame({'ses': [tracking['ses'][sub] for sub in subs]},
+                       index=subs, dtype=object)
         
         # Loop through other steps
         if step: 
@@ -2227,6 +2225,8 @@ class pipeline:
         # Set up logging
         if evt_name is not None:
             event = "(event based)"
+        else:
+            event = "(continuous)"
         logger = setup_logging(self.log_dir, f'PAC dataset {event}', outfile)
         logger.info('')
         

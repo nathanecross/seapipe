@@ -171,14 +171,63 @@ def select_output_dirs(outpath, out_dir, evt_name=None,
         
     return out_dir
 
+def _stage_interval_epochs(stagedf, epochs, recording_end, stage_key):
+    """Expand R&K intervals onto Wonambi epochs without inventing stage labels.
+
+    Only fully covered epochs with a single mapped stage are assigned that
+    stage. Gaps or mixed stages become Undefined. Intervals outside the PSG
+    are ignored; a final partial epoch uses only its recorded portion.
+    """
+    from math import isfinite
+
+    intervals = []
+    for row in stagedf.sort_values('onset', kind='stable').itertuples(index=False):
+        start, duration = float(row.onset), float(row.duration)
+        if not isfinite(start) or not isfinite(duration) or duration < 0:
+            raise ValueError('Stage interval onsets/durations must be finite, with nonnegative durations')
+        if duration == 0:
+            continue
+        end = start + duration
+        if intervals and start < intervals[-1][1] - 1e-6:
+            raise ValueError('Overlapping sleep-stage intervals cannot be expanded unambiguously')
+        intervals.append((start, end, stage_key.get(row.trial_type, 'Undefined')))
+    result = []
+    uncertain = 0
+    first = 0
+    for epoch in epochs:
+        start, end = epoch['start'], min(epoch['end'], recording_end)
+        while first < len(intervals) and intervals[first][1] <= start:
+            first += 1
+        cursor, labels = start, set()
+        for left, right, label in intervals[first:]:
+            if left >= end:
+                break
+            if left > cursor + 1e-6:
+                break
+            labels.add(label)
+            cursor = max(cursor, min(right, end))
+            if cursor >= end - 1e-6:
+                break
+        if end > start and cursor >= end - 1e-6 and len(labels) == 1:
+            stage = labels.pop()
+        else:
+            stage = 'Undefined'
+            uncertain += 1
+        result.append((start, stage))
+    return result, uncertain
+
+
 def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.edf',
                 stage_key = None, acq = 'PSG', 
                 logger = create_logger('Load stages')):
     
     '''
         Extracts stages from the BIDS formatted dataset, in which
-        staging has been listed in a file *acq-*scoring_events.tsv, and
-        saves the information in an annotations file
+        staging is stored in legacy *Scoring_events.tsv (numeric staging)
+        or BIDS *_events.tsv (R&K trial_type intervals). Saves Wonambi XML.
+        R&K stages 3 and 4 map to NREM3 in XML; original BIDS labels are kept.
+        Movement maps to Movement, unscored to Undefined. Interval events fill
+        all covered epochs; gaps or mixed-stage epochs become Undefined.
         
         Parameters
         ----------
@@ -223,7 +272,15 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                      2: 'NREM2',
                      3: 'NREM3',
                      4: 'REM',
-                     9: 'Undefined'}
+                     9: 'Undefined',
+                     'Sleep stage W': 'Wake',
+                     'Sleep stage 1': 'NREM1',
+                     'Sleep stage 2': 'NREM2',
+                     'Sleep stage 3': 'NREM3',
+                     'Sleep stage 4': 'NREM3',
+                     'Sleep stage R': 'REM',
+                     'Movement time': 'Movement',
+                     'Sleep stage ?': 'Undefined'}
     
     # Define subs    
     if subs == 'all':
@@ -262,10 +319,18 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
                 
             # Load BIDS stage event file
             datadir = f'{in_dir}/{sub}/{ses}/eeg'
-            stagefile = [x for x in listdir(datadir) if f'acq-{acq}Scoring_events.tsv' in x
-                         if not x.startswith('.')][0]
-            stagedf = read_csv(f'{datadir}/{stagefile}', sep ='\t' ) 
-            
+            files = [x for x in listdir(datadir) if not x.startswith('.')]
+            stagefiles = sorted(x for x in files if f'acq-{acq}Scoring_events.tsv' in x)
+            if not stagefiles:
+                stagefiles = sorted(x for x in files if x.endswith(f'_acq-{acq}_events.tsv'))
+            if len(stagefiles) != 1:
+                raise ValueError(f'Expected one staging events TSV in {datadir}; found {len(stagefiles)}')
+            stagedf = read_csv(f'{datadir}/{stagefiles[0]}', sep='\t')
+            interval_events = 'staging' not in stagedf.columns and 'trial_type' in stagedf.columns
+            required = {'onset', 'duration', 'trial_type'} if interval_events else {'onset', 'staging'}
+            if not required.issubset(stagedf.columns):
+                raise ValueError(f'Staging TSV must contain {sorted(required)}: {stagefiles[0]}')
+
             # Create new annotations for staging
             xml_file = f'{xml_dir}/{sub}/{ses}/{sub}_{ses}_staging.xml'
             if not path.exists(xml_file):
@@ -282,19 +347,29 @@ def load_stages(in_dir, xml_dir, subs = 'all', sessions = 'all', filetype = '.ed
             # Save staging to annotations
             annot.add_rater('manual')
             stage_flag = 0
-            for i in range(0, stagedf.shape[0]):
-                epoch_beg = stagedf.loc[i, 'onset']
-                try:
-                    one_stage = stage_key[stagedf.loc[i, 'staging']]
-                except Exception:
-                    one_stage = 'Undefined'
-                try:
-                    annot.set_stage_for_epoch(epoch_beg, one_stage,
-                                         attr='stage',
-                                         save=False)
-                except Exception as e:
-                    logger.warning(e)
-                    stage_flag += 1
+            if interval_events:
+                epoch_stages, uncertain = _stage_interval_epochs(
+                    stagedf, annot.get_epochs(), annot.last_second, stage_key)
+                for epoch_beg, one_stage in epoch_stages:
+                    annot.set_stage_for_epoch(epoch_beg, one_stage, attr='stage', save=False)
+                if uncertain:
+                    logger.warning(f'{sub}, {ses}: {uncertain} incomplete or mixed-stage '
+                                   'epochs were set to Undefined.')
+                    flag += 1
+            else:
+                for i in range(0, stagedf.shape[0]):
+                    epoch_beg = stagedf.loc[i, 'onset']
+                    try:
+                        one_stage = stage_key[stagedf.loc[i, 'staging']]
+                    except Exception:
+                        one_stage = 'Undefined'
+                    try:
+                        annot.set_stage_for_epoch(epoch_beg, one_stage,
+                                             attr='stage',
+                                             save=False)
+                    except Exception as e:
+                        logger.warning(e)
+                        stage_flag += 1
             if stage_flag > 0:
                 logger.warning("Some epochs in staging file were outside the length "
                                "of the edf. It looks as though the staging file is "
@@ -1253,54 +1328,34 @@ def load_adap_bands(tracking, sub, ses, ch, stage, band_limits, adap_bw, logger)
     
 
 def read_inversion(sub, ses, invert, chan, logger):
-    
-    if type(invert) == type(DataFrame()):
-        # Search participant
-        chans = invert[invert['sub']==sub]
-        if len(chans.columns) == 0:
-            logger.warning(f"Participant not found in column 'sub' in tracking "
-                           f"file for {sub}, {ses}.")
-            return None
-        # Search session
-        chans = chans[chans['ses']==ses]
-        if len(chans.columns) == 0:
-            logger.warning(f"Session not found in column 'ses' in tracking file "
-                           f"for {sub}, {ses}.")
-            return None
-        
-        # Search channel
-        inversion = chans.filter(regex='invert')
-        inversion = inversion.dropna(axis=1, how='all')
-        chans = search_chans(chans)
-        chans = chans.dropna(axis=1, how='all')
-        
-        if len(inversion.columns) == 0:
-            logger.warning(f"No inversion info found in tracking file for "
-                           f"{sub}, {ses}.")
-            return None
+    """Return a Python bool, or None when tracking information is unavailable."""
+    if not isinstance(invert, DataFrame):
+        return None
+    rows = invert[(invert['sub'] == sub) & (invert['ses'] == ses)]
+    if len(rows) != 1:
+        logger.warning(f'Expected one tracking row for {sub}, {ses}; found {len(rows)}.')
+        return None
+    inversion = rows.filter(regex='invert').dropna(axis=1, how='all')
+    channels = search_chans(rows).dropna(axis=1, how='all')
+    values = [part.strip() for value in inversion.to_numpy()[0]
+              for part in str(value).split(',')]
+    names = [part.strip() for value in channels.to_numpy()[0]
+             for part in str(value).split(',')]
+    if len(values) == 1:
+        value = values[0]
+    elif len(values) == len(names) and chan in names:
+        value = values[names.index(chan)]
+    else:
+        logger.warning(f'Missing or mismatched inversion information for {sub}, {ses}, {chan}.')
+        return None
+    value = value.lower()
+    if value in ('true', '1', '1.0', 'yes', 'y'):
+        return True
+    if value in ('false', '0', '0.0', 'no', 'n'):
+        return False
+    logger.warning(f'Invalid inversion value {value!r} for {sub}, {ses}, {chan}; inferring polarity.')
+    return None
 
-        chans = chans.to_numpy()[0]
-        chans = chans.astype(str)
-        chans = char.split(chans, sep=', ')
-        chans = [x for y in chans for x in y]
-        
-        inversion = inversion.to_numpy()[0]
-        inversion = inversion.astype(str)
-        inversion = char.split(inversion, sep=', ')
-        inversion = [x for y in inversion for x in y]
-        
-        if len(inversion) == len(chans):
-            inversion = inversion[chans.index(chan)]
-            return inversion
-        elif len(inversion) == 1:
-            return inversion
-        else:
-            logger.warning(f"Error reading inversion info for {sub}, {ses}, {chan} "
-                           "- check documentation for how to provide information "
-                           "for inversion:")
-            logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
-            return None
-    
 
 def infer_ref(sub, ses, chan, logger, verbose=0):
     # verbose = 0 (error only)

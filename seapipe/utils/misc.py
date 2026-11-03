@@ -836,176 +836,183 @@ def rename_evts(xml_dir, out_dir, part, visit, evts):
     return
                 
 
-def laplacian_mne(data, channel, ref_chan, oREF = None, laplacian_rename=False, 
-                  renames=None, montage='standard_alphabetic', 
-                  logger = create_logger('Laplacian filter')):
-    
-    
-    ch_names = list(data.axis['chan'][0])
-    dig = mne.channels.make_standard_montage(montage)
-    
-    if oREF:
-        try:
-            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
-        except Exception as error:
-            logger.error(error)
-            logger.error("This is due to an incorrect naming of an online "
-                         "reference 'oREF' (see user guide):")
-            logger.info('')
-            logger.info("Check documentation for how to set up channel data: "
-                        "https://seapipe.readthedocs.io/en/latest/index.html")
-            logger.info('-' * 10)
-            return data, 1
-    
-    if laplacian_rename:
-        dig.rename_channels(renames, allow_duplicates=False)
-    
-    info = mne.create_info(ch_names, data.s_freq,verbose=None)
-    mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
-    dic = [{x:'eeg' for x in mneobj.ch_names}]
-    mneobj.set_channel_types(dic[0],verbose=40)
-    mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick(['eeg']).load_data()
-    a.set_eeg_reference(ref_chan,verbose=40)
-    raw_csd = mne.preprocessing.compute_current_source_density(a, verbose=40)
-    data = raw_csd.get_data(picks=channel)
-    
-    return data, 0
+def _laplacian_montage(ch_names, montage, oREF, rename, renames):
+    """Assign montage coordinates to recording labels without renaming samples.
 
-
-def notch_mne(data, channel, freq, oREF = None, rename=False, renames=None, 
-              montage='standard_alphabetic', 
-              logger = create_logger('Notch filter')):
-    
-    ch_names = list(data.axis['chan'][0])
+    ``renames`` maps montage names to recording names, e.g. {'FpZ': 'EEG'}.
+    Montage lookup ignores case; recording labels always remain exact.
+    """
     dig = mne.channels.make_standard_montage(montage)
-    
-    flag = 0
+    positions = dig.get_positions()
+    source_positions = positions['ch_pos']
+
+    def resolve(label, available, kind):
+        if label in available:
+            return label
+        matches = [name for name in available if name.casefold() == label.casefold()]
+        if len(matches) != 1:
+            raise ValueError(f'{kind} label {label!r} has {len(matches)} matches; '
+                             'use an unambiguous montage-to-recording mapping')
+        return matches[0]
+
+    sources = {}
     if rename:
-        try:
-            dig.rename_channels(renames, allow_duplicates=False)
-        except:
-            for x in renames:
-                try:
-                    dig.rename_channels(x, allow_duplicates=False)
-                except:
-                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
-        
-    if oREF:
-        try:
-            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
-        except Exception as error:
-            logger.error(error)
-            logger.error("This is due to an incorrect naming of an online "
-                         "reference 'oREF' (see user guide):")
-            logger.info('')
-            logger.info("Check documentation for how to set up channel data: "
-                        "https://seapipe.readthedocs.io/en/latest/index.html")
-            logger.info('-' * 10)
-            flag +=1
-            return data, flag
-    
-    info = mne.create_info(ch_names, data.s_freq,verbose=40)
-    mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
-    dic = [{x:'eeg' for x in mneobj.ch_names}]
-    mneobj.set_channel_types(dic[0],verbose=40)
-    mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick(['eeg']).load_data()
-    anotch = a.notch_filter(freq,verbose=40)
-    data = anotch.get_data(picks=channel)
-    
-    return data, flag 
+        if not isinstance(renames, dict) or not renames:
+            raise ValueError('laplacian_rename=True requires a nonempty renames dictionary '
+                             'mapping montage names to recording names, e.g. {"FpZ": "EEG"}')
+        for source, target in renames.items():
+            if not isinstance(source, str) or not isinstance(target, str):
+                raise ValueError('renames must map string montage names to string recording names')
+            target = resolve(target, ch_names, 'Recording')
+            source = resolve(source, source_positions, 'Montage')
+            if target in sources and sources[target] != source:
+                raise ValueError(f'Conflicting montage positions for recording channel {target!r}')
+            sources[target] = source
+    if oREF and '_REF' in ch_names:
+        if not isinstance(oREF, str):
+            raise ValueError('oREF must be a montage electrode name')
+        reference = resolve(oREF, source_positions, 'Online reference')
+        if '_REF' in sources and sources['_REF'] != reference:
+            raise ValueError('oREF and renames assign different positions to _REF')
+        sources['_REF'] = reference
+    mapped_positions = {}
+    for target in ch_names:
+        source = sources.get(target)
+        if source is None:
+            source = resolve(target, source_positions, 'Montage')
+        sources[target] = source
+        coord = source_positions[source]
+        if not np.isfinite(coord).all() or np.allclose(coord, 0):
+            raise ValueError(f'Invalid montage position for {target!r} ({source!r})')
+        for previous, previous_coord in mapped_positions.items():
+            if np.allclose(coord, previous_coord, rtol=0, atol=1e-8):
+                raise ValueError(f'Channels {previous!r} and {target!r} share a montage '
+                                 'position; Laplacian electrodes must be distinct')
+        mapped_positions[target] = coord
+    # Preserve montage point order so automatic sphere fitting is independent
+    # of recording-label aliases and the requested channel order.
+    source_order = {name: i for i, name in enumerate(source_positions)}
+    mapped_positions = {name: mapped_positions[name] for name in
+                        sorted(ch_names, key=lambda name: source_order[sources[name]])}
+    return mne.channels.make_dig_montage(
+        ch_pos=mapped_positions, nasion=positions['nasion'], lpa=positions['lpa'],
+        rpa=positions['rpa'], coord_frame=positions['coord_frame'])
 
-def notch_mne2(data, channel, oREF = None, rename=False, renames=None,
-               montage = 'standard_alphabetic', 
-               logger = create_logger('Notch filter')):
-    
-    ch_names = list(data.axis['chan'][0])
-    dig = mne.channels.make_standard_montage(montage)
-    
-    flag = 0
-    if rename:
-        try:
-            dig.rename_channels(renames, allow_duplicates=False)
-        except:
-            for x in renames:
-                try:
-                    dig.rename_channels(x, allow_duplicates=False)
-                except:
-                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
-                    
-        
-    if oREF:
-        try:
-            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
-        except Exception as error:
-            logger.error(error)
-            logger.error("This is due to an incorrect naming of an online "
-                         "reference 'oREF' (see user guide):")
-            logger.info('')
-            logger.info("Check documentation for how to set up channel data: "
-                        "https://seapipe.readthedocs.io/en/latest/index.html")
-            logger.info('-' * 10)
-            flag +=1
-            return data, flag
-        
-    info = mne.create_info(ch_names, data.s_freq,verbose=40)
-    mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
-    dic = [{x:'eeg' for x in mneobj.ch_names}]
-    mneobj.set_channel_types(dic[0],verbose=40)
-    mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick(['eeg']).load_data()
-    anotch = a.notch_filter(freqs=None, filter_length='auto', 
-                            notch_widths=None, trans_bandwidth=1, 
-                            method='spectrum_fit', verbose=None)
-    data = anotch.get_data(picks=channel)
-    
-    return data, flag
-    
 
-def bandpass_mne(data, channel, highpass, lowpass, oREF = None, rename=False,
-                 renames=None, montage='standard_alphabetic', 
-                 logger = create_logger('Bandpass filter')):
-    
+def laplacian_mne(data, channel, ref_chan=None, oREF=None, laplacian_rename=False,
+                  renames=None, montage='standard_alphabetic',
+                  logger=create_logger('Laplacian filter')):
+    """Compute CSD using all loaded electrodes and return only requested rows.
+
+    Coordinates match case-insensitively; renames maps montage to recording
+    labels (e.g. {'FpZ': 'EEG'}). Unknown, ambiguous or duplicate positions
+    raise a logged ValueError. ``oREF`` locates a loaded ``_REF`` channel.
+    ``ref_chan`` is retained for compatibility, but no second re-reference is
+    applied: read_data already references the signal, and CSD is reference-free.
+    Input samples and labels are never modified.
+    """
+    try:
+        raw, picks = _prepare_mne_data(data, channel)
+        if len(raw.ch_names) < 4:
+            raise ValueError('Laplacian filtering needs at least four positioned electrodes '
+                             'for automatic sphere fitting')
+        dig = _laplacian_montage(raw.ch_names, montage, oREF, laplacian_rename, renames)
+        raw.set_montage(dig, verbose=40)
+        csd = mne.preprocessing.compute_current_source_density(raw, verbose=40)
+        return csd.get_data(picks=picks), 0
+    except (TypeError, ValueError, RuntimeError, np.linalg.LinAlgError) as error:
+        message = (f'Laplacian filter failed for channel={channel!r}, montage={montage!r}, '
+                   f'oREF={oREF!r}, renames={renames!r}: {error}')
+        logger.error(message)
+        raise ValueError(message) from error
+
+
+def _prepare_mne_data(data, channel):
+    """Validate one trial and return a private RawArray plus exact row picks."""
     ch_names = list(data.axis['chan'][0])
-    dig = mne.channels.make_standard_montage(montage)
-    
-    flag = 0
-    if rename:
-        try:
-            dig.rename_channels(renames, allow_duplicates=False)
-        except:
-            for x in renames:
-                try:
-                    dig.rename_channels(x, allow_duplicates=False)
-                except:
-                    logger.warning(f'{x} already in MNE montage, skipping renaming...')
-                    
-        
-    if oREF:
-        try:
-            dig.rename_channels({oREF:'_REF'}, allow_duplicates=False)
-        except Exception as error:
-            logger.error(error)
-            logger.error("This is due to an incorrect naming of an online "
-                         "reference 'oREF' (see user guide):")
-            logger.info('')
-            logger.info("Check documentation for how to set up channel data: "
-                        "https://seapipe.readthedocs.io/en/latest/index.html")
-            logger.info('-' * 10)
-            flag+=1
-            return data, flag
-        
-    info = mne.create_info(ch_names, data.s_freq,verbose=40)
-    mneobj = mne.io.RawArray(data.data[0],info,verbose=40)
-    dic = [{x:'eeg' for x in mneobj.ch_names}]
-    mneobj.set_channel_types(dic[0],verbose=40)
-    mneobj.info.set_montage(dig,verbose=40)
-    a = mneobj.pick(['eeg']).load_data()
-    a_filt = a.filter(highpass, lowpass,verbose=40)
-    data = a_filt.get_data(picks=channel)
-    
-    return data, flag
+    if not ch_names or any(not isinstance(ch, str) or not ch for ch in ch_names):
+        raise ValueError('Channel labels must be nonempty strings')
+    if len(set(ch_names)) != len(ch_names):
+        raise ValueError(f'Duplicate channel labels in recording: {ch_names!r}')
+    values = np.asarray(data.data[0])
+    if values.ndim != 2 or values.shape[0] != len(ch_names) or values.shape[1] == 0:
+        raise ValueError('Expected a nonempty channels-by-samples array with '
+                         f'{len(ch_names)} rows; got shape {values.shape}')
+    if np.iscomplexobj(values) or not np.isfinite(values).all():
+        raise ValueError('Signal must contain only finite, real samples')
+    sfreq = float(data.s_freq)
+    if not np.isfinite(sfreq) or sfreq <= 0:
+        raise ValueError(f'Sampling frequency must be finite and positive; got {sfreq}')
+    selected = [channel] if isinstance(channel, str) else list(channel)
+    if not selected or any(not isinstance(ch, str) for ch in selected):
+        raise ValueError('channel must be a channel name or a nonempty list of names')
+    if len(set(selected)) != len(selected):
+        raise ValueError(f'Duplicate requested channels: {selected!r}')
+    missing = [ch for ch in selected if ch not in ch_names]
+    if missing:
+        raise ValueError(f'Requested channels {missing!r} are absent from recording '
+                         f'{ch_names!r}; use recording labels, not montage/output aliases')
+    info = mne.create_info(ch_names, sfreq, ch_types='eeg', verbose=40)
+    # Copy explicitly: MNE filters in place, while callers own the input data.
+    raw = mne.io.RawArray(np.array(values, dtype=float, copy=True), info, verbose=40)
+    return raw, [ch_names.index(ch) for ch in selected]
+
+
+def _temporal_filter_mne(data, channel, operation, logger, **filter_kwargs):
+    """Filter one trial without requiring electrode coordinates or changing labels.
+
+    Fail before returning any data on invalid input. Returning the original
+    Wonambi object with an error flag is unsafe: callers assign the first return
+    value directly to ``data.data[0]`` and may overwrite the flag later.
+    """
+    try:
+        raw, picks = _prepare_mne_data(data, channel)
+        sfreq = raw.info['sfreq']
+        if operation == 'notch_filter' and filter_kwargs.get('method') != 'spectrum_fit':
+            freqs = np.atleast_1d(np.asarray(filter_kwargs['freqs'], dtype=float))
+            if (freqs.ndim != 1 or not freqs.size or not np.isfinite(freqs).all()
+                    or np.any(freqs <= 0) or np.any(freqs >= sfreq / 2)):
+                raise ValueError('Notch frequencies must be finite and strictly between '
+                                 f'0 and Nyquist ({sfreq / 2:g} Hz); got '
+                                 f"{filter_kwargs['freqs']!r}")
+        getattr(raw, operation)(**filter_kwargs, verbose=40)
+        return raw.get_data(picks=picks), 0
+    except (TypeError, ValueError, RuntimeError) as error:
+        message = (f'MNE {operation} failed for channel={channel!r}, '
+                   f'options={filter_kwargs!r}: {error}')
+        logger.error(message)
+        raise ValueError(message) from error
+
+
+def notch_mne(data, channel, freq, logger=create_logger('Notch filter')):
+    """Notch-filter one trial and return ``(selected_samples, 0)``.
+
+    ``channel`` uses recording labels; selected rows retain the requested order.
+    Temporal filtering needs no electrode positions or montage configuration.
+    In particular, FpZ/Fpz and EEG aliases do not need montage renaming here.
+    Invalid inputs raise a logged ValueError rather than returning unfiltered data.
+    """
+    return _temporal_filter_mne(data, channel, 'notch_filter', logger, freqs=freq)
+
+
+def notch_mne2(data, channel, logger=create_logger('Notch filter')):
+    """Remove fitted sinusoids without a montage; see ``notch_mne`` for inputs.
+
+    Uses MNE's spectrum-fit detection, rather than a fixed list of harmonics.
+    """
+    return _temporal_filter_mne(data, channel, 'notch_filter', logger,
+                               freqs=None, filter_length='auto', notch_widths=None,
+                               trans_bandwidth=1, method='spectrum_fit')
+
+
+def bandpass_mne(data, channel, highpass, lowpass,
+                 logger=create_logger('Bandpass filter')):
+    """Bandpass-filter without a montage; see ``notch_mne`` for input conventions.
+
+    Cutoff validation is delegated to MNE and failures are logged with context.
+    """
+    return _temporal_filter_mne(data, channel, 'filter', logger,
+                               l_freq=highpass, h_freq=lowpass)
 
 def csv_stage_import(edf_file, xml_file, hypno_file, rater):
     
@@ -1107,68 +1114,74 @@ def adap_bands_setup(self, adap_bands, frequency, subs, sessions, chan, ref_chan
     return frequency, flag
 
 
-def infer_polarity(dset, annot, chan, ref_chan, cat = (1,1,1,1), evt_type = None, 
-                   stage = None, cycle = None, logger = create_logger('Check polarity')):
+def infer_polarity(dset, annot, chan, ref_chan, cat=(1,1,1,1), evt_type=None,
+                   stage=None, cycle=None, logger=create_logger('Check polarity'),
+                   *, reject_artf=False, window_seconds=30, min_windows=5,
+                   asymmetry_ratio=1.2, agreement=0.8):
+    """Conservatively infer inversion from persistent positive slow-wave asymmetry.
 
-    segments = fetch(dset, annot, cat, evt_type, stage, cycle)
+    Both mean peak magnitude and upper-tail magnitude must exceed their negative
+    counterparts by 20% in at least 80% of usable 30-second windows (minimum five).
+    These are heuristic defaults, not calibrated confidence probabilities.
+    Uncertain/insufficient data leave polarity unchanged and are logged.
+    """
+    if (window_seconds <= 0 or min_windows < 1 or asymmetry_ratio <= 1
+            or not 0.5 < agreement <= 1):
+        raise ValueError('Invalid polarity inference thresholds')
+    segments = fetch(dset, annot, cat=cat, evt_type=evt_type, stage=stage,
+                     cycle=cycle, reject_artf=reject_artf)
     segments.read_data(chan, ref_chan)
-    
     s_freq = dset.header['s_freq']
-    
-    X = segments.segments[0]['data'].data[0][0]
-    
-    XNormed = (X - X.mean())/(X.std())
-    
-    X_trans = transform_signal(XNormed, s_freq, 'double_sosbutter', 
-                               method_opt={'freq':(0.1,4.5), 'order':3})
-    
-    ## Positive component of signal
-    X_pos = copy.deepcopy(X_trans)
-    X_pos[X_pos<0] = np.nan
-    
-    # Positive peaks
-    peaks_pos = find_peaks(X_pos, height = np.nanstd(X_pos)) 
-    pos_peaks_mean = np.nanmean(X_pos[peaks_pos[0]])
-    
-    # Positive mean
-    pos_mean = np.nanmean(X_pos[X_pos>np.nanpercentile(X_pos, 99)])
-    
-    # Positive PSD
-    result = flip_and_switch(X_pos)
-    Sxx = periodogram(result, s_freq)
-    pos_Sxx_mean = np.nanmean(Sxx[1][0:2000])
-    
-    ## Negative component of signal
-    X_neg = copy.deepcopy(X_trans)
-    X_neg[X_neg>0] = np.nan
-    X_neg = X_neg * -1
-    
-    # Negative peaks
-    peaks_neg = find_peaks(X_neg, height = np.nanstd(X_neg)) 
-    neg_peaks_mean = np.nanmean(X_neg[peaks_neg[0]])
-    
-    # Negative mean
-    neg_mean = np.nanmean(X_neg[X_neg>np.nanpercentile(X_neg, 99)])
-    
-    # Negative PSD
-    result = flip_and_switch(X_neg)
-    Sxx = periodogram(result, s_freq)
-    neg_Sxx_mean = np.nanmean(Sxx[1][0:2000])
-    
-    # Compare Postive to Negative
-    rating = ( 
-              int(pos_peaks_mean>neg_peaks_mean) + 
-              int(pos_Sxx_mean>neg_Sxx_mean) + 
-              int(pos_mean > neg_mean) 
-              )
-
-    if rating > 0:
-        logger.debug('Signal polarity appears to be reversed.')
-        invert = True
-    else:
-        invert = False
-        logger.debug('Signal polarity appears correct.')
-    return invert
+    size = int(window_seconds * s_freq)
+    if size < 2:
+        raise ValueError('Polarity window must contain at least two samples')
+    votes = []
+    for segment in segments.segments:
+        signal = np.asarray(segment['data'].data[0][0], dtype=float)
+        for start in range(0, len(signal) - size + 1, size):
+            raw = signal[start:start + size]
+            if not np.all(np.isfinite(raw)):
+                continue
+            centered = raw - np.median(raw)
+            scale = 1.4826 * np.median(np.abs(centered))
+            # Reject flat windows and conspicuous transients before filtering.
+            if scale <= 0 or np.max(np.abs(centered)) > 8 * scale:
+                continue
+            filtered = transform_signal(centered / scale, s_freq,
+                                        'double_sosbutter',
+                                        method_opt={'freq': (0.1, 4.5), 'order': 3})
+            # Exclude filter edges from the asymmetry measurements.
+            edge = int(2 * s_freq)
+            filtered = filtered[edge:-edge] if edge else filtered
+            if not len(filtered) or not np.all(np.isfinite(filtered)):
+                continue
+            measures = []
+            for component in (filtered, -filtered):
+                positive = component[component > 0]
+                peaks, _ = find_peaks(component, height=np.std(component))
+                if len(positive) < 10 or len(peaks) < 3:
+                    break
+                tail = positive[positive >= np.percentile(positive, 99)]
+                measures.append((np.mean(component[peaks]), np.mean(tail)))
+            if len(measures) != 2:
+                continue
+            positive, negative = map(np.asarray, measures)
+            if np.any(negative <= 0) or np.any(positive <= 0):
+                continue
+            ratios = positive / negative
+            votes.append(1 if np.all(ratios >= asymmetry_ratio)
+                         else -1 if np.all(ratios <= 1 / asymmetry_ratio) else 0)
+    if len(votes) >= min_windows:
+        support = np.mean(np.asarray(votes) == 1)
+        if support >= agreement:
+            logger.debug(f'Signal polarity appears reversed: {support:.0%} of '
+                         f'{len(votes)} usable windows support inversion.')
+            return True
+        if np.mean(np.asarray(votes) == -1) >= agreement:
+            logger.debug('Signal polarity appears correct; leaving unchanged.')
+            return False
+    logger.warning(f'Polarity uncertain ({len(votes)} usable windows); leaving unchanged.')
+    return False
 
 
 def flip_and_switch(data):

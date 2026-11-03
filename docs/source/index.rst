@@ -48,6 +48,7 @@ Contents
    macro
    so
    spindle
+   psa
    pac
    sync
    api

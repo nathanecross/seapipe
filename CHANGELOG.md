@@ -53,3 +53,6 @@ Beta Version
 0.8.1 Added helper functions to filter events in Annotations file, minor bug fixes in audit.py
 0.8.2 Fixed bug in event detection and PAC where Artefacts were not being properly excluded
 0.8.3 Improved file searching for PAC dataset creation
+0.8.4 Fixed bug in fooof where exports weren't saved when concat_stage=False
+0.8.5 Updated and improved infer_polarity function
+0.8.6 Updated filtering options in PSA, added PSA documentation, added more sources for make_bids

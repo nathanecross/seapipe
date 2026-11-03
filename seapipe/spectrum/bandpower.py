@@ -481,19 +481,13 @@ def _apply_filters(data, selectchans, ref_chan, filter_opts, laplace_flag, ch, l
             data,
             channel=selectchans,
             freq=filter_opts['notch_freq'],
-            oREF=filter_opts['oREF'],
-            rename=filter_opts['laplacian_rename'],
-            renames=filter_opts['renames'],
-            montage=filter_opts['montage'],
+            logger=logger,
         )
     if filtflag == 0 and filter_opts['notch_harmonics']:
         data.data[0], filtflag = notch_mne2(
             data,
             channel=selectchans,
-            oREF=filter_opts['oREF'],
-            rename=filter_opts['laplacian_rename'],
-            renames=filter_opts['renames'],
-            montage=filter_opts['montage'],
+            logger=logger,
         )
     if filtflag == 0 and filter_opts['bandpass']:
         data.data[0], filtflag = bandpass_mne(
@@ -501,20 +495,18 @@ def _apply_filters(data, selectchans, ref_chan, filter_opts, laplace_flag, ch, l
             channel=selectchans,
             highpass=filter_opts['highpass'],
             lowpass=filter_opts['lowpass'],
-            oREF=filter_opts['oREF'],
-            rename=filter_opts['laplacian_rename'],
-            renames=filter_opts['renames'],
-            montage=filter_opts['montage'],
+            logger=logger,
         )
     if filtflag == 0 and laplace_flag:
         data.data[0], filtflag = laplacian_mne(
             data,
-            channel=selectchans,
+            channel=ch,
             ref_chan=ref_chan,
             oREF=filter_opts['oREF'],
             laplacian_rename=filter_opts['laplacian_rename'],
             renames=filter_opts['renames'],
             montage=filter_opts['montage'],
+            logger=logger,
         )
         data.axis['chan'][0] = asarray([ch])
     if filtflag:

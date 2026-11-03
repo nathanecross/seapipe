@@ -339,10 +339,10 @@ class pacats:
                     # d. Check if channel needs to be inverted for detection
                     if type(invert) == type(DataFrame()):
                         inversion = read_inversion(sub, ses, invert, ch, logger)
-                        if not inversion:
+                        if inversion is None:
                             inversion = infer_polarity(dset, annot, ch, 
                                                        chanset[ch], cat, None, 
-                                                       self.stage, cycle, logger)
+                                                       self.stage, cycle, logger, reject_artf=self.reject)
                     elif type(invert) == bool:
                         inversion = invert
                     else:
@@ -361,21 +361,17 @@ class pacats:
                         flag +=1
                         break
                     
-                    # 5.b. Read data
-                    if filter_opts['laplacian']:
-                        try:
-                            segments.read_data(filter_opts['lapchan'], chanset[ch]) 
-                            laplace_flag = True
-                        except Exception:
-                            logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording for {sub}, {ses}.")
-                            logger.warning("Laplacian filtering will NOT be run for {sub}, {ses}, {ch}. Check parameters under: filter_opts['lapchan']")
-                            segments.read_data(ch, chanset[ch])
-                            laplace_flag = False
-                            flag += 1
-                    else:
-                        segments.read_data(ch, chanset[ch])
-                    
-                    
+                    # Read the configured spatial electrode set or skip this channel.
+                    laplace_flag = bool(filter_opts['laplacian'])
+                    readchans = filter_opts['lapchan'] if laplace_flag else [ch]
+                    try:
+                        segments.read_data(readchans, chanset[ch])
+                    except Exception as error:
+                        logger.error(f'Cannot read channels {readchans!r} '
+                                     f'for {sub}, {ses}, {ch}: {error}. Skipping channel.')
+                        flag += 1
+                        continue
+
                     # 6. Define PAC object
                     pac = Pac(idpac = idpac, f_pha = f_pha, f_amp = f_amp, 
                               dcomplex = filter_opts['dcomplex'], 
@@ -432,7 +428,7 @@ class pacats:
                         
                         
                         # 7.d Apply filtering (if required)
-                        if filter_opts['laplacian']:
+                        if laplace_flag:
                             selectchans = filter_opts['lapchan']
                         else:
                             selectchans = ch
@@ -440,42 +436,45 @@ class pacats:
                         # 7.d. Notch filters
                         filtflag = 0
                         if filter_opts['notch']:
-                            data.data[0], filtflag = notch_mne(data, oREF=filter_opts['oREF'], 
-                                                        channel=selectchans, 
-                                                        freq=filter_opts['notch_freq'],
-                                                        rename=filter_opts['laplacian_rename'],
-                                                        renames=filter_opts['renames'],
-                                                        montage=filter_opts['montage'])
+                            data.data[0], filtflag = notch_mne(
+                                data,
+                                channel=selectchans,
+                                freq=filter_opts['notch_freq'],
+                                logger=logger,
+                            )
                             
                         if filter_opts['notch_harmonics']: 
-                            data.data[0], filtflag = notch_mne2(data, oREF=filter_opts['oREF'], 
-                                                      channel=selectchans, 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])    
+                            data.data[0], filtflag = notch_mne2(
+                                data,
+                                channel=selectchans,
+                                logger=logger,
+                            )
                         
                         # 7.e. Bandpass filters
                         if filter_opts['bandpass']:
-                            data.data[0], filtflag = bandpass_mne(data, oREF=filter_opts['oREF'], 
-                                                      channel=selectchans,
-                                                      highpass=filter_opts['highpass'], 
-                                                      lowpass=filter_opts['lowpass'], 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage'])
+                            data.data[0], filtflag = bandpass_mne(
+                                data,
+                                channel=selectchans,
+                                highpass=filter_opts['highpass'],
+                                lowpass=filter_opts['lowpass'],
+                                logger=logger,
+                            )
                         
                         # 7.f. Laplacian transform
                         if filter_opts['laplacian'] and laplace_flag:
-                            data.data[0], filtflag = laplacian_mne(data, 
-                                                 filter_opts['oREF'], 
-                                                 channel=selectchans, 
-                                                 ref_chan=chanset[ch], 
-                                                 laplacian_rename=filter_opts['laplacian_rename'], 
-                                                 renames=filter_opts['renames'],
-                                                 montage=filter_opts['montage'])
-                            data.axis['chan'][0] = asarray([x for x in chanset])
+                            data.data[0], filtflag = laplacian_mne(
+                                data,
+                                oREF=filter_opts['oREF'],
+                                channel=ch,
+                                ref_chan=chanset[ch],
+                                laplacian_rename=filter_opts['laplacian_rename'],
+                                renames=filter_opts['renames'],
+                                montage=filter_opts['montage'],
+                                logger=logger,
+                            )
+                            data.axis['chan'][0] = asarray([ch])
                             selectchans = ch
-                            dat = data[0]
+                            dat = data.data[0][0]
                         else:
                             dat = data()[0][0]
                             

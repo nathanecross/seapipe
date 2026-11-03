@@ -484,26 +484,31 @@ class Spectrum:
                                                                 out['fooof_ap_params'].ravel(),
                                                                 ))
                         
-                    ### Output filename ###
-                    if model == 'whole_night':
-                        stagename = '-'.join(self.stage)
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
-                    elif model == 'stage*cycle':    
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
-                    elif model == 'per_stage':
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{self.stage[sg]}_specparams_{suffix}.csv'
-                    elif model == 'per_cycle':
-                        stagename = '-'.join(self.stage)
-                        outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
-
-                    logger.debug(f'Saving {outputfile}')
-                    df = DataFrame(data = one_record, 
-                                   columns = (seg_info + band_hdr + band_pk_params_hdr
-                                              + band_ap_params_hdr))
-                    df.to_csv(outputfile)
-                    
-                    # Update tracking TO DO
-                    #update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
+                        ### Output filename ###
+                        if isinstance(out['stage'], list):
+                            stagename = '-'.join(out['stage'])
+                        else:
+                            stagename = str(out['stage'])
+                            
+                        if model == 'whole_night':
+                            stagename = '-'.join(self.stage)
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
+                        elif model == 'stage*cycle':    
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
+                        elif model == 'per_stage':
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_specparams_{suffix}.csv'
+                        elif model == 'per_cycle':
+                            stagename = '-'.join(self.stage)
+                            outputfile = f'{outpath}/{sub}_{ses}_{fnamechan}_{stagename}_cycle{self.cycle_idx[sg]}_specparams_{suffix}.csv'
+    
+                        logger.debug(f'Saving {outputfile}')
+                        df = DataFrame(data = one_record, 
+                                       columns = (seg_info + band_hdr + band_pk_params_hdr
+                                                  + band_ap_params_hdr))
+                        df.to_csv(outputfile)
+                        
+                        # Update tracking TO DO
+                        #update = datetime.fromtimestamp(path.getmtime(outputfile)).strftime("%m-%d-%Y, %H:%M:%S")
         ### 3. Check completion status and print
         if flag == 0:
             logger.info('')
@@ -709,29 +714,30 @@ class Spectrum:
                         if not norm_seg:
                             logger.warning('No valid baseline data found. Skipping...')
                             continue
-                        if filter_opts['laplacian']:
-                            try:
-                                norm_seg.read_data(filter_opts['lapchan'], chanset[ch]) 
-                                logger.debug("Applying Laplacian filtering to baseline data...")
-                                laplace_flag = True
-                            except Exception:
-                                logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
-                                logger.warning("Laplacian filtering will NOT be run for BASELINE data. Check parameters under: filter_opts['lapchan']")
-                                norm_seg.read_data(ch, chanset[ch])
-                                laplace_flag = False
-                                flag += 1
-                        else:
-                            norm_seg.read_data(ch, chanset[ch])            
+                        baseline_laplace = bool(filter_opts['laplacian'])
+                        baseline_chans = filter_opts['lapchan'] if baseline_laplace else [ch]
+                        try:
+                            norm_seg.read_data(baseline_chans, chanset[ch])
+                        except Exception as error:
+                            logger.error(f'Cannot read baseline channels {baseline_chans!r} '
+                                         f'for {sub}, {ses}, {ch}: {error}. Skipping channel.')
+                            flag += 1
+                            continue
                         all_nSxx = []
                         for seg in norm_seg:
                             normdata = seg['data']
-                            if laplace_flag:
-                                normdata.data[0] = laplacian_mne(normdata, 
-                                                         filter_opts['oREF'], 
-                                                         channel=chan_full, 
-                                                         ref_chan=chanset[ch], 
-                                                         laplacian_rename=filter_opts['laplacian_rename'], 
-                                                         renames=filter_opts['renames'])
+                            if baseline_laplace:
+                                normdata.data[0], _ = laplacian_mne(
+                                    normdata,
+                                    channel=ch,
+                                    ref_chan=chanset[ch],
+                                    oREF=filter_opts['oREF'],
+                                    laplacian_rename=filter_opts['laplacian_rename'],
+                                    renames=filter_opts['renames'],
+                                    montage=filter_opts['montage'],
+                                    logger=logger,
+                                )
+                                normdata.axis['chan'][0] = asarray([ch])
                             Sxx = frequency(normdata, output=frequency_opts['output'], 
                                             scaling=frequency_opts['scaling'],
                                             sides=frequency_opts['sides'], 
@@ -776,21 +782,17 @@ class Spectrum:
                         logger.warning(f"No valid data found for {sub}, {ses}, {self.stage}, {cycle}.")
                         continue
                     
-                    # Read data
-                    if filter_opts['laplacian']:
-                        try:
-                            segments.read_data(filter_opts['lapchan'], chanset[ch]) 
-                            logger.debug("Applying Laplacian filtering to data...")
-                            laplace_flag = True
-                        except Exception:
-                            logger.error(f"Channels listed in filter_opts['lapchan']: {filter_opts['lapchan']} are not found in recording.")
-                            logger.warning("Laplacian filtering will NOT be run. Check parameters under: filter_opts['lapchan']")
-                            segments.read_data(ch, chanset[ch])
-                            laplace_flag = False
-                            flag += 1
-                    else:
-                        segments.read_data(ch, chanset[ch])
-                    
+                    # Read the configured spatial electrode set or skip this channel.
+                    laplace_flag = bool(filter_opts['laplacian'])
+                    readchans = filter_opts['lapchan'] if laplace_flag else [ch]
+                    try:
+                        segments.read_data(readchans, chanset[ch])
+                    except Exception as error:
+                        logger.error(f'Cannot read channels {readchans!r} '
+                                     f'for {sub}, {ses}, {ch}: {error}. Skipping channel.')
+                        flag += 1
+                        continue
+
                     # Loop over segments and apply transforms
                     for sg, seg in enumerate(segments):
                         logger.debug(f"Analysing segment {sg+1} of {len(segments)} ({seg['stage']})")
@@ -806,7 +808,7 @@ class Spectrum:
                         else:
                             n_fft = frequency_opts['n_fft']
                         
-                        if filter_opts['laplacian']:
+                        if laplace_flag:
                             selectchans = filter_opts['lapchan']
                         else:
                             selectchans = ch
@@ -814,47 +816,43 @@ class Spectrum:
                         # Notch filters
                         filtflag = 0
                         if filter_opts['notch']:
-                            data.data[0], filtflag = notch_mne(data,  
-                                                    channel=selectchans, 
-                                                    freq=filter_opts['notch_freq'],
-                                                    oREF=filter_opts['oREF'],
-                                                    rename=filter_opts['laplacian_rename'],
-                                                    renames=filter_opts['renames'],
-                                                    montage=filter_opts['montage']
-                                                    )
+                            data.data[0], filtflag = notch_mne(
+                                data,
+                                channel=selectchans,
+                                freq=filter_opts['notch_freq'],
+                                logger=logger,
+                            )
                             
                         if filter_opts['notch_harmonics']: 
-                            data.data[0], filtflag = notch_mne2(data, 
-                                                      channel=selectchans,
-                                                      oREF=filter_opts['oREF'], 
-                                                      rename=filter_opts['laplacian_rename'],
-                                                      renames=filter_opts['renames'],
-                                                      montage=filter_opts['montage']
-                                                      )    
+                            data.data[0], filtflag = notch_mne2(
+                                data,
+                                channel=selectchans,
+                                logger=logger,
+                            )
                         
                         # 7.e. Bandpass filters
                         if filter_opts['bandpass']:
-                            data.data[0], filtflag = bandpass_mne(data, 
-                                                        channel=selectchans, 
-                                                        highpass=filter_opts['highpass'], 
-                                                        lowpass=filter_opts['lowpass'], 
-                                                        oREF=filter_opts['oREF'],
-                                                        rename=filter_opts['laplacian_rename'],
-                                                        renames=filter_opts['renames'],
-                                                        montage=filter_opts['montage']
-                                                        )
+                            data.data[0], filtflag = bandpass_mne(
+                                data,
+                                channel=selectchans,
+                                highpass=filter_opts['highpass'],
+                                lowpass=filter_opts['lowpass'],
+                                logger=logger,
+                            )
                         
                         # Laplacian transform
                         if filter_opts['laplacian'] and laplace_flag:
-                            data.data[0], filtflag = laplacian_mne(data, 
-                                                                   channel=selectchans, 
-                                                                   ref_chan=chanset[ch], 
-                                                                   oREF=filter_opts['oREF'], 
-                                                                   laplacian_rename=filter_opts['laplacian_rename'], 
-                                                                   renames=filter_opts['renames'],
-                                                                   montage=filter_opts['montage']
-                                                                   )
-                            data.axis['chan'][0] = asarray([x for x in chanset])
+                            data.data[0], filtflag = laplacian_mne(
+                                data,
+                                channel=ch,
+                                ref_chan=chanset[ch],
+                                oREF=filter_opts['oREF'],
+                                laplacian_rename=filter_opts['laplacian_rename'],
+                                renames=filter_opts['renames'],
+                                montage=filter_opts['montage'],
+                                logger=logger,
+                            )
+                            data.axis['chan'][0] = asarray([ch])
                             selectchans = ch
                         
                         # If any errors occured during filtering, break
