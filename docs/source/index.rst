@@ -31,6 +31,10 @@ It offers a *simple* and *intuitive*, yet *fully customisable* API. The major ad
 
 Check out the :doc:`usage` section for further information, including :ref:`installation` of the project.
 
+For power spectra, see :doc:`Power spectral analysis <psa>`, including the
+:ref:`analysis options <psa_general_opts>` and
+:ref:`spectrum figure output <psa_plotting>`.
+
 .. note::
 
    This project is under active development.
@@ -48,7 +52,7 @@ Contents
    macro
    so
    spindle
-   psa
+   Power spectral analysis <psa>
    pac
    sync
    api

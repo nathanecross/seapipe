@@ -1320,6 +1320,26 @@ def save_bands(out, freq_bw, general_opts, frequency_opts, outputfile, logger):
 
 def save_plot(out, general_opts, outputfile, logger, *, frequency_opts=None,
               norm=None, laplacian=False):
+    """Save a spectrum while silencing plotting-library deprecation noise only."""
+    import warnings
+
+    with warnings.catch_warnings():
+        try:
+            from pyparsing import PyparsingDeprecationWarning
+        except ImportError:
+            # Older compatible pyparsing versions do not define this category.
+            pass
+        else:
+            warnings.filterwarnings(
+                'ignore', category=PyparsingDeprecationWarning,
+                module=r'^(matplotlib|pyparsing)(\..*)?$')
+        return _save_plot(out, general_opts, outputfile, logger,
+                          frequency_opts=frequency_opts, norm=norm,
+                          laplacian=laplacian)
+
+
+def _save_plot(out, general_opts, outputfile, logger, *, frequency_opts=None,
+               norm=None, laplacian=False):
     """Save an SVG spectrum without GUI state or changes to the supplied data.
 
     Plot one panel per channel, averaging already-computed spectra over segments

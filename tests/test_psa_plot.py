@@ -3,6 +3,7 @@ import ast
 import builtins
 import copy
 import logging
+import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ ns = dict(deepcopy=copy.deepcopy, where=np.where, reshape=np.reshape, asarray=np
           get_descriptives=get_descriptives, export_freq=export_freq)
 tree = ast.parse(SOURCE.read_text())
 nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef)
-         and n.name in {'save_plot', 'save_freq', 'default_general_opts'}]
+         and n.name in {'save_plot', '_save_plot', 'save_freq', 'default_general_opts'}]
 exec(compile(ast.Module(body=nodes, type_ignores=[]), str(SOURCE), 'exec'), ns)
 save_plot, save_freq = ns['save_plot'], ns['save_freq']
 
@@ -155,6 +156,50 @@ class PlotTests(unittest.TestCase):
                     self.assertFalse(save_plot(out, self.opts, self.output, LOGGER,
                                                frequency_opts=self.frequency))
                 self.assertIn(message, logs.output[0])
+
+    def test_plot_deprecations_suppressed_and_other_warnings_preserved(self):
+        from pyparsing import PyparsingDeprecationWarning
+        original = Figure.savefig
+
+        def rendering(figure, *args, **kwargs):
+            for module in ['matplotlib._mathtext', 'matplotlib._fontconfig_pattern', 'pyparsing.util']:
+                warnings.warn_explicit('plot deprecation', PyparsingDeprecationWarning,
+                                       filename='dependency.py', lineno=1, module=module)
+            warnings.warn_explicit('numerical warning', RuntimeWarning,
+                                   filename='dependency.py', lineno=2, module='matplotlib._mathtext')
+            warnings.warn_explicit('other deprecation', DeprecationWarning,
+                                   filename='dependency.py', lineno=3, module='matplotlib._mathtext')
+            warnings.warn_explicit('application warning', PyparsingDeprecationWarning,
+                                   filename='application.py', lineno=4, module='application')
+            return original(figure, *args, **kwargs)
+
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('always')
+            before = list(warnings.filters)
+            with patch.object(Figure, 'savefig', rendering):
+                self.assertTrue(save_plot([spectrum()], self.opts, self.output, LOGGER))
+            self.assertEqual(warnings.filters, before)
+            warnings.warn_explicit('outside plotting', PyparsingDeprecationWarning,
+                                   filename='dependency.py', lineno=5, module='matplotlib._mathtext')
+        messages = [str(w.message) for w in recorded]
+        self.assertNotIn('plot deprecation', messages)
+        self.assertIn('numerical warning', messages)
+        self.assertIn('other deprecation', messages)
+        self.assertIn('application warning', messages)
+        self.assertIn('outside plotting', messages)
+        # Includes real font/mathtext warnings emitted by this Matplotlib version.
+        dependency_warnings = [w for w in recorded if issubclass(w.category, PyparsingDeprecationWarning)
+                               and ('matplotlib/' in w.filename or 'pyparsing/' in w.filename)]
+        self.assertEqual(dependency_warnings, [])
+
+    def test_warning_filters_restored_when_plotting_fails(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            before = list(warnings.filters)
+            with patch.object(Figure, 'savefig', side_effect=OSError('cannot write')):
+                with self.assertLogs(LOGGER, level='ERROR'):
+                    self.assertFalse(save_plot([spectrum()], self.opts, self.output, LOGGER))
+            self.assertEqual(warnings.filters, before)
 
     def test_missing_matplotlib_is_actionable(self):
         original = builtins.__import__

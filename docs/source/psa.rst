@@ -568,6 +568,11 @@ the reason is logged and that figure is skipped. CSV exports and subsequent
 analyses can continue. Figures are written without opening GUI windows, making
 this output suitable for batch runs.
 
+Pyparsing deprecation messages from Matplotlib's font/mathtext rendering are
+suppressed only while producing these figures. Other warning categories,
+analysis logs and errors remain visible, and warning settings are restored
+after plotting.
+
 .. _FOOOF analyses:
 
 Spectral-peak detection (FOOOF)
