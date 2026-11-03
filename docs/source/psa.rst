@@ -208,10 +208,10 @@ Factory: ``default_general_opts()``.
      - Export integrated power for the bands in ``frequency_opts['bands']`` in a ``_freq_band_`` CSV.
    * - ``freq_plot``
      - ``False``
-     - Request spectrum figures. Currently inactive: the plotting function is a placeholder, so enabling this does not produce figures.
+     - Save an SVG power-spectrum figure for each exported analysis group. Independent of the CSV output switches; see :ref:`psa_plotting`.
    * - ``max_freq_plot``
      - ``35``
-     - Upper plotting frequency in Hz. Currently inactive with ``freq_plot``.
+     - Maximum displayed frequency in Hz (inclusive). Use a positive finite number, or ``None`` for no additional cap beyond the spectrum export range. Does not change CSVs or calculated spectra.
    * - ``suffix``
      - ``None``
      - Output filename suffix. When unset, ``power_spectrum()`` constructs it from the highpass and lowpass values, e.g. ``0.25-40Hz``.
@@ -262,7 +262,7 @@ Factory: ``default_frequency_opts()``.
      - FFT length in samples. ``None`` uses the analysis-window sample count; a larger value zero-pads and a smaller value truncates. Set this explicitly to control the frequency grid.
    * - ``fast_fft``
      - ``True``
-     - Shared FFT switch. Currently has no effect on FFT length in ``power_spectrum()``, which passes ``n_fft`` directly. In spectral-peak detection it selects whether to use ``n_fft``.
+     - When ``True``, use ``n_fft`` (including its default ``None``). When ``False``, PSA currently uses a fixed FFT length of 2048 samples; spectral-peak detection instead uses the window sample count.
    * - ``duration``
      - ``4``
      - Welch/FFT window duration in seconds. ``None`` transforms the entire selected segment without averaging subwindows. This is distinct from ``epoch_opts['epoch_dur']``.
@@ -511,6 +511,63 @@ Laplacian when enabled, but currently does not apply the analysis notch and
 bandpass stack. Account for this difference when interpreting baseline ratios;
 ``norm_opts`` does not provide separate baseline filter controls.
 
+.. _psa_plotting:
+
+Plot power spectra
+------------------
+
+Set ``general_opts['freq_plot']=True`` to save power-spectrum figures alongside
+the CSV outputs. Plotting is disabled by default. It requires Matplotlib,
+which can be installed with:
+
+.. code-block:: console
+
+    python -m pip install matplotlib
+
+.. code-block:: python
+
+    from seapipe.spectrum.psa import default_general_opts
+
+    general_opts = default_general_opts()
+    general_opts.update(freq_plot=True, max_freq_plot=35)
+
+    project.power_spectrum(
+        stage=['NREM3'],
+        general_opts=general_opts,
+    )
+
+To generate figures without CSVs, also set ``freq_full=False`` and
+``freq_band=False`` in ``general_opts``. A figure is named
+``<subject>_<session>_<channel>_<condition>_powerspectrum_<suffix>.svg``.
+The condition identifies the selected stage(s) and, when applicable, the cycle.
+The frequency suffix matches the CSV filename suffix, preventing figures from
+different export ranges from sharing a filename.
+
+Each figure contains one panel per channel. If its export group contains
+multiple segments, the panel shows their arithmetic mean, with equal weight
+per segment, after the requested spectral transformation and normalization.
+Groups must have matching channel labels and frequency grids to be averaged.
+
+The horizontal axis shows positive frequencies within the spectrum export
+range, up to and including ``max_freq_plot``. The export range's upper boundary
+remains excluded. Set ``max_freq_plot=None`` to show all positive frequencies
+in that range. This display setting does not change the computed spectrum or
+either CSV output.
+
+Ordinary spectra use a logarithmic vertical axis. With
+``frequency_opts['log_trans']=True``, already transformed values are shown on a
+linear axis, avoiding a second logarithmic transformation. Vertical labels
+identify power/energy density, Laplacian CSD, or relative/baseline-normalised
+spectra as appropriate; spectral units follow the source signal and scaling.
+No additional normalization is applied for plotting.
+
+Nonfinite values are omitted. Zero and negative values are also omitted on a
+logarithmic axis; omitted bins appear as gaps. If there are no usable bins, the
+frequency grids differ, Matplotlib is unavailable or a file cannot be written,
+the reason is logged and that figure is skipped. CSV exports and subsequent
+analyses can continue. Figures are written without opening GUI windows, making
+this output suitable for batch runs.
+
 .. _FOOOF analyses:
 
 Spectral-peak detection (FOOOF)
@@ -599,9 +656,13 @@ cycle index.
 ``*_freq_band_*.csv``
     Integrated powers for the configured frequency bands with segment metadata.
 
-Both exports are enabled by default. Figure export is currently unimplemented,
-even when ``general_opts['freq_plot']=True``. The public ``power_spectrum()``
-method writes files and logs; it does not return an in-memory spectrum.
+``*_powerspectrum_*.svg``
+    Optional spectrum figure, enabled with ``general_opts['freq_plot']=True``.
+    See :ref:`psa_plotting` for display limits, averaging and plot-only output.
+
+Both CSV exports are enabled by default; figure export is optional. The public
+``power_spectrum()`` method writes files and logs; it does not return an
+in-memory spectrum.
 
 Check the logfile for missing annotations, absent channels, rejected segments
 and filter failures. Absolute spectral units depend on the signal units read

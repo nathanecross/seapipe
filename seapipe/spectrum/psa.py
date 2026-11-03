@@ -917,7 +917,11 @@ class Spectrum:
                             if general_opts['freq_band']:
                                 save_bands([out], freq_bw, general_opts, frequency_opts, outputfile, logger)
                             if general_opts['freq_plot']:
-                                save_plot([out], general_opts, outputfile, logger)
+                                if not save_plot(
+                                        [out], general_opts, outputfile, logger,
+                                        frequency_opts=frequency_opts, norm=norm,
+                                        laplacian=laplace_flag):
+                                    flag += 1
                         elif sg == 0:
                             out_full = [deepcopy(out)]
                         else:
@@ -952,7 +956,11 @@ class Spectrum:
                             if general_opts['freq_band']:
                                 save_bands(out, freq_bw, general_opts, frequency_opts, outfile, logger)
                             if general_opts['freq_plot']:
-                                save_plot(out, general_opts, outfile, logger)     
+                                if not save_plot(
+                                        out, general_opts, outfile, logger,
+                                        frequency_opts=frequency_opts, norm=norm,
+                                        laplacian=laplace_flag):
+                                    flag += 1
                         
         ### 3. Check completion status and print
         if flag == 0:
@@ -1282,6 +1290,8 @@ def extract_psa_error(logger):
         
 def save_freq(out, freq_bw, general_opts, outputfile, logger):
 
+    # CSV cropping must not alter subsequent band-power or figure exports.
+    out = deepcopy(out)
     low = where(out[0]['data'].axis['freq'][0]==freq_bw[0])[0][0]
     hi = where(out[0]['data'].axis['freq'][0]==freq_bw[1])[0][0]
     
@@ -1308,27 +1318,123 @@ def save_bands(out, freq_bw, general_opts, frequency_opts, outputfile, logger):
         logger.error('Cannot export power in user-defined frequency bands. Check bands. For info on how to define frequency bands, refer to documentation:')
         logger.info('https://seapipe.readthedocs.io/en/latest/index.html')
 
-def save_plot(out, general_opts, outputfile, logger):
-    
-    ''' TO COMPLETE '''
-    
-    # fig = Figure()
-    # FigureCanvas(fig)
-    # idx_plot = 1
-    # data = asarray([x['data'].data[0][0] for x in out])
-    # seg_chan = data[0].axis['chan'][0]
-    # sf = out[0]['data'].axis['freq'][0]
-    # if general_opts['max_freq_plot']:
-    #     idx_max = asarray(
-    #             [abs(x - general_opts['max_freq_plot']) for x in sf]).argmin()
-    # for ch in seg_chan:
-    #     Sxx = data(chan=ch)[0]
-    #     ax = fig.add_subplot(len([out]), len(seg_chan), idx_plot)
-    #     ax.semilogy(sf[1:idx_max], Sxx[1:idx_max])
-    #     ax.set_xlabel('Frequency (Hz)')
-    #     idx_plot += 1 
-    # filename = f"{outputfile.split('*')[0]}_powerspectrum.svg"
-    # logger.debug(f'Saving figure to {filename}')
-    # fig.savefig(f'{filename}')  
-        
-        
+def save_plot(out, general_opts, outputfile, logger, *, frequency_opts=None,
+              norm=None, laplacian=False):
+    """Save an SVG spectrum without GUI state or changes to the supplied data.
+
+    Plot one panel per channel, averaging already-computed spectra over segments
+    with equal weights. Use a linear axis for natural-log spectra and a log
+    axis otherwise. Return success; optional plotting failures are logged so
+    CSV exports and other channels can continue.
+    """
+    figure = None
+    try:
+        import numpy as np
+        from pathlib import Path
+        from matplotlib import rc_context
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        if not out:
+            raise ValueError('No spectra to plot')
+        frequency_opts = frequency_opts or {}
+        frequencies = np.asarray(out[0]['data'].axis['freq'][0], dtype=float)
+        channels = list(out[0]['data'].axis['chan'][0])
+        if (frequencies.ndim != 1 or not frequencies.size or not channels
+                or not np.isfinite(frequencies).all()
+                or np.any(np.diff(frequencies) <= 0)):
+            raise ValueError('Expected channels and a finite, increasing frequency grid')
+        spectra = []
+        for segment in out:
+            data = segment['data']
+            if (list(data.axis['chan'][0]) != channels
+                    or not np.array_equal(data.axis['freq'][0], frequencies)):
+                raise ValueError('Cannot average spectra with different channels or frequency grids')
+            values = np.asarray(data.data[0])
+            if np.iscomplexobj(values) or values.shape != (len(channels), len(frequencies)):
+                raise ValueError('Expected real spectra with shape (channels, frequencies)')
+            spectra.append(values)
+        spectra = np.stack(spectra)
+        finite = np.isfinite(spectra)
+        counts = finite.sum(axis=0)
+        mean_spectrum = np.divide(
+            np.where(finite, spectra, 0).sum(axis=0), counts,
+            out=np.full(counts.shape, np.nan), where=counts > 0)
+
+        selected = frequencies > 0  # Exclude DC and negative frequencies.
+        export_range = frequency_opts.get('frequency')
+        if export_range is not None:
+            low, high = export_range
+            if not np.isfinite([low, high]).all() or low >= high:
+                raise ValueError(f'Invalid spectrum export range: {export_range!r}')
+            selected &= (frequencies >= low) & (frequencies < high)
+        maximum = general_opts.get('max_freq_plot')
+        if maximum is not None:
+            maximum = float(maximum)
+            if not np.isfinite(maximum) or maximum <= 0:
+                raise ValueError('max_freq_plot must be positive and finite, or None')
+            selected &= frequencies <= maximum
+        if not selected.any():
+            raise ValueError('No positive frequency bins fall within the plot limits')
+
+        log_transformed = bool(frequency_opts.get('log_trans', False))
+        ylabel = ('Energy spectral density' if frequency_opts.get('scaling') == 'energy'
+                  else 'Power spectral density')
+        if laplacian:
+            ylabel = 'CSD ' + ylabel.lower()
+        if log_transformed:
+            ylabel = 'ln(' + ylabel + ')'
+        if norm == 'integral':
+            ylabel = 'Relative ' + ylabel.lower()
+        elif norm == 'baseline':
+            ylabel = 'Spectrum / baseline'
+
+        prefix, separator, suffix = str(outputfile).partition('**')
+        if separator:
+            filename = f'{prefix}_powerspectrum_{Path(suffix).stem}.svg'
+        else:
+            filename = str(Path(outputfile).with_suffix('')) + '_powerspectrum.svg'
+        title = Path(prefix if separator else outputfile).stem
+        if len(out) > 1:
+            title += f' (mean of {len(out)} segments)'
+
+        # Direct Figure/Agg usage avoids opening windows or changing a GUI backend.
+        # Preserve editable SVG labels, independent of user-level Matplotlib rc files.
+        with rc_context({'svg.fonttype': 'none', 'text.usetex': False}):
+            figure = Figure(figsize=(8, 3 * len(channels)), constrained_layout=True)
+            FigureCanvasAgg(figure)
+            axes = figure.subplots(len(channels), 1, squeeze=False)
+            for index, channel in enumerate(channels):
+                axis = axes[index, 0]
+                values = mean_spectrum[index].copy()
+                valid = selected & np.isfinite(values)
+                if not log_transformed:
+                    valid &= values > 0
+                if not valid.any():
+                    raise ValueError(f'No finite plottable values for channel {channel!r}')
+                # NaNs leave gaps at invalid bins rather than joining across them.
+                values[~valid] = np.nan
+                axis.plot(frequencies[selected], values[selected], linewidth=1.25,
+                          marker='o' if valid.sum() == 1 else None)
+                if selected.sum() > 1:
+                    axis.set_xlim(frequencies[selected][0], frequencies[selected][-1])
+                if not log_transformed:
+                    axis.set_yscale('log')
+                axis.set_title(str(channel))
+                axis.set_ylabel(ylabel)
+                axis.grid(True, which='major', alpha=0.25)
+            axes[-1, 0].set_xlabel('Frequency (Hz)')
+            figure.suptitle(title, fontsize=10)
+            logger.debug(f'Saving power-spectrum figure to {filename}')
+            figure.savefig(filename, format='svg', bbox_inches='tight')
+        return True
+    except ImportError as error:
+        logger.error(f'Cannot save power-spectrum figure for {outputfile!r}: {error}. '
+                     'Install matplotlib to enable general_opts["freq_plot"].')
+        return False
+    except (TypeError, ValueError, OSError, RuntimeError) as error:
+        logger.error(f'Cannot save power-spectrum figure for {outputfile!r}: {error}')
+        return False
+    finally:
+        if figure is not None:
+            figure.clear()
